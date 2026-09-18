@@ -30,7 +30,7 @@ export function ConnectivityPanel({ connectivity }: ConnectivityPanelProps) {
       <div className="connectivityRow">
         <div>
           <h3>Local IPC</h3>
-          <p className="settingsHint">Jobhunt local API at VITE_API_BASE_URL</p>
+          <p className="settingsHint">Jobhunt local API on this Mac</p>
         </div>
         <span
           className={

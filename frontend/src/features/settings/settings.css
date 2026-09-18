@@ -146,7 +146,15 @@
 .settingsActions button:disabled,
 .vaultForm button:disabled {
   cursor: not-allowed;
-  opacity: 0.45;
+  background: #efe8d8;
+  color: var(--muted);
+  border-color: var(--line);
+}
+
+.settingsActions button[type="button"]:disabled,
+.vaultForm button[type="button"]:disabled {
+  background: #efe8d8;
+  color: var(--muted);
 }
 
 .statusPill {
@@ -226,6 +234,10 @@
   gap: 12px;
   padding: 10px 0;
   border-bottom: 1px solid var(--line);
+}
+
+.healthRow > span:first-child {
+  white-space: nowrap;
 }
 
 .healthRow:last-child {
