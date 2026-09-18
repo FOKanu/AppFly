@@ -92,9 +92,9 @@ Allowed automated ingest: Arbeitsagentur API, RSS on other hosts, public company
 
 ## Branching
 
-GitHub Flow: protect `main`, assemble this epic on **`integrate/ui-v1`**, land `feat/<area>-<slug>` PRs into that branch. Full rules: [AGENTS.md](AGENTS.md) and `.cursor/rules/branch-strategy.mdc`.
+GitHub Flow: protect `main`. While an epic is open, **all** related changes (backend, frontend, docs) land on `integrate/<epic>` — from agents or collaborators. Current epic: **`integrate/ui-v1`**. Full rules: [AGENTS.md](AGENTS.md) and `.cursor/rules/branch-strategy.mdc`.
 
-Cut new work from `integrate/ui-v1`, not from `main`, until this epic is merged.
+Cut new epic work from `integrate/ui-v1`, not from `main`, until that branch is merged.
 
 ## Nightly schedule
 

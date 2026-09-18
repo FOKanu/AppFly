@@ -6,42 +6,45 @@
 
 ## Branching
 
-Cursor rule: `.cursor/rules/branch-strategy.mdc` (always apply). Follow it for every local and Cloud Agent run.
+Cursor rule: `.cursor/rules/branch-strategy.mdc` (always apply).
+
+`integrate/<epic>` is the landing strip for **every** change in that epic — backend, frontend, docs, CI — whether it comes from a Cloud Agent or a collaborator. It is not a frontend-only lane.
 
 ### Layout
 
 | Branch | Purpose |
 |---|---|
-| `main` | Shippable. No direct commits. PR only. |
-| `integrate/<epic>` | Epic assembly line. **Current: `integrate/ui-v1` (exists — cut all ui-v1 work from here).** |
-| `feat/<area>-<slug>` | One feature, one PR. Examples: `feat/backend-api`, `feat/ui-queue-packet`. |
+| `main` | Shippable. No direct commits. Hotfixes that cannot wait for an epic. |
+| `integrate/<epic>` | Inbox for that epic (all stacks). **Current: `integrate/ui-v1`.** |
+| `feat/<area>-<slug>` | One concern, one PR. Examples: `feat/backend-api`, `feat/ui-queue-packet`, `feat/docs-api`. |
 | `fix/<slug>` | Bugfix against shipped `main`. |
 | `chore/<slug>` | Tooling, docs, layout. |
 
-Names: lowercase, hyphens, no author names. Do not treat `cursor/…` Cloud Agent defaults as the long-term name; retarget the PR to `feat/…`. Discard `cursor/backend-frontend-split-6388`.
+Names: lowercase, hyphens, no author names. Retarget `cursor/…` Cloud Agent defaults to `feat/…`. Discard `cursor/backend-frontend-split-6388`.
 
-### Base branch (Cloud Agents)
+### Where to cut and PR
 
-Set `cloud_base_branch` to **`integrate/ui-v1`**. Never start parallel UI/API agents from `main` while this epic is open — `main` still lacks `backend/` and `frontend/` and agents will each scaffold a second Vite app.
+1. Work that belongs to an open epic: `cloud_base_branch` / `git checkout` = `integrate/<epic>`; PR **into that branch**.
+2. No epic: branch from `main`; PR into `main`.
+3. Do not start parallel agents from stale `main` while an epic is open.
 
-Prompt every Cloud Agent with:
+While **ui-v1** is open, every Cloud Agent prompt includes:
 
-> Base: `integrate/ui-v1`. Branch: `feat/<area>-<slug>`. Touch only the owned paths below. Do not recreate `frontend/package.json` or `backend/pyproject.toml`. PR into `integrate/ui-v1`. Rebase before merge.
+> Base: `integrate/ui-v1`. Branch: `feat/<area>-<slug>`. Touch only owned paths. Do not recreate `backend/pyproject.toml` or `frontend/package.json`. PR into `integrate/ui-v1`. Rebase before merge.
 
 ### Owned paths (ui-v1)
 
-- Layout / docs / frontend toolchain: already on `integrate/ui-v1` (from A0)
+- Toolchain already on this branch (A0): `backend/`, `frontend/` scaffold, `docs/`
 - API: `backend/src/jobhunt/api/`, `backend/src/jobhunt/features/pipeline/`
 - Secrets: `backend/src/jobhunt/features/secrets/`
 - Shell: `frontend/src/app/layout/`, `frontend/src/shared/ui/`
 - Screens: `frontend/src/features/<name>/` only
-- Mobile/edge: `frontend/src/app/layout/mobile/`, shared empty/error/offline banners
+- Mobile/edge: `frontend/src/app/layout/mobile/`, shared banners / empty states
 
-Merge order: A0 (done on this branch) → A1+A2 → A3 → A4–A8 → PR `integrate/ui-v1` into `main`.
+Merge order: A0 (done) → A1+A2 → A3 → A4–A8 → PR `integrate/ui-v1` into `main`.
 
 ### Cursor Cloud specific instructions
 
-- Clone `FOKanu/AppFly` from **`integrate/ui-v1`**, not `main`.
-- Push a `feat/…` branch and open a PR against `integrate/ui-v1`.
-- Do not force-push `main` or `integrate/ui-v1`. Do not commit `.env`, vault notes, or API keys.
-- The base already has `frontend/` and `backend/`. Add files under those trees. Do not copy `src/jobhunt` into a second tree.
+- Clone from **`integrate/ui-v1`**, not `main`, for this epic.
+- PR against `integrate/ui-v1`. Backend work goes under `backend/`; UI under `frontend/`. Do not add a second `src/jobhunt` tree.
+- Do not force-push `main` or `integrate/*`. Do not commit `.env`, vault notes, or API keys.
