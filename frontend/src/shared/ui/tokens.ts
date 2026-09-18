@@ -123,6 +123,11 @@ export function cssVariables(source: Tokens = tokens): Record<string, string> {
     "--off-bg": source.color.bgRaised,
     "--miss": source.color.danger,
     "--off": source.color.idle,
+    "--ink-muted": source.color.textMuted,
+    "--info-soft": "rgba(106, 156, 191, 0.16)",
+    "--warn-soft": "rgba(212, 160, 23, 0.16)",
+    "--danger-soft": "rgba(212, 103, 103, 0.16)",
+    "--accent-soft": source.color.accentGlow,
   };
 }
 

@@ -11,8 +11,9 @@ Scout → Match → Write instrument strip. Desktop 1440.
 | `StageCard` | One stage: counts, status, detail. |
 | `QueuedBehindMatch` | Jobs still in inbox / waiting on Match. |
 | `GeminiRateLimitBanner` | Gemini 429. **Retry Gemini** posts to `/write` — no scraping. |
+| `states/GeminiRateLimitedState` | FigJam empty canvas for the rate-limit preview. |
 | `WorkflowEmpty` | No pipeline activity. |
 | `WorkflowRunning` | Live run. |
-| `WorkflowFailed` | **Run failed, API down**. |
+| `WorkflowFailed` | `states/RunFailedState` — run failed; human still submits. |
 
 Preview: `/workflow?preview=empty|running|failed|rate_limited`.

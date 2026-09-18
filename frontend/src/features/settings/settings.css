@@ -306,9 +306,9 @@
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1023px) {
   .settingsPage {
-    padding: 28px 20px 48px;
+    padding: 20px 0 32px;
   }
 
   .settingsGrid {

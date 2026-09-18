@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useEffect, useState, type ReactNode } from "react";
 import { retryGemini } from "./api";
 import { GeminiRateLimitBanner } from "./GeminiRateLimitBanner";
+import { GeminiRateLimitedState } from "./states/GeminiRateLimitedState";
 import { PipelineStepper } from "./PipelineStepper";
 import { QueuedBehindMatch } from "./QueuedBehindMatch";
 import { StageCard } from "./StageCard";
@@ -57,18 +58,21 @@ export function WorkflowPage() {
         ) : null}
       </>
     );
+  } else if (preview === "rate_limited") {
+    body = (
+      <>
+        <GeminiRateLimitBanner onRetry={onRetry} busy={retrying} message={retryMessage} />
+        <GeminiRateLimitedState />
+      </>
+    );
   } else if (!view?.lastRun) {
     body = <WorkflowEmpty />;
   } else {
     body = (
       <>
-        {(view.rateLimited || preview === "rate_limited") && (
-          <GeminiRateLimitBanner
-            onRetry={onRetry}
-            busy={retrying}
-            message={retryMessage}
-          />
-        )}
+        {view.rateLimited ? (
+          <GeminiRateLimitBanner onRetry={onRetry} busy={retrying} message={retryMessage} />
+        ) : null}
         <PipelineStepper stages={view.stages} />
         <div className="stage-grid">
           {view.stages.map((stage) => (

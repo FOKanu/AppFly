@@ -12,6 +12,8 @@ import {
   type SettingsSnapshot,
   type SystemStatusResponse,
 } from "../../shared/api/client";
+import { OfflineBanner } from "../../shared/ui/OfflineBanner";
+import { useBreakpoint } from "../../shared/useBreakpoint";
 import { ControlHeader } from "./ControlHeader";
 import { RunningBar } from "./RunningBar";
 import { Sidebar } from "./Sidebar";
@@ -35,6 +37,7 @@ const STUB_STATUS: SystemStatusResponse = {
  */
 export function AppShell() {
   const location = useLocation();
+  const { breakpoint } = useBreakpoint();
   const navItem = navItemForPath(location.pathname);
   const title = navItem?.label ?? "Jobhunt Copilot";
 
@@ -117,7 +120,7 @@ export function AppShell() {
   }, [onRunNow]);
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-breakpoint={breakpoint}>
       <Sidebar queueCount={queueCount} />
       <ControlHeader
         title={title}
@@ -132,6 +135,12 @@ export function AppShell() {
         runDisabled={heartbeat.state === "running"}
       />
       <main className="app-main" id="main">
+        <OfflineBanner
+          connectivity={{
+            localIpc: apiReachable ? "connected" : "disconnected",
+            remoteBridge: "connected",
+          }}
+        />
         <Outlet />
       </main>
       <RunningBar state={heartbeat.state} message={heartbeat.message} />

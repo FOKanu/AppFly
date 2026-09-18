@@ -5,6 +5,7 @@ Master-detail job queue for Jobhunt Copilot (desktop 1440).
 ## Surfaces
 
 - `QueuePage` — GET `/jobs`, filters, list + selected job pane
+- `states/EmptyQueueState` — empty vault/queue canvas (allowed ingest only)
 - `JobList` / `JobRow` — status chips, source badges, match scores
 - `QueueFilters` — status (`inbox` … `skipped`) and source
 - `StatusChip` — pipeline status

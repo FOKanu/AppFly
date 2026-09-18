@@ -5,6 +5,7 @@ import { listJobs } from "./jobsApi";
 import { JobList } from "./JobList";
 import { QueueDetail } from "./QueueDetail";
 import { QueueFilters } from "./QueueFilters";
+import { EmptyQueueState } from "./states/EmptyQueueState";
 import type { JobRecord } from "./types";
 import styles from "./QueuePage.module.css";
 
@@ -62,10 +63,14 @@ export function QueuePage() {
       ) : null}
       {error ? <p className={styles.banner}>{error}</p> : null}
       <QueueFilters value={filters} onChange={setFilters} />
-      <div className={styles.body}>
-        <JobList jobs={visible} selectedId={selected?.source_id ?? null} onSelect={onSelect} />
-        <QueueDetail job={selected} />
-      </div>
+      {jobs.length === 0 ? (
+        <EmptyQueueState />
+      ) : (
+        <div className={styles.body}>
+          <JobList jobs={visible} selectedId={selected?.source_id ?? null} onSelect={onSelect} />
+          <QueueDetail job={selected} />
+        </div>
+      )}
     </section>
   );
 }
