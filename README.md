@@ -97,6 +97,14 @@ Set `gemini: false` on a job note to keep it off the Writer.
 - Hermes / OpenClaw (the CLI is the hook for that later)
 - Gmail drafts (optional follow-up)
 
+## Connector secrets
+
+Gemini / Apify keys belong in **macOS Keychain** (Settings) or `.env` as a fallback. They must never appear in the vault, `Home.md`, git, or GET `/settings`. That endpoint only returns `{gemini, apify, jobsuche}` booleans. See [docs/FEATURES.md](docs/FEATURES.md) and [docs/API.md](docs/API.md).
+
+```bash
+jobhunt serve   # localhost:8745 — PUT/DELETE keys, never read them back
+```
+
 ## Tests
 
 ```bash

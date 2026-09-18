@@ -13,7 +13,9 @@ Return Markdown with a Subject line, then the letter body. No preamble."""
 
 def write_letters(config: AppConfig, vault: Vault) -> dict[str, int]:
     if not config.gemini_api_key:
-        raise RuntimeError("GEMINI_API_KEY is not set. Add it to .env.")
+        raise RuntimeError(
+            "GEMINI_API_KEY is not set. Save it in Settings or add it to .env."
+        )
 
     requirements = vault.load_requirements()
     cv_text = _cv_slice(vault.read_cv())

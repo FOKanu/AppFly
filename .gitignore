@@ -1,6 +1,8 @@
 .env
 config.yaml
 .cache/
+# Connector secrets fallback when macOS Keychain is unavailable. Never commit keys.
+.secrets/
 __pycache__/
 *.py[cod]
 .pytest_cache/

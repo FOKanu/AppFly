@@ -175,6 +175,17 @@ def run_all(
         raise typer.Exit(code=1)
 
 
+@app.command()
+def serve(
+    host: str = typer.Option("127.0.0.1", help="Bind address (localhost is safest)"),
+    port: int = typer.Option(8745, help="Local port"),
+) -> None:
+    """Run the local Settings HTTP API. Never prints connector secrets."""
+    import uvicorn
+
+    uvicorn.run("jobhunt.api.app:app", host=host, port=port, reload=False)
+
+
 @app.callback()
 def _root() -> None:
     """Job hunt copilot."""
