@@ -100,6 +100,16 @@ export function cssVariables(source: Tokens = tokens): Record<string, string> {
     "--bp-tablet-max": `${source.breakpoint.tabletMax}px`,
     "--bp-compact": `${source.breakpoint.compact}px`,
     "--bp-desktop": `${source.breakpoint.desktop}px`,
+    "--ink": source.color.text,
+    "--ink-soft": source.color.textMuted,
+    "--paper": source.color.bg,
+    "--paper-raised": source.color.bgPanel,
+    "--paper-sunken": source.color.bgRaised,
+    "--line": source.color.border,
+    "--shadow": "none",
+    "--forest": source.color.accent,
+    "--copper": source.color.warning,
+    "--copper-ink": source.color.bg,
   };
 }
 

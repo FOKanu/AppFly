@@ -10,10 +10,10 @@ One row per Cloud Agent package. Sibling agents add folders on parallel branches
 | A3 | App chrome | `frontend/src/app/layout/`, routes, shared controls | **This tree** | Sidebar, header, run bar. Feature screens are still placeholders. |
 | A4 | Tonight | `frontend/src/features/tonight/` | **This tree** | Home dashboard; mock fallback if the API is down. |
 | A5 | Workflow | `frontend/src/features/workflow/` | **This tree** | Scout → Match → Write stepper. Same handover as Tonight. |
-| A6 | Packet | `frontend/src/features/packet/` | Stub | Sealed writer packet view (one job + CV slice). |
-| — | Queue | `frontend/src/features/queue/` | Stub | Job list by status. Next handover. |
+| A6 | Packet | `frontend/src/features/packet/` | **This tree** | Sealed one-job packet. Approve/skip via PATCH; human submits. |
+| — | Queue | `frontend/src/features/queue/` | **This tree** | Master-detail job list. Same handover as Packet. |
 | — | Memory | `frontend/src/features/memory/` | Stub | CV, requirements, company notes (vault). |
 | A7 | Activity | `frontend/src/features/activity/` | Stub | Run log / `Runs/` timeline. |
 | A8 | Settings | `frontend/src/features/settings/` | Stub | Key fields; OS keychain is A2. GET settings may only expose `secrets: { gemini: bool, apify: bool, jobsuche: bool }`. |
 
-Backend feature folders that already contain code: `scout`, `match`, `write`, `pipeline`, `secrets` under `backend/src/jobhunt/features/`. Frontend chrome is in `frontend/src/app/layout/`. Tonight and Workflow screens are live; Queue, Packet, Memory, Activity, and Settings are still placeholders.
+Backend feature folders that already contain code: `scout`, `match`, `write`, `pipeline`, `secrets` under `backend/src/jobhunt/features/`. Frontend chrome is in `frontend/src/app/layout/`. Tonight, Workflow, Queue, and Packet screens are live; Memory, Activity, and Settings are still placeholders.

@@ -26,5 +26,9 @@ export const NAV_ITEMS: readonly NavItem[] = [
  * Does not: default-redirect; the router handles "/".
  */
 export function navItemForPath(pathname: string): NavItem | undefined {
-  return NAV_ITEMS.find((item) => item.path === pathname);
+  const exact = NAV_ITEMS.find((item) => item.path === pathname);
+  if (exact) return exact;
+  return NAV_ITEMS.find(
+    (item) => item.path !== ROUTES.root && pathname.startsWith(`${item.path}/`),
+  );
 }
