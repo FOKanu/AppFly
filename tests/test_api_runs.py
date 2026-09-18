@@ -68,13 +68,17 @@ def test_run_all_continues_after_scout_error(
     def boom(*_args: object, **_kwargs: object) -> list:
         raise RuntimeError("scout failed")
 
-    monkeypatch.setattr("jobhunt.features.pipeline.run_all.collect_jobs", boom)
+    import jobhunt.features.pipeline.run_all as pipeline
+
+    monkeypatch.setattr(pipeline, "collect_jobs", boom)
     monkeypatch.setattr(
-        "jobhunt.features.pipeline.run_all.match_jobs",
+        pipeline,
+        "match_jobs",
         lambda *_a, **_k: {"shortlisted": 0, "skipped": 0, "unchanged": 0},
     )
     monkeypatch.setattr(
-        "jobhunt.features.pipeline.run_all.write_letters",
+        pipeline,
+        "write_letters",
         lambda *_a, **_k: {"written": 0, "skipped": 0, "capped": 0},
     )
     cfg = load_config(api_config)
