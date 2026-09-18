@@ -117,6 +117,12 @@ export function cssVariables(source: Tokens = tokens): Record<string, string> {
     "--err": source.color.danger,
     "--chip": source.color.bgHover,
     "--mono": source.type.mono,
+    "--card": source.color.bgPanel,
+    "--ok-bg": source.color.bgActive,
+    "--miss-bg": source.color.bgRaised,
+    "--off-bg": source.color.bgRaised,
+    "--miss": source.color.danger,
+    "--off": source.color.idle,
   };
 }
 

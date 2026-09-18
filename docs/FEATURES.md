@@ -14,6 +14,6 @@ One row per Cloud Agent package. Sibling agents add folders on parallel branches
 | — | Queue | `frontend/src/features/queue/` | **This tree** | Master-detail job list. Same handover as Packet. |
 | — | Memory | `frontend/src/features/memory/` | **This tree** | Vault/profile overview. CV body is never rendered. |
 | A7 | Activity | `frontend/src/features/activity/` | **This tree** | Run log timeline; error text is redacted. |
-| A8 | Settings | `frontend/src/features/settings/` | Stub | Key fields; OS keychain is A2. GET settings may only expose `secrets: { gemini: bool, apify: bool, jobsuche: bool }`. |
+| A8 | Settings | `frontend/src/features/settings/` | **This tree** | Write-only key fields. GET never shows secret values. |
 
-Backend feature folders that already contain code: `scout`, `match`, `write`, `pipeline`, `secrets` under `backend/src/jobhunt/features/`. Frontend chrome is in `frontend/src/app/layout/`. Tonight, Workflow, Queue, Packet, Memory, and Activity screens are live; Settings is still a placeholder.
+Backend feature folders that already contain code: `scout`, `match`, `write`, `pipeline`, `secrets` under `backend/src/jobhunt/features/`. Frontend chrome is in `frontend/src/app/layout/`. Tonight, Workflow, Queue, Packet, Memory, Activity, and Settings screens are live. Mobile/tablet edge states still land next.

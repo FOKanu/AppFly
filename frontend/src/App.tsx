@@ -13,7 +13,7 @@ import { WorkflowPage } from "./features/workflow/WorkflowPage";
  * Purpose: Route table for the instrument-panel shell.
  * Inputs: None.
  * Returns: BrowserRouter wrapping AppShell and feature placeholders.
- * Does not: Implement Settings screens or call connector APIs from here.
+ * Does not: Call connector APIs from the router.
  */
 export default function App() {
   return (
