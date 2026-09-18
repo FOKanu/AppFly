@@ -1,0 +1,325 @@
+.settingsPage {
+  --ink: #1c1915;
+  --muted: #6f675c;
+  --line: #d9d0bf;
+  --paper: #f7f1e4;
+  --card: #fffaf0;
+  --accent: #9a3412;
+  --ok: #3f6212;
+  --ok-bg: #ecfccb;
+  --miss: #92400e;
+  --miss-bg: #ffedd5;
+  --off: #9f1239;
+  --off-bg: #ffe4e6;
+  --shadow: 0 18px 40px rgba(48, 38, 22, 0.08);
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 48px 64px 80px;
+  color: var(--ink);
+  font-family: "Public Sans", "Segoe UI", system-ui, sans-serif;
+}
+
+.settingsHero {
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.settingsKicker {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.settingsHeroRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.settingsPage h1 {
+  margin: 0;
+  font-family: Fraunces, "Iowan Old Style", Georgia, serif;
+  font-size: clamp(2rem, 3vw, 2.75rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.settingsLede {
+  max-width: 46rem;
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 1.02rem;
+  line-height: 1.5;
+}
+
+.settingsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.settingsPanel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 22px 22px 20px;
+  box-shadow: var(--shadow);
+  min-width: 0;
+}
+
+.settingsPanel--keys {
+  background:
+    linear-gradient(180deg, #fff7ed 0%, var(--card) 42%);
+}
+
+.settingsPanelHeader h2 {
+  margin: 0;
+  font-family: Fraunces, Georgia, serif;
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.settingsPanelHeader p {
+  margin: 6px 0 16px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.settingsPanel label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.settingsActions {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.settingsActions input {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.settingsActions input:focus {
+  outline: 2px solid #c2410c;
+  outline-offset: 1px;
+}
+
+.settingsActions button,
+.vaultForm button {
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--ink);
+  border-radius: 10px;
+  background: var(--ink);
+  color: #fffaf0;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.settingsActions button[type="button"],
+.vaultForm button[type="button"] {
+  background: transparent;
+  color: var(--ink);
+}
+
+.settingsActions button:disabled,
+.vaultForm button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #efe8d8;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
+.statusPill::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.statusPill--ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.statusPill--missing {
+  background: var(--miss-bg);
+  color: var(--miss);
+}
+
+.statusPill--offline {
+  background: var(--off-bg);
+  color: var(--off);
+}
+
+.vaultStats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0 0;
+}
+
+.vaultStats div {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--paper);
+}
+
+.vaultStats dt {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.vaultStats dd {
+  margin: 4px 0 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.healthList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.healthRow,
+.connectivityRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.healthRow:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.connectivityBlock {
+  margin-top: 8px;
+}
+
+.connectivityRow h3 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.connectivityRow .settingsHint {
+  margin: 2px 0 0;
+}
+
+.settingsHint,
+.settingsCaption {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.settingsCaption {
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+  font-style: italic;
+}
+
+.settingsError {
+  margin: 10px 0 0;
+  color: var(--off);
+  font-size: 0.88rem;
+}
+
+.connectorKeyField {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+
+.connectorKeyField:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.connectorKeyFieldHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.connectorKeyFieldHeader label {
+  margin: 0;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--ink);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+@media (max-width: 960px) {
+  .settingsPage {
+    padding: 28px 20px 48px;
+  }
+
+  .settingsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .vaultStats {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .settingsHeroRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .settingsActions {
+    flex-direction: column;
+  }
+
+  .settingsActions button,
+  .vaultForm button {
+    width: 100%;
+  }
+}
