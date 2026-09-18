@@ -1,0 +1,33 @@
+/**
+ * Purpose: Tiny unstyled shell so the scaffold is readable in the browser.
+ * Inputs: None.
+ * Returns: None (side-effect CSS).
+ * Does not: Encode a product design system.
+ */
+html,
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+}
+
+header {
+  display: flex;
+  gap: 1rem;
+  align-items: baseline;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #ddd;
+}
+
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+main {
+  padding: 1.25rem;
+}
+
+code {
+  font-size: 0.9em;
+}

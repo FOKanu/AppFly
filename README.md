@@ -1,8 +1,23 @@
-# Job hunt copilot
+# Jobhunt Copilot (AppFly)
 
-Python-first job copilot that writes into a **dedicated Obsidian vault**. Scout and matching stay on your Mac. Gemini writes cover letters from a sealed packet. You approve in Obsidian and submit applications yourself.
+Local-first job copilot: scout allowed sources, match the CV, draft letters, **you** submit in the browser. Python engine + Obsidian vault; React UI is a scaffold.
 
 This repo does **not** automate LinkedIn, Indeed, Stepstone, ZipRecruiter, Xing, or Glassdoor. It does **not** scrape those sites, including via Apify. The deny-list is enforced in `jobhunt.policy`.
+
+## Layout
+
+```
+AppFly/
+  backend/          Python package (jobhunt CLI + engine)
+  frontend/         Vite + React + TypeScript (empty screens)
+  docs/             ARCHITECTURE, FEATURES, API
+  vault-templates/  Seed notes for a new Obsidian vault
+  launchd/          Nightly `jobhunt run` plist
+  config.example.yaml
+  .env.example
+```
+
+How to add a scout source or a UI screen: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Folder index: [docs/FEATURES.md](docs/FEATURES.md). Phase 1 HTTP contract: [docs/API.md](docs/API.md).
 
 ## What it does
 
@@ -16,14 +31,15 @@ This repo does **not** automate LinkedIn, Indeed, Stepstone, ZipRecruiter, Xing,
 Python 3.12+ (system `python3` on this Mac may still be 3.9). 16 GB is enough. The embedding model is ~470 MB on first `match`.
 
 ```bash
-cd "/Users/franciskanu/Projects/Job Application Automation"
 python3.12 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e "./backend[dev]"
 cp .env.example .env
-# Put your Gemini API key in .env
+# Put your Gemini API key in .env (never commit it; never put keys in frontend env)
 jobhunt init
 ```
+
+Or `make install` (also runs `npm install` in `frontend/`).
 
 `jobhunt init` creates `config.yaml` and a vault at `~/Documents/Job Search` (override with `--vault` or `vault_path` in config). Open that folder as an Obsidian vault.
 
@@ -88,17 +104,30 @@ Leave the lid open and the Mac plugged in if you can. `jobhunt run` is safe to r
 
 Set `gemini: false` on a job note to keep it off the Writer.
 
+## Frontend scaffold
+
+```bash
+cd frontend
+npm install
+npm run dev      # http://127.0.0.1:5173
+npm run build
+```
+
+Placeholder routes only. `frontend/.env.example` has `VITE_API_BASE_URL=http://127.0.0.1:8787` and no API keys.
+
 ## Out of scope
 
 - Computer-use or mouse apply on job boards
 - Scraping LinkedIn / Indeed / Stepstone / ZipRecruiter / Xing / Glassdoor (including via Apify)
 - Local 8B/14B orchestrator
-- Custom organism web UI
+- Pixel-perfect product UI (scaffold only in `frontend/`)
 - Hermes / OpenClaw (the CLI is the hook for that later)
 - Gmail drafts (optional follow-up)
 
 ## Tests
 
 ```bash
-pytest
+make test-backend
+# or:
+cd backend && pytest
 ```
