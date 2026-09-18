@@ -90,6 +90,12 @@ Allowed automated ingest: Arbeitsagentur API, RSS on other hosts, public company
 - `docs/` — architecture, API contract, feature ownership
 - `vault-templates/` — Obsidian templates copied by `jobhunt init`
 
+## Branching
+
+GitHub Flow: protect `main`, assemble this epic on **`integrate/ui-v1`**, land `feat/<area>-<slug>` PRs into that branch. Full rules: [AGENTS.md](AGENTS.md) and `.cursor/rules/branch-strategy.mdc`.
+
+Cut new work from `integrate/ui-v1`, not from `main`, until this epic is merged.
+
 ## Nightly schedule
 
 A launchd template lives at [launchd/com.jobhunt.nightly.plist](launchd/com.jobhunt.nightly.plist) (weekdays 21:00, wrapped in `caffeinate`). After the venv exists:

@@ -1,0 +1,41 @@
+---
+description: GitHub Flow plus one integration branch per epic; Cloud Agents must not all fork stale main.
+alwaysApply: true
+---
+
+# Branch strategy
+
+GitHub Flow. No Git Flow `develop`/`release`. Full convention: `AGENTS.md` (Branching).
+
+## Branches
+
+- `main` — shippable. Never commit directly. PR only.
+- `integrate/<epic>` — short-lived assembly line. **Current epic base: `integrate/ui-v1`.**
+- `feat/<area>-<slug>`, `fix/<slug>`, `chore/<slug>` — one concern, one PR, delete after merge.
+
+Do not keep `cursor/…` names. Open PRs as `feat/…`. Ignore `cursor/backend-frontend-split-6388` (duplicate A0).
+
+## Cut from the right base
+
+1. If `origin/integrate/<epic>` exists, branch from it (Cloud Agents: `cloud_base_branch` = that name).
+2. Else branch from up-to-date `origin/main`.
+3. Never fork features from stale `main`. That duplicates `frontend/package.json` and Vite apps.
+
+```bash
+git fetch origin
+git checkout integrate/ui-v1
+git pull
+git checkout -b feat/ui-queue-packet
+```
+
+## Agent / PR rules
+
+- One feature → one branch → one PR into `integrate/ui-v1` (ui-v1 epic) or `main` (no epic).
+- Rebase onto the integration branch before merge. Do not merge `main` into the feature as a habit.
+- Touch only owned paths. Do not recreate `frontend/package.json`, `vite.config.ts`, or `backend/pyproject.toml` if they already exist on the base.
+- Shared magnets (`App.tsx`, `routes.ts`, `docs/FEATURES.md`): sequential PRs, or append-only FEATURES rows.
+- No force-push to `main` or `integrate/*`. No secrets in git.
+
+## Current epic (`ui-v1`)
+
+`integrate/ui-v1` already contains A0 (`feat/a0-monorepo-split`). Next: rebase A1+A2 (API, secrets), then A3 shell, then A4–A8 screens. Then PR `integrate/ui-v1` → `main`.
