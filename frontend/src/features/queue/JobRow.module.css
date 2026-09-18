@@ -1,0 +1,42 @@
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  padding: 14px 14px 14px 16px;
+  color: inherit;
+  border-radius: 0;
+}
+
+.row:hover {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.row[aria-current="true"] {
+  background: var(--paper-raised);
+  border-color: var(--line);
+  box-shadow: inset 3px 0 0 var(--copper);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.title {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.sub {
+  margin: 4px 0 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+}

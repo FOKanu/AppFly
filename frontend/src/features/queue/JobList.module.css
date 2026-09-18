@@ -1,0 +1,16 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper-raised);
+  box-shadow: var(--shadow);
+}
+
+.empty {
+  margin: 0;
+  padding: 28px 18px;
+  color: var(--ink-soft);
+}

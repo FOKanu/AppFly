@@ -1,0 +1,24 @@
+# Queue
+
+Master-detail job queue for Jobhunt Copilot (desktop 1440).
+
+## Surfaces
+
+- `QueuePage` — GET `/jobs`, filters, list + selected job pane
+- `JobList` / `JobRow` — status chips, source badges, match scores
+- `QueueFilters` — status (`inbox` … `skipped`) and source
+- `StatusChip` — pipeline status
+- Source badges: **Agentur API**, **Inbox**, **RSS**, **Apify · Impressum only**
+
+## Data
+
+- `GET /jobs`, `GET /jobs/{source_id}`, `PATCH /jobs/{source_id}` with `{ status }`
+- No API keys in the browser
+- Mock sample queue when the local API is down
+
+## Policy
+
+- `Open listing` is a human link. This UI never fetches listing HTML.
+- If `crawl_allowed` is false, the detail pane does not offer crawl / fetch listing.
+
+Selecting a job updates `/queue/:sourceId`. **Open packet** goes to the sealed writer packet for that one job.
