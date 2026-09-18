@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { DraftsWaiting } from "./DraftsWaiting";
 import { PipelineSnapshot } from "./PipelineSnapshot";
@@ -17,6 +17,10 @@ export function TonightPage() {
   const { search } = useLocation();
   const preview = readPreview(search);
   const { snapshot, source, loading } = useTonight();
+
+  useEffect(() => {
+    document.title = "AppFly · Tonight";
+  }, []);
 
   let body: ReactNode;
   if (preview === "empty") {

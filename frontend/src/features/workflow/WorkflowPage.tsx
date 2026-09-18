@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { retryGemini } from "./api";
 import { GeminiRateLimitBanner } from "./GeminiRateLimitBanner";
 import { PipelineStepper } from "./PipelineStepper";
@@ -18,6 +18,10 @@ export function WorkflowPage() {
   const { search } = useLocation();
   const preview = readPreview(search);
   const { snapshot, source, loading } = useWorkflow();
+
+  useEffect(() => {
+    document.title = "AppFly · Workflow";
+  }, []);
   const [retryMessage, setRetryMessage] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
 
