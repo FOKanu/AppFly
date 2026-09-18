@@ -1,0 +1,35 @@
+.panel {
+  padding: 22px 24px 28px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent 0 31px,
+      rgba(196, 92, 38, 0.06) 31px 32px
+    ),
+    var(--paper-raised);
+  box-shadow: var(--shadow);
+  min-height: 280px;
+}
+
+.kicker {
+  margin: 0 0 12px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.body {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: Fraunces, Georgia, serif;
+  font-size: 18px;
+  line-height: 1.55;
+}
+
+.empty {
+  color: var(--ink-soft);
+  font-style: italic;
+}

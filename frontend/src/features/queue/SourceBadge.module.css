@@ -1,0 +1,33 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px dashed var(--line);
+  background: var(--paper-sunken);
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.agentur {
+  border-style: solid;
+  background: #e8f0ea;
+  color: #1f4a3c;
+}
+
+.inbox {
+  background: #efe8d8;
+  color: #5a4630;
+}
+
+.rss {
+  background: #e7eaf3;
+  color: #31405f;
+}
+
+.apify {
+  background: #f3e8df;
+  color: #6a3b1f;
+}

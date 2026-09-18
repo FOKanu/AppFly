@@ -17,7 +17,7 @@ Do not scrape, crawl, or send to Apify any site that forbids automated access. D
 - glassdoor.com / glassdoor.de
 - wellfound.com / angel.co
 
-The canonical list lives in `src/jobhunt/policy.py` (`DENIED_CRAWL_HOSTS`). Extend that set; do not special-case a scraper around it.
+The canonical list lives in `backend/src/jobhunt/policy.py` (`DENIED_CRAWL_HOSTS`). Extend that set; do not special-case a scraper around it.
 
 ## Allowed ingest
 
