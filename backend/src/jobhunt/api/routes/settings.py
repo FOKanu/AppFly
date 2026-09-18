@@ -2,13 +2,12 @@
 
 Purpose: Let the UI read and update AppConfig fields on disk.
 Inputs: ``config.yaml`` via ``load_config``; PUT body is a closed set of keys.
-Returns: Safe settings snapshot; secrets only as booleans from env presence.
+Returns: Safe settings snapshot; secrets only as booleans from the store.
 Does not: Accept or echo API keys, last-4 digits, or a second YAML schema.
 """
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +15,7 @@ import yaml
 from fastapi import APIRouter, Body, HTTPException, Request
 from pydantic import ValidationError
 
-from jobhunt.api.app import get_config
+from jobhunt.api.app import get_config, get_secret_store
 from jobhunt.api.schemas.settings import (
     ApifyPublic,
     HealthFlags,
@@ -26,6 +25,7 @@ from jobhunt.api.schemas.settings import (
     SourcesPublic,
 )
 from jobhunt.config import AppConfig, DEFAULT_CONFIG_PATH
+from jobhunt.features.secrets.names import SecretName
 from jobhunt.policy import CrawlDeniedError, assert_crawl_allowed
 from jobhunt.vault import Vault
 
@@ -43,7 +43,6 @@ _FORBIDDEN_SECRET_KEYS = frozenset(
         "secrets",
     }
 )
-_APIFY_ENV_NAMES = ("APIFY_API_TOKEN", "APIFY_TOKEN", "APIFY_API_KEY")
 
 
 @router.get("/settings", response_model=SettingsResponse)
@@ -51,8 +50,8 @@ def get_settings(request: Request) -> SettingsResponse:
     """Return safe config, health flags, and secret presence.
 
     Purpose: Fill the settings screen without leaking connector keys.
-    Inputs: AppConfig plus vault paths and environment presence.
-    Returns: ``SettingsResponse`` (booleans for gemini/apify, never values).
+    Inputs: AppConfig plus vault paths and store presence flags.
+    Returns: ``SettingsResponse`` (booleans for gemini/apify/jobsuche, never values).
     Does not: Include GEMINI_API_KEY, last-4 digits, or CV text.
     """
 
@@ -152,10 +151,24 @@ def _settings_response(request: Request) -> SettingsResponse:
             ),
         ),
         health=_health_flags(config, vault, config_path),
-        secrets=SecretFlags(
-            gemini=_env_present("GEMINI_API_KEY"),
-            apify=_env_present(*_APIFY_ENV_NAMES),
-        ),
+        secrets=_secret_flags(request),
+    )
+
+
+def _secret_flags(request: Request) -> SecretFlags:
+    """Boolean presence flags from the write-only store.
+
+    Purpose: Settings UI status without loading key material for GET.
+    Inputs: Request (uses ``is_configured`` only).
+    Returns: ``SecretFlags``.
+    Does not: Call ``get_for_runtime`` or read env values into JSON.
+    """
+
+    store = get_secret_store(request)
+    return SecretFlags(
+        gemini=store.is_configured(SecretName.gemini),
+        apify=store.is_configured(SecretName.apify),
+        jobsuche=store.is_configured(SecretName.jobsuche),
     )
 
 
@@ -175,18 +188,6 @@ def _health_flags(config: AppConfig, vault: Vault, config_path: Path) -> HealthF
         requirements_present=(vault.root / "Requirements.md").exists(),
         config_file_exists=config_path.exists(),
     )
-
-
-def _env_present(*names: str) -> bool:
-    """True when any named env var is non-empty.
-
-    Purpose: Secret *presence* for GET /settings.
-    Inputs: Environment variable names.
-    Returns: Boolean; never the value.
-    Does not: Slice last-4 digits or log the value.
-    """
-
-    return any(os.environ.get(name, "").strip() for name in names)
 
 
 def _config_file_path(request: Request) -> Path:

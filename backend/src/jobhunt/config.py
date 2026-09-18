@@ -84,11 +84,51 @@ class AppConfig(BaseModel):
 
     @property
     def gemini_api_key(self) -> str:
+        """Gemini key for the writer.
+
+        Purpose: in-process engine only. Prefers the write-only secret store,
+        then ``GEMINI_API_KEY`` in the environment.
+        """
+
+        from jobhunt.features.secrets.names import SecretName
+        from jobhunt.features.secrets.store import get_for_runtime
+
+        stored = get_for_runtime(SecretName.gemini)
+        if stored:
+            return stored
         return os.environ.get("GEMINI_API_KEY", "").strip()
 
     @property
+    def apify_token(self) -> str:
+        """Apify token for public-page fetches.
+
+        Purpose: in-process scout/apify only. Prefers the write-only secret
+        store, then ``APIFY_TOKEN`` in the environment.
+        """
+
+        from jobhunt.features.secrets.names import SecretName
+        from jobhunt.features.secrets.store import get_for_runtime
+
+        stored = get_for_runtime(SecretName.apify)
+        if stored:
+            return stored
+        return os.environ.get("APIFY_TOKEN", "").strip()
+
+    @property
     def jobsuche_api_key(self) -> str:
-        return os.environ.get("JOBSUCHE_API_KEY", "jobboerse-jobsuche").strip()
+        """Arbeitsagentur Jobsuche API key.
+
+        Purpose: in-process Agentur client. Prefers a saved override,
+        then ``JOBSUCHE_API_KEY``, then the public default ``jobboerse-jobsuche``.
+        """
+
+        from jobhunt.features.secrets.names import JOBSUCHE_PUBLIC_DEFAULT, SecretName
+        from jobhunt.features.secrets.store import get_for_runtime
+
+        stored = get_for_runtime(SecretName.jobsuche)
+        if stored:
+            return stored
+        return os.environ.get("JOBSUCHE_API_KEY", JOBSUCHE_PUBLIC_DEFAULT).strip()
 
 
 def load_env() -> None:

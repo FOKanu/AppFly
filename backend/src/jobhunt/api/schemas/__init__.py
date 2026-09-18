@@ -9,6 +9,7 @@ Does not: Include API keys, last-4 digits, or CV master text.
 from jobhunt.api.schemas.health import HealthResponse
 from jobhunt.api.schemas.jobs import JobPacket, JobStatusPatch, JobSummary
 from jobhunt.api.schemas.runs import RunLogSummary, RunResponse
+from jobhunt.api.schemas.secrets import SecretWriteRequest, SecretWriteResult
 from jobhunt.api.schemas.settings import SettingsResponse, SettingsUpdate
 
 __all__ = [
@@ -18,6 +19,8 @@ __all__ = [
     "JobSummary",
     "RunLogSummary",
     "RunResponse",
+    "SecretWriteRequest",
+    "SecretWriteResult",
     "SettingsResponse",
     "SettingsUpdate",
 ]

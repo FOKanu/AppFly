@@ -1,57 +1,78 @@
-"""Secret write/delete stubs.
+"""HTTP routes for write-only connector secrets.
 
-Purpose: Reserve PUT/DELETE /settings/secrets/{name} for the secrets feature.
-Inputs: Path ``name`` (gemini or apify).
-Returns: HTTP 501 with a fixed message; never echoes values.
-Does not: Talk to macOS Keychain, persist keys, or return last-4 digits.
+Purpose: Settings can save/delete Gemini, Apify, and Jobsuche keys.
+Does not: call ``get_for_runtime`` for a response body, return last-4, or
+log the PUT value. GET /settings stays on the settings router.
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+
+from jobhunt.api.app import get_secret_store
+from jobhunt.api.schemas.secrets import SecretWriteRequest, SecretWriteResult
+from jobhunt.features.secrets.names import SecretName, UnknownSecretError
+from jobhunt.features.secrets.store import EmptySecretError
 
 router = APIRouter(tags=["secrets"])
 
-_KNOWN_SECRETS = frozenset({"gemini", "apify"})
-_STUB_MESSAGE = "implemented by secrets feature"
 
+@router.put(
+    "/settings/secrets/{name}",
+    response_model=SecretWriteResult,
+)
+def put_secret(name: str, body: SecretWriteRequest, request: Request) -> SecretWriteResult:
+    """Save or rotate a connector key.
 
-@router.put("/settings/secrets/{name}")
-def put_secret(name: str) -> None:
-    """Stub: store a connector secret (not implemented here).
-
-    Purpose: Keep the URL stable so the secrets feature can land later.
-    Inputs: ``name`` is ``gemini`` or ``apify``; body is ignored.
-    Returns: HTTP 501.
-    Does not: Save keys, print them, or return last-4 digits.
+    Purpose: Settings writes the key to Keychain (or ``.secrets/``).
+    Inputs: Path ``name`` (gemini, apify, jobsuche) and ``{"value": "..."}``.
+    Returns: ``{"configured": true}``.
+    Does not: return the value that was stored.
     """
 
-    _reject(name)
+    store = get_secret_store(request)
+    secret = _parse_name(name)
+    try:
+        store.save(secret, body.value)
+    except EmptySecretError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except UnknownSecretError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return SecretWriteResult(configured=True)
 
 
-@router.delete("/settings/secrets/{name}")
-def delete_secret(name: str) -> None:
-    """Stub: delete a connector secret (not implemented here).
+@router.delete(
+    "/settings/secrets/{name}",
+    response_model=SecretWriteResult,
+)
+def delete_secret_route(name: str, request: Request) -> SecretWriteResult:
+    """Unset a connector key.
 
-    Purpose: Keep the URL stable so the secrets feature can land later.
-    Inputs: ``name`` is ``gemini`` or ``apify``.
-    Returns: HTTP 501.
-    Does not: Touch Keychain or echo leftover values.
+    Purpose: Settings delete control. Idempotent.
+    Inputs: Path ``name``.
+    Returns: ``{"configured": false}``.
+    Does not: return leftover key material.
     """
 
-    _reject(name)
+    store = get_secret_store(request)
+    secret = _parse_name(name)
+    try:
+        store.delete(secret)
+    except UnknownSecretError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return SecretWriteResult(configured=False)
 
 
-def _reject(name: str) -> None:
-    """Validate the secret name then return 501.
+def _parse_name(name: str) -> SecretName:
+    """Map the path segment to a known secret or HTTP 400.
 
-    Purpose: Distinguish unknown names from the unimplemented store.
-    Inputs: Connector name from the path.
-    Returns: Never returns normally; always raises HTTPException.
-    Does not: Read environment values.
+    Purpose: unknown names must be 400 (not FastAPI's 422 enum error).
+    Inputs: Path segment from the client.
+    Returns: ``SecretName``.
+    Does not: treat env-var spellings as valid names.
     """
 
-    key = name.strip().casefold()
-    if key not in _KNOWN_SECRETS:
-        raise HTTPException(status_code=400, detail=f"unknown secret: {name}")
-    raise HTTPException(status_code=501, detail=_STUB_MESSAGE)
+    try:
+        return SecretName.parse(name)
+    except UnknownSecretError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

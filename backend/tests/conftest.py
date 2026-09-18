@@ -1,13 +1,14 @@
 """Shared TestClient factory for the local HTTP API.
 
-Purpose: Point create_app at a temp config.yaml and vault.
+Purpose: Point create_app at a temp config.yaml, vault, and MemoryKeychain.
 Inputs: pytest tmp_path.
 Returns: FastAPI TestClient.
-Does not: Call Gemini, Agentur, or Apify.
+Does not: Call Gemini, Agentur, or Apify, or touch the OS Keychain.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,8 @@ import yaml
 from fastapi.testclient import TestClient
 
 from jobhunt.api.app import create_app
+from jobhunt.features.secrets.keychain import MemoryKeychain
+from jobhunt.features.secrets.store import SecretStore, reset_store
 
 
 @pytest.fixture
@@ -55,16 +58,32 @@ def api_config(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def api_client(api_config: Path) -> TestClient:
+def secret_store() -> Iterator[SecretStore]:
+    """In-memory Keychain for API tests.
+
+    Purpose: Tests never talk to macOS Keychain or ``.secrets/``.
+    Inputs: None.
+    Returns: ``SecretStore`` wrapping ``MemoryKeychain``.
+    Does not: Persist across tests.
+    """
+
+    store = SecretStore(MemoryKeychain())
+    reset_store(store)
+    yield store
+    reset_store(None)
+
+
+@pytest.fixture
+def api_client(api_config: Path, secret_store: SecretStore) -> TestClient:
     """HTTP client against create_app(config_path=temp).
 
     Purpose: Drive API routes in-process.
-    Inputs: api_config fixture.
+    Inputs: api_config and secret_store fixtures.
     Returns: TestClient.
     Does not: Bind a real TCP port.
     """
 
-    return TestClient(create_app(config_path=api_config))
+    return TestClient(create_app(config_path=api_config, store=secret_store))
 
 
 @pytest.fixture

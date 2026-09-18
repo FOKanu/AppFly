@@ -2,9 +2,9 @@
 
 Local FastAPI app (`jobhunt.api.app:app`), default bind `http://127.0.0.1:8787`.
 
-**A0 shipped `GET /health`. A1 implements the remaining routes on `integrate/ui-v1`.** No computer-use, no Easy Apply, no crawling deny-listed hosts from these handlers.
+**A0 shipped `GET /health`. A1 added jobs/runs/settings. A2 stores connector keys write-only.** No computer-use, no Easy Apply, no crawling deny-listed hosts from these handlers.
 
-**Secrets never appear in GET bodies.** Settings GET may include presence flags only: `secrets: { gemini: bool, apify: bool }`.
+**Secrets never appear in GET bodies.** Settings GET may include presence flags only: `secrets: { gemini: bool, apify: bool, jobsuche: bool }`. `true` means the write-only store has a value, not that the key is valid. Env fallbacks still work for the engine.
 
 | Method | Path | Purpose | Inputs | Returns | Does not |
 | --- | --- | --- | --- | --- | --- |
@@ -14,10 +14,10 @@ Local FastAPI app (`jobhunt.api.app:app`), default bind `http://127.0.0.1:8787`.
 | PATCH | `/jobs/{source_id}` | Update job metadata | JSON patch: `status`, `gemini`, `applied`, … | Updated job | Submit the application |
 | POST | `/runs` | Start a pipeline run | JSON: which stages (`scout`, `match`, `write`) or full run | Run id + accepted status | Crawl deny-listed hosts; hide `CrawlDeniedError` |
 | GET | `/runs` | List run logs | optional date query | Run summaries from `Runs/` | Include env secrets |
-| GET | `/settings` | Read non-secret settings | none | Keywords, location, letter_cap, source flags, plus `secrets: { gemini: bool, apify: bool }` | Return key material or `.env` contents |
+| GET | `/settings` | Read non-secret settings | none | Keywords, location, source flags, plus `secrets: { gemini: bool, apify: bool, jobsuche: bool }` | Return key material or `.env` contents |
 | PUT | `/settings` | Replace non-secret settings | JSON subset of `config.yaml` | Updated settings (same shape as GET, still no raw secrets) | Write `GEMINI_API_KEY` / Apify tokens into YAML |
-| PUT | `/settings/secrets/{name}` | Store a named secret | body with secret value; `name` is `gemini` or `apify` | `{ "ok": true, "name": "gemini" }` (no value echoed) | Implement OS keychain in A0 (A8) |
-| DELETE | `/settings/secrets/{name}` | Remove a named secret | path `name` | `{ "ok": true }` | Return the old value |
+| PUT | `/settings/secrets/{name}` | Store a named secret | `{"value": "..."}`; `name` is `gemini`, `apify`, or `jobsuche` | `{ "configured": true }` (no value echoed) | Return last-4 or plaintext |
+| DELETE | `/settings/secrets/{name}` | Remove a named secret | path `name` | `{ "configured": false }` | Return the old value |
 
 ### Job list query
 
@@ -37,7 +37,7 @@ Local FastAPI app (`jobhunt.api.app:app`), default bind `http://127.0.0.1:8787`.
   "location": "Berlin",
   "letter_cap": 5,
   "sources": { "agentur": true, "inbox": true, "rss": [], "apify": { "enabled": false } },
-  "secrets": { "gemini": true, "apify": false }
+  "secrets": { "gemini": true, "apify": false, "jobsuche": false }
 }
 ```
 

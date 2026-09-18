@@ -25,13 +25,14 @@ def test_get_settings_never_contains_gemini_key(
     assert "x9Q2" not in body
     data = response.json()
     assert "GEMINI_API_KEY" not in body
-    assert data["secrets"]["gemini"] is True
-    assert data["secrets"]["apify"] is True
+    assert data["secrets"]["gemini"] is False
+    assert data["secrets"]["apify"] is False
+    assert data["secrets"]["jobsuche"] is False
     assert data["keywords"] == ["Python"]
     assert data["location"] == "Berlin"
     assert "vault_path" in data
     assert "health" in data
-    assert set(data["secrets"]) == {"gemini", "apify"}
+    assert set(data["secrets"]) == {"gemini", "apify", "jobsuche"}
 
 
 def test_get_settings_secret_flags_false_when_env_empty(
@@ -43,7 +44,7 @@ def test_get_settings_secret_flags_false_when_env_empty(
     monkeypatch.setenv("APIFY_API_KEY", "")
     response = api_client.get("/settings")
     assert response.status_code == 200
-    assert response.json()["secrets"] == {"gemini": False, "apify": False}
+    assert response.json()["secrets"] == {"gemini": False, "apify": False, "jobsuche": False}
 
 
 def test_put_settings_updates_yaml(api_client: TestClient, api_config: Path) -> None:

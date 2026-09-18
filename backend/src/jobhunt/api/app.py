@@ -14,6 +14,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from jobhunt.config import AppConfig, load_config
+from jobhunt.features.secrets.store import SecretStore, get_store
 from jobhunt.vault import Vault
 
 # Vite / typical local frontend origins. Regex covers other localhost ports.
@@ -45,13 +46,32 @@ def get_vault(request: Request) -> Vault:
     return Vault(get_config(request).vault)
 
 
-def create_app(config_path: Path | None = None) -> FastAPI:
+def get_secret_store(request: Request) -> SecretStore:
+    """Return the write-only secret store for this app instance.
+
+    Purpose: Routes save/delete keys and read ``is_configured`` flags.
+    Inputs: FastAPI request whose app.state holds ``secret_store``.
+    Returns: ``SecretStore`` (MemoryKeychain in tests).
+    Does not: Copy key material into the request or a GET body.
+    """
+
+    store = getattr(request.app.state, "secret_store", None)
+    if store is None:
+        return get_store()
+    return store
+
+
+def create_app(
+    config_path: Path | None = None,
+    *,
+    store: SecretStore | None = None,
+) -> FastAPI:
     """Build the local HTTP API.
 
-    Purpose: Expose health, jobs, runs, and settings for the Queue UI.
-    Inputs: Optional path to ``config.yaml`` (tests pass a temp file).
+    Purpose: Expose health, jobs, runs, settings, and write-only secrets.
+    Inputs: Optional path to ``config.yaml``; tests pass ``store=``.
     Returns: FastAPI application with CORS for localhost frontends.
-    Does not: Serve the React app, enable Apify, or store Keychain secrets.
+    Does not: Serve the React app, enable Apify, or return API keys.
     """
 
     from jobhunt.api.routes.health import router as health_router
@@ -66,6 +86,7 @@ def create_app(config_path: Path | None = None) -> FastAPI:
         description="Local-first API wrapping scout, match, write, and the vault.",
     )
     application.state.config_path = config_path
+    application.state.secret_store = store if store is not None else get_store()
     application.add_middleware(
         CORSMiddleware,
         allow_origins=[],

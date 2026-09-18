@@ -44,10 +44,10 @@ class SourcesPublic(BaseModel):
 
 
 class SecretFlags(BaseModel):
-    """Whether connector env vars are set — never the values.
+    """Whether connector keys exist in the write-only store — never the values.
 
     Purpose: Drive “configured / missing” UI without leaking secrets.
-    Inputs: Environment presence checks (non-empty values).
+    Inputs: ``SecretStore.is_configured`` flags.
     Returns: Booleans named after connectors.
     Does not: Return key material, prefixes like AIza, or last-4 digits.
     """
@@ -56,6 +56,7 @@ class SecretFlags(BaseModel):
 
     gemini: bool = False
     apify: bool = False
+    jobsuche: bool = False
 
 
 class HealthFlags(BaseModel):
@@ -80,7 +81,7 @@ class SettingsResponse(BaseModel):
     """GET /settings body.
 
     Purpose: Safe snapshot of config.yaml plus health and secret presence.
-    Inputs: AppConfig + vault paths + env presence.
+    Inputs: AppConfig + vault paths + store presence.
     Returns: Editable settings and boolean flags.
     Does not: Include GEMINI_API_KEY, Apify tokens, or last-4 digits.
     """
@@ -117,7 +118,7 @@ class SettingsUpdate(BaseModel):
     Purpose: Persist vault path, keywords, location, RSS, and source toggles.
     Inputs: JSON body; extra keys (including gemini_api_key) are forbidden.
     Returns: Validated patch.
-    Does not: Accept API keys (use /settings/secrets later).
+    Does not: Accept API keys (use PUT /settings/secrets/{name}).
     """
 
     model_config = ConfigDict(extra="forbid")
