@@ -1,47 +1,33 @@
-import type { CSSProperties, ReactNode } from "react";
-import { FeatureStub } from "./shared/ui/FeatureStub";
-import { tokens } from "./shared/ui/tokens";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { AppShell } from "./app/layout/AppShell";
+import { ROUTES } from "./routes";
+import { ActivityPage } from "./features/activity/ActivityPage";
+import { MemoryPage } from "./features/memory/MemoryPage";
+import { QueuePage } from "./features/queue/QueuePage";
+import { SettingsPage } from "./features/settings/SettingsPage";
+import { TonightPage } from "./features/tonight/TonightPage";
+import { WorkflowPage } from "./features/workflow/WorkflowPage";
 
 /**
- * Purpose: Hold app-wide providers (token canvas today; query/auth later).
- * Inputs: React children.
- * Returns: Full-viewport tree with CSS variables from `tokens.ts`.
- * Does not: Render feature routes or call the API.
- */
-function AppProviders({ children }: { children: ReactNode }) {
-  const canvasStyle = {
-    "--color-canvas": tokens.color.canvas,
-    "--color-panel": tokens.color.panel,
-    "--color-raised": tokens.color.raised,
-    "--color-control": tokens.color.control,
-    "--color-border": tokens.color.border,
-    "--color-border-strong": tokens.color.borderStrong,
-    "--color-text": tokens.color.text,
-    "--color-text-muted": tokens.color.textMuted,
-    "--color-text-faint": tokens.color.textFaint,
-    "--color-accent": tokens.color.accent,
-    minHeight: "100vh",
-    background: tokens.color.canvas,
-    color: tokens.color.text,
-    fontFamily: tokens.font.sans,
-  } as CSSProperties;
-
-  return <div style={canvasStyle}>{children}</div>;
-}
-
-/**
- * Purpose: Root UI mount for the instrument panel.
+ * Purpose: Route table for the instrument-panel shell.
  * Inputs: None.
- * Returns: Providers wrapping a shell stub (no feature pages).
- * Does not: Implement Tonight, Queue, Packet, or Settings screens.
+ * Returns: BrowserRouter wrapping AppShell and feature placeholders.
+ * Does not: Implement Queue/Packet/Settings screens or call connector APIs from here.
  */
 export default function App() {
   return (
-    <AppProviders>
-      <FeatureStub
-        title="Shell only"
-        detail="Feature screens (Tonight, Queue, Packet, Workflow, Memory, Activity, Settings) land in later packages. This app mounts providers and design tokens."
-      />
-    </AppProviders>
+    <BrowserRouter>
+      <Routes>
+        <Route element={<AppShell />}>
+          <Route path={ROUTES.root} element={<Navigate to={ROUTES.tonight} replace />} />
+          <Route path={ROUTES.tonight} element={<TonightPage />} />
+          <Route path={ROUTES.queue} element={<QueuePage />} />
+          <Route path={ROUTES.workflow} element={<WorkflowPage />} />
+          <Route path={ROUTES.memory} element={<MemoryPage />} />
+          <Route path={ROUTES.activity} element={<ActivityPage />} />
+          <Route path={ROUTES.settings} element={<SettingsPage />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
 }

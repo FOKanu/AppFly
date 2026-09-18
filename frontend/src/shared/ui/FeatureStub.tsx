@@ -17,11 +17,11 @@ export function FeatureStub({ title, detail }: FeatureStubProps) {
     margin: "1.5rem",
     padding: "1.25rem 1.5rem",
     maxWidth: "40rem",
-    background: tokens.color.panel,
+    background: tokens.color.bgPanel,
     border: `1px solid ${tokens.color.border}`,
     borderRadius: 8,
     color: tokens.color.text,
-    fontFamily: tokens.font.sans,
+    fontFamily: tokens.type.sans,
   };
 
   return (
