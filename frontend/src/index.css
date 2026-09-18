@@ -162,11 +162,6 @@ code {
     position: sticky;
   }
 
-  .control-header__search {
-    order: 5;
-    flex: 1 1 100%;
-  }
-
   .app-main {
     padding: 16px;
   }
@@ -263,7 +258,6 @@ code {
 }
 
 .bottom-nav__link {
-  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -286,16 +280,20 @@ code {
   color: var(--text-faint);
 }
 
+.bottom-nav__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .bottom-nav__count {
-  position: absolute;
-  top: 2px;
-  right: 10px;
   min-width: 14px;
   padding: 0 4px;
   border-radius: 99px;
   background: var(--bg-hover);
   font-family: var(--font-mono);
   font-size: 9px;
+  line-height: 14px;
 }
 
 /* —— Header —— */
@@ -310,6 +308,7 @@ code {
 
 .control-header__search {
   flex: 1 1 220px;
+  min-width: 0;
   max-width: 420px;
 }
 
@@ -321,6 +320,14 @@ code {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+@media (max-width: 1023px) {
+  .control-header__search {
+    order: 5;
+    flex: 1 1 100%;
+    max-width: none;
+  }
 }
 
 /* —— Running bar —— */
@@ -520,7 +527,7 @@ code {
 
 .button__kbd,
 .input__hint {
-  font-family: var(--font-mono);
+  font-family: system-ui, var(--font-mono);
   font-size: 10px;
   line-height: 1;
   padding: 3px 5px;
@@ -537,7 +544,7 @@ code {
 .input {
   width: 100%;
   height: var(--control-h);
-  padding: 0 52px 0 12px;
+  padding: 0 68px 0 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg);

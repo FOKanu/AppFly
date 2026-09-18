@@ -46,7 +46,7 @@ export function ControlHeader({
           value={searchValue}
           onChange={(event) => onSearchChange(event.target.value)}
           placeholder="Search jobs, companies…"
-          hint="⌘K"
+          hint={searchShortcutHint()}
           aria-label="Search"
           autoComplete="off"
           spellCheck={false}
@@ -68,4 +68,13 @@ export function ControlHeader({
       </div>
     </header>
   );
+}
+
+/**
+ * Purpose: Shortcut caption for the header search field.
+ * Does not: bind the actual keydown handler (AppShell owns that).
+ */
+export function searchShortcutHint(): string {
+  if (typeof navigator === "undefined") return "Ctrl K";
+  return /Mac|iPhone|iPad/.test(navigator.userAgent) ? "⌘K" : "Ctrl K";
 }

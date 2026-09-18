@@ -55,8 +55,12 @@ export function Sidebar({ queueCount }: SidebarProps) {
             }
           >
             <span className="bottom-nav__index">{item.index}</span>
-            <span className="bottom-nav__label">{item.label.split(" ")[0]}</span>
-            {item.showCount ? <span className="bottom-nav__count">{queueCount}</span> : null}
+            <span className="bottom-nav__label">
+              {item.label.split(" ")[0]}
+              {item.showCount ? (
+                <span className="bottom-nav__count">{queueCount}</span>
+              ) : null}
+            </span>
           </NavLink>
         ))}
       </nav>
