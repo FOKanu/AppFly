@@ -1,11 +1,11 @@
-"""Local HTTP API package.
+"""Local HTTP API that drives the existing Jobhunt engine.
 
-Purpose: Expose the FastAPI app for uvicorn and tests.
-Inputs: Imported as ``jobhunt.api``.
-Returns: ``app`` and ``create_app``.
-Does not: Implement jobs, runs, or settings business routes (A1).
+Purpose: Package FastAPI routes and DTOs for a loopback frontend.
+Inputs: None at import time; call ``create_app``.
+Returns: Package namespace.
+Does not: Reimplement scout/match/write or crawl deny-listed hosts.
 """
 
-from jobhunt.api.app import app, create_app
+from jobhunt.api.app import create_app
 
-__all__ = ["app", "create_app"]
+__all__ = ["create_app"]

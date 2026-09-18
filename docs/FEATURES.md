@@ -5,7 +5,7 @@ One row per Cloud Agent package. Sibling agents add folders on parallel branches
 | ID | Package | Surface | Status | Notes |
 | --- | --- | --- | --- | --- |
 | A0 | Monorepo layout | `backend/` Python move, `frontend/` Vite scaffold, `docs/` | **This tree** | No real screens, no business API routes, no keychain. Health-only API. |
-| A1 | HTTP API | `GET/PATCH /jobs`, `POST/GET /runs`, `GET/PUT /settings`, secret PUT/DELETE | Stub | Follow [API.md](API.md). GET must not return secret values. Reuse CLI feature functions; do not scrape deny-listed hosts. |
+| A1 | HTTP API | `GET/PATCH /jobs`, `POST/GET /runs`, `GET/PUT /settings`, secret PUT/DELETE stub | **This tree** | Routes under `backend/src/jobhunt/api/`. GET must not return secret values. Secrets PUT/DELETE are 501 until A2. |
 | A2 | Tonight | `frontend/src/features/tonight/` | Stub | Instrument-panel home: what to do tonight. Empty folder + README in A0. |
 | A3 | Queue | `frontend/src/features/queue/` | Stub | Job list by status. No queue page in A0. |
 | A4 | Packet | `frontend/src/features/packet/` | Stub | Sealed writer packet view (one job + CV slice). Do not rewrite `features/write` algorithms in A0. |

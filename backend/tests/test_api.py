@@ -16,7 +16,8 @@ def test_health_ok() -> None:
     response = client.get("/health")
     assert response.status_code == 200
     body = response.json()
-    assert body == {"status": "ok"}
+    assert body["ok"] is True
+    assert body["status"] == "ok"
     assert "key" not in body
     assert "secret" not in body
     assert "gemini" not in body

@@ -21,7 +21,6 @@ from jobhunt.config import (
     load_config,
     write_example_config,
 )
-from jobhunt.runlog import format_run_note
 from jobhunt.vault import Vault, init_workspace
 
 app = typer.Typer(help="Job hunt copilot: scout, match, write letters into Obsidian.")
@@ -161,61 +160,14 @@ def run_all(
     Does not: Submit applications or crawl deny-listed hosts.
     """
 
-    from jobhunt.features.match import match_jobs
-    from jobhunt.features.scout import collect_jobs
-    from jobhunt.features.write import write_letters
+    from jobhunt.features.pipeline.run_all import run_all as run_pipeline
 
     cfg = _config(config)
-    vault = Vault(cfg.vault)
-    vault.ensure_dirs()
-    started = datetime.now().astimezone()
-    errors: list[str] = []
-    scouted = 0
-    shortlisted = 0
-    skipped = 0
-    written = 0
-    write_skipped = 0
-
-    try:
-        requirements = vault.load_requirements()
-        jobs = collect_jobs(cfg, vault, requirements)
-        for job in jobs:
-            vault.upsert_job(job)
-        scouted = len(jobs)
-    except Exception as exc:  # noqa: BLE001 — run should continue
-        errors.append(f"scout: {exc}")
-
-    try:
-        stats = match_jobs(cfg, vault)
-        shortlisted = stats["shortlisted"]
-        skipped = stats["skipped"]
-    except Exception as exc:  # noqa: BLE001
-        errors.append(f"match: {exc}")
-
-    try:
-        write_stats = write_letters(cfg, vault)
-        written = write_stats["written"]
-        write_skipped = write_stats["skipped"]
-    except Exception as exc:  # noqa: BLE001
-        errors.append(f"write: {exc}")
-
-    stamp = started.isoformat(timespec="minutes")
-    vault.regenerate_home(last_run=stamp)
-    note = format_run_note(
-        started=started,
-        scouted=scouted,
-        shortlisted=shortlisted,
-        skipped=skipped,
-        written=written,
-        write_skipped=write_skipped,
-        model=cfg.gemini_model,
-        errors=errors,
-    )
-    run_path = vault.append_run_note(started.date().isoformat(), note)
-    typer.echo(f"Run complete. Home: {vault.root / 'Home.md'}")
-    typer.echo(f"Log: {run_path}")
-    if errors:
-        for item in errors:
+    result = run_pipeline(cfg)
+    typer.echo(f"Run complete. Home: {result.home_path}")
+    typer.echo(f"Log: {result.run_path}")
+    if result.errors:
+        for item in result.errors:
             typer.echo(f"error: {item}", err=True)
         raise typer.Exit(code=1)
 

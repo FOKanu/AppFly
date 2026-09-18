@@ -2,13 +2,13 @@
 
 Local FastAPI app (`jobhunt.api.app:app`), default bind `http://127.0.0.1:8787`.
 
-**A0 implements `GET /health` only.** All other routes are the contract for A1+. No computer-use, no Easy Apply, no crawling deny-listed hosts from these handlers.
+**A0 shipped `GET /health`. A1 implements the remaining routes on `integrate/ui-v1`.** No computer-use, no Easy Apply, no crawling deny-listed hosts from these handlers.
 
 **Secrets never appear in GET bodies.** Settings GET may include presence flags only: `secrets: { gemini: bool, apify: bool }`.
 
 | Method | Path | Purpose | Inputs | Returns | Does not |
 | --- | --- | --- | --- | --- | --- |
-| GET | `/health` | Liveness probe | none | `{ "status": "ok" }` | Read keys, list jobs, touch the vault |
+| GET | `/health` | Liveness probe | none | `{ "ok": true, "status": "ok" }` | Read keys, list jobs, touch the vault |
 | GET | `/jobs` | List job notes | query `status=` (optional; `inbox`, `shortlist`, `draft`, `approved`, `applied`, `skipped`) | Job summaries (source_id, title, company, status, score, url, crawl_allowed, …) | Fetch listing URLs; return API keys |
 | GET | `/jobs/{source_id}` | One job | path `source_id` | Job note payload (frontmatter + body excerpt) | HTTP-GET the job's `url` |
 | PATCH | `/jobs/{source_id}` | Update job metadata | JSON patch: `status`, `gemini`, `applied`, … | Updated job | Submit the application |
