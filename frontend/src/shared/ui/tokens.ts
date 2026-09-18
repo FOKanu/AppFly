@@ -110,6 +110,13 @@ export function cssVariables(source: Tokens = tokens): Record<string, string> {
     "--forest": source.color.accent,
     "--copper": source.color.warning,
     "--copper-ink": source.color.bg,
+    "--muted": source.color.textMuted,
+    "--bg-elevated": source.color.bgRaised,
+    "--warn": source.color.warning,
+    "--ok": source.color.accent,
+    "--err": source.color.danger,
+    "--chip": source.color.bgHover,
+    "--mono": source.type.mono,
   };
 }
 
