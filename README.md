@@ -1,25 +1,19 @@
-# Job hunt copilot
+# Jobhunt Copilot
 
-Python-first job copilot that writes into a **dedicated Obsidian vault**. Scout and matching stay on your Mac. Gemini writes cover letters from a sealed packet. You approve in Obsidian and submit applications yourself.
+Local-first job copilot. Scout and matching stay on your machine. Gemini writes cover letters from a sealed packet. You approve in Obsidian (or later in the UI) and submit applications yourself.
 
 This repo does **not** automate LinkedIn, Indeed, Stepstone, ZipRecruiter, Xing, or Glassdoor. It does **not** scrape those sites, including via Apify. The deny-list is enforced in `jobhunt.policy`.
 
-## What it does
-
-1. **Scout** — Arbeitsagentur Jobsuche API, optional RSS feeds, and notes you drop in `_inbox/` (Obsidian Web Clipper).
-2. **Match** — hard filters from `Requirements.md` plus a small local embedding model.
-3. **Write** — Gemini Flash writes up to five letters per run from CV + one job excerpt + voice samples.
-4. **Home.md** — regenerated table of `shortlist` / `draft` / `approved` jobs.
+Python lives in `backend/`. The UI scaffold lives in `frontend/`.
 
 ## Setup
 
-Python 3.12+ (system `python3` on this Mac may still be 3.9). 16 GB is enough. The embedding model is ~470 MB on first `match`.
+Python 3.12+ and Node.js 20+ (for the UI scaffold). 16 GB is enough. The embedding model is ~470 MB on first `match`.
 
 ```bash
-cd "/Users/franciskanu/Projects/Job Application Automation"
 python3.12 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e "./backend[dev]"
 cp .env.example .env
 # Put your Gemini API key in .env
 jobhunt init
@@ -36,6 +30,17 @@ Then:
 
 Get a Gemini key at [Google AI Studio](https://aistudio.google.com/apikey). The Arbeitsagentur key defaults to the public client id `jobboerse-jobsuche`.
 
+Frontend scaffold (no feature screens yet):
+
+```bash
+cd frontend
+npm install
+npm run dev      # Vite
+npm run build    # production check
+```
+
+Copy `frontend/.env.example` to `frontend/.env` if you need to point at the API (`VITE_API_BASE_URL=http://127.0.0.1:8787`).
+
 ## Daily use
 
 ```bash
@@ -43,6 +48,13 @@ jobhunt scout    # fetch + inbox
 jobhunt match    # filter + score (downloads the embedding model once)
 jobhunt write    # Gemini letters for shortlisted jobs
 jobhunt run      # all of the above + Runs/YYYY-MM-DD.md
+```
+
+Run backend tests from `backend/`:
+
+```bash
+cd backend
+pytest
 ```
 
 Morning loop in Obsidian:
@@ -67,7 +79,16 @@ These hosts must never be crawled, RSS-fetched, or sent to Apify. Doing so can b
 - glassdoor.com / glassdoor.de
 - wellfound.com / angel.co
 
+The canonical list is `backend/src/jobhunt/policy.py` (`DENIED_CRAWL_HOSTS` / `DENIED_ROOT_DOMAINS`). Inbox may **store** those URLs; nothing in this repo may fetch them.
+
 Allowed automated ingest: Arbeitsagentur API, RSS on other hosts, public company career/Impressum pages. Future Apify actors use `sources.apify.start_urls` and are rejected if any URL is on the deny-list. Leave `apify.enabled: false` until that crawler exists.
+
+## Layout
+
+- `backend/` — Python package, CLI, tests, health-only API
+- `frontend/` — Vite + React + TypeScript instrument-panel scaffold
+- `docs/` — architecture, API contract, feature ownership
+- `vault-templates/` — Obsidian templates copied by `jobhunt init`
 
 ## Nightly schedule
 
@@ -93,12 +114,5 @@ Set `gemini: false` on a job note to keep it off the Writer.
 - Computer-use or mouse apply on job boards
 - Scraping LinkedIn / Indeed / Stepstone / ZipRecruiter / Xing / Glassdoor (including via Apify)
 - Local 8B/14B orchestrator
-- Custom organism web UI
 - Hermes / OpenClaw (the CLI is the hook for that later)
 - Gmail drafts (optional follow-up)
-
-## Tests
-
-```bash
-pytest
-```
