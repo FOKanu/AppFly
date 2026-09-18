@@ -1,0 +1,27 @@
+# Copy to config.yaml (jobhunt init does this) or pass --config.
+vault_path: ~/Documents/Job Search
+
+keywords:
+  - Software Engineer
+  - Python
+location: Berlin
+radius_km: 50
+published_days: 7
+
+letter_cap: 5
+shortlist_size: 8
+gemini_model: gemini-2.5-flash
+jd_excerpt_chars: 1200
+
+sources:
+  agentur: true
+  inbox: true
+  rss: []
+  # rss:
+  #   - https://example.com/jobs/feed.xml
+  # Apify is for public company/Impressum pages only. Job-board hosts are
+  # rejected in jobhunt.policy (LinkedIn, Indeed, Stepstone, ZipRecruiter, …).
+  apify:
+    enabled: false
+    start_urls: []
+

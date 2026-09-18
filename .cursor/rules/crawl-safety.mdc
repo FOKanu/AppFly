@@ -1,0 +1,41 @@
+---
+description: Never crawl or Apify-scrape job boards that ban automation; protect the user's accounts.
+alwaysApply: true
+---
+
+# Crawl and Apify safety
+
+Do not scrape, crawl, or send to Apify any site that forbids automated access. Doing so can ban the user's LinkedIn / Indeed / Stepstone / ZipRecruiter accounts.
+
+## Hard deny-list (HTTP GET, RSS fetch, Apify start_urls, cookies)
+
+- linkedin.com
+- indeed.com (including de.indeed.com)
+- stepstone.de / stepstone.com
+- ziprecruiter.com
+- xing.com
+- glassdoor.com / glassdoor.de
+- wellfound.com / angel.co
+
+The canonical list lives in `src/jobhunt/policy.py` (`DENIED_CRAWL_HOSTS`). Extend that set; do not special-case a scraper around it.
+
+## Allowed ingest
+
+- Arbeitsagentur Jobsuche API (official-style client, not HTML scrape)
+- RSS feeds whose **feed URL** is not on the deny-list
+- `_inbox/` Web Clipper notes the **user** already opened (parse the local file only; never fetch the listing URL)
+- Public company career / Impressum pages that are **not** on the deny-list, via httpx or a future Apify actor
+
+## Apify
+
+Apify is only for constrained public-page fetches that pass `assert_crawl_allowed`. Never:
+
+- Point an actor at a deny-listed host
+- Upload LinkedIn/Indeed cookies or session tokens
+- Use Apify to bypass login walls on job boards
+
+If a start URL is denied, **fail the run**. Do not skip silently and crawl anyway.
+
+## Submit
+
+The user submits applications in the browser. No computer-use, no Easy Apply bots.
