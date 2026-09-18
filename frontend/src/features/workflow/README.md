@@ -1,3 +1,18 @@
-# Workflow
+# Workflow (pipeline stepper)
 
-Status transitions on a job note. The human still submits applications in their own browser; this feature must not drive Easy Apply or computer-use. Empty in A0.
+Scout → Match → Write instrument strip. Desktop 1440.
+
+## Surfaces
+
+| Component | Role |
+| --- | --- |
+| `WorkflowPage` | Loads health + runs + shortlist/inbox jobs. Hosts stepper and banners. |
+| `PipelineStepper` | Stage lights and connectors. |
+| `StageCard` | One stage: counts, status, detail. |
+| `QueuedBehindMatch` | Jobs still in inbox / waiting on Match. |
+| `GeminiRateLimitBanner` | Gemini 429. **Retry Gemini** posts to `/write` — no scraping. |
+| `WorkflowEmpty` | No pipeline activity. |
+| `WorkflowRunning` | Live run. |
+| `WorkflowFailed` | **Run failed, API down**. |
+
+Preview: `/workflow?preview=empty|running|failed|rate_limited`.

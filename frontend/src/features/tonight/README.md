@@ -1,3 +1,22 @@
-# Tonight
+# Tonight (home dashboard)
 
-Home surface: what to do tonight (shortlist, letters waiting, policy blocks). A0 ships no screen — import `FeatureStub` from `shared/ui` until this folder owns a real page. Do not crawl job boards from the browser.
+Instrument-panel home for last night's copilot run. Desktop 1440.
+
+## Surfaces
+
+| Component | Role |
+| --- | --- |
+| `TonightPage` | Loads `GET /health`, `/runs`, `/jobs?status=draft` (and shortlist). Switches empty / running / failed. |
+| `RunSummary` | Last run window, scouted / shortlisted / written counts. |
+| `DraftsWaiting` | Letters waiting for human review (`status=draft`). |
+| `SourceMix` | Ingest mix: **API · RSS · clips**. |
+| `PipelineSnapshot` | Compact Scout → Match → Write lights. |
+| `TonightEmpty` | No run yet. |
+| `TonightRunning` | Pipeline in flight. |
+| `TonightFailed` | **Run failed, API down**. |
+
+## Data
+
+Client lives in `api.ts`. If the backend is missing, fixtures in `mock.ts` render the panel. Job listing URLs are display-only — never fetched from the UI.
+
+Preview: `/?preview=empty|running|failed`.
