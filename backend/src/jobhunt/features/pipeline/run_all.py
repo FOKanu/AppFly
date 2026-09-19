@@ -17,6 +17,7 @@ from jobhunt.features.match import match_jobs
 from jobhunt.features.scout import collect_jobs
 from jobhunt.features.write import write_letters
 from jobhunt.runlog import format_run_note
+from jobhunt.store import get_store
 from jobhunt.vault import Vault
 
 
@@ -45,14 +46,14 @@ class PipelineResult:
 def run_all(config: AppConfig, vault: Vault | None = None) -> PipelineResult:
     """Scout, match, write, refresh Home.md, and append today's run note.
 
-    Purpose: One local pass over the vault, identical to ``jobhunt run``.
-    Inputs: Loaded ``AppConfig``; optional ``Vault`` (created from config when omitted).
+    Purpose: One local pass over the store, identical to ``jobhunt run``.
+    Inputs: Loaded ``AppConfig``; optional legacy ``Vault`` (markdown only).
     Returns: ``PipelineResult`` with step counts, error strings, and note paths.
     Does not: Crawl deny-listed job boards, unseal other jobs' packets, or auto-submit.
     """
 
-    vault = vault or Vault(config.vault)
-    vault.ensure_dirs()
+    store = vault if vault is not None else get_store(config)
+    store.ensure_dirs()
     started = datetime.now().astimezone()
     errors: list[str] = []
     scouted = 0
@@ -62,30 +63,30 @@ def run_all(config: AppConfig, vault: Vault | None = None) -> PipelineResult:
     write_skipped = 0
 
     try:
-        requirements = vault.load_requirements()
-        jobs = collect_jobs(config, vault, requirements)
+        requirements = store.load_requirements()
+        jobs = collect_jobs(config, store, requirements)
         for job in jobs:
-            vault.upsert_job(job)
+            store.upsert_job(job)
         scouted = len(jobs)
     except Exception as exc:  # noqa: BLE001 — run should continue
         errors.append(f"scout: {exc}")
 
     try:
-        stats = match_jobs(config, vault)
+        stats = match_jobs(config, store)
         shortlisted = stats["shortlisted"]
         skipped = stats["skipped"]
     except Exception as exc:  # noqa: BLE001
         errors.append(f"match: {exc}")
 
     try:
-        write_stats = write_letters(config, vault)
+        write_stats = write_letters(config, store)
         written = write_stats["written"]
         write_skipped = write_stats["skipped"]
     except Exception as exc:  # noqa: BLE001
         errors.append(f"write: {exc}")
 
     stamp = started.isoformat(timespec="minutes")
-    home_path = vault.regenerate_home(last_run=stamp)
+    home_path = store.regenerate_home(last_run=stamp)
     note = format_run_note(
         started=started,
         scouted=scouted,
@@ -96,7 +97,7 @@ def run_all(config: AppConfig, vault: Vault | None = None) -> PipelineResult:
         model=config.gemini_model,
         errors=errors,
     )
-    run_path = vault.append_run_note(started.date().isoformat(), note)
+    run_path = store.append_run_note(started.date().isoformat(), note)
     return PipelineResult(
         started=started,
         scouted=scouted,

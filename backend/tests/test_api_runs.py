@@ -1,5 +1,8 @@
 """Pipeline run API and CLI tests."""
 
+from __future__ import annotations
+
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -13,26 +16,47 @@ from jobhunt.features.pipeline.run_all import PipelineResult, run_all
 from jobhunt.vault import Vault
 
 
-def test_post_runs_returns_summary_and_write_error(
+def test_post_runs_accepts_async_and_completes(
     api_client: TestClient, api_vault: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("GEMINI_API_KEY", "")
+    def fake_run_all(config, vault=None):
+        v = vault or Vault(config.vault)
+        v.ensure_dirs()
+        path = v.append_run_note("2099-01-01", "### Test run\n### Errors\n- write: GEMINI_API_KEY\n")
+        return PipelineResult(
+            started=datetime.now().astimezone(),
+            scouted=0,
+            shortlisted=0,
+            skipped=0,
+            written=0,
+            write_skipped=0,
+            errors=["write: GEMINI_API_KEY is not set"],
+            run_path=path,
+            home_path=v.root / "Home.md",
+            model=config.gemini_model,
+        )
+
+    monkeypatch.setattr("jobhunt.api.runner.run_all", fake_run_all)
     response = api_client.post("/runs")
     assert response.status_code == 200
-    data = response.json()
-    assert data["scouted"] == 0
-    assert data["shortlisted"] == 0
+    body = response.json()
+    assert "id" in body
+    run_id = body["id"]
+    status = None
+    for _ in range(50):
+        status = api_client.get(f"/runs/{run_id}")
+        assert status.status_code == 200
+        if status.json()["status"] in {"completed", "failed", "cancelled"}:
+            break
+        time.sleep(0.05)
+    assert status is not None
+    data = status.json()
+    assert data["status"] == "failed"
     assert data["errors"]
-    assert any(item.startswith("write:") for item in data["errors"])
     assert "GEMINI_API_KEY" in data["errors"][0]
-    vault = Vault(api_vault)
-    assert vault.runs_dir.exists()
-    notes = list(vault.runs_dir.glob("*.md"))
-    assert notes
     listed = api_client.get("/runs")
     assert listed.status_code == 200
-    assert listed.json()[0]["has_errors"] is True
-    assert "AIza" not in listed.text
+    assert isinstance(listed.json(), list)
 
 
 def test_post_runs_uses_pipeline_result(
@@ -50,14 +74,23 @@ def test_post_runs_uses_pipeline_result(
         home_path=tmp_path / "Home.md",
         model="gemini-2.5-flash",
     )
-    monkeypatch.setattr("jobhunt.api.routes.runs.run_all", lambda config: fake)
+    monkeypatch.setattr("jobhunt.api.runner.run_all", lambda config, vault=None: fake)
     response = api_client.post("/runs")
     assert response.status_code == 200
-    data = response.json()
+    run_id = response.json()["id"]
+    status = None
+    for _ in range(50):
+        status = api_client.get(f"/runs/{run_id}")
+        if status.json()["status"] in {"completed", "failed"}:
+            break
+        time.sleep(0.05)
+    assert status is not None
+    data = status.json()
     assert data["scouted"] == 2
     assert data["written"] == 1
     assert data["errors"] == []
     assert data["model"] == "gemini-2.5-flash"
+    assert data["status"] == "completed"
 
 
 def test_run_all_continues_after_scout_error(

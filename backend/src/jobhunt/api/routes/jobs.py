@@ -1,8 +1,8 @@
-"""Job queue routes backed by vault notes.
+"""Job queue routes backed by AppStore.
 
-Purpose: List, show, and status-patch jobs the CLI already stores.
-Inputs: Vault job notes; PATCH body is ``status`` only.
-Returns: Summaries or a single-job packet with a letter excerpt.
+Purpose: List, show, status-patch, and letter save/regenerate for jobs.
+Inputs: AppStore job + letter records.
+Returns: Summaries, packets with full letter_body, letter write results.
 Does not: Fetch listing URLs, return CV master, or expose connector secrets.
 """
 
@@ -12,13 +12,12 @@ import re
 from datetime import datetime
 from typing import Any
 
-import frontmatter
 from fastapi import APIRouter, HTTPException, Request
 
-from jobhunt.api.app import get_config, get_vault
-from jobhunt.api.schemas.jobs import JobPacket, JobStatusPatch, JobSummary
+from jobhunt.api.app import get_app_store, get_config
+from jobhunt.api.schemas.jobs import JobPacket, JobStatusPatch, JobSummary, LetterPut
 from jobhunt.models import STATUSES
-from jobhunt.vault import Vault
+from jobhunt.store.types import JobNote
 
 router = APIRouter(tags=["jobs"])
 
@@ -27,17 +26,9 @@ _LETTER_EXCERPT_CHARS = 600
 
 @router.get("/jobs", response_model=list[JobSummary])
 def list_jobs(request: Request, status: str | None = None) -> list[JobSummary]:
-    """List job notes for the Queue UI.
-
-    Purpose: Read vault jobs, optional status filter.
-    Inputs: Query ``status`` must be a ``STATUSES`` value when set.
-    Returns: Job summaries (no descriptions, no CV).
-    Does not: Fetch listing URLs or return connector secrets.
-    """
-
     _require_known_status(status)
-    vault = get_vault(request)
-    summaries = [_summary_from_note(post) for post in vault.iter_job_notes()]
+    store = get_app_store(request)
+    summaries = [_summary_from_note(note) for note in store.iter_job_notes()]
     if status is None:
         return summaries
     return [row for row in summaries if row.status == status]
@@ -45,89 +36,101 @@ def list_jobs(request: Request, status: str | None = None) -> list[JobSummary]:
 
 @router.get("/jobs/{source_id}", response_model=JobPacket)
 def get_job(source_id: str, request: Request) -> JobPacket:
-    """Return one job packet for the detail pane.
-
-    Purpose: Show a single vault job plus a letter excerpt when present.
-    Inputs: ``source_id`` from the job note frontmatter.
-    Returns: Job fields and truncated description/letter excerpts.
-    Does not: Return CV master, other jobs, or the whole vault.
-    """
-
-    vault = get_vault(request)
+    store = get_app_store(request)
     config = get_config(request)
-    post = _find_job_note(vault, source_id)
-    if post is None:
+    note = _find_note(store, source_id)
+    if note is None:
         raise HTTPException(status_code=404, detail=f"Job {source_id} not found")
-    excerpt_chars = config.jd_excerpt_chars
-    return _packet_from_note(vault, post, excerpt_chars=excerpt_chars)
+    return _packet_from_note(store, note, excerpt_chars=config.jd_excerpt_chars)
 
 
 @router.patch("/jobs/{source_id}", response_model=JobSummary)
 def patch_job(source_id: str, body: JobStatusPatch, request: Request) -> JobSummary:
-    """Update only the status field on a job note.
-
-    Purpose: Let the UI mark jobs approved, applied, skipped, etc.
-    Inputs: ``source_id`` and ``{status}`` from ``STATUSES``.
-    Returns: Updated job summary.
-    Does not: Change scores, letters, or crawl the listing URL.
-    """
-
     _require_known_status(body.status)
-    vault = get_vault(request)
-    path = vault.update_job_meta(source_id, status=body.status)
+    store = get_app_store(request)
+    path = store.update_job_meta(source_id, status=body.status)
     if path is None:
         raise HTTPException(status_code=404, detail=f"Job {source_id} not found")
-    vault.regenerate_home(last_run=datetime.now().astimezone().isoformat(timespec="minutes"))
-    post = _find_job_note(vault, source_id)
-    if post is None:
+    store.regenerate_home(last_run=datetime.now().astimezone().isoformat(timespec="minutes"))
+    note = _find_note(store, source_id)
+    if note is None:
         raise HTTPException(status_code=404, detail=f"Job {source_id} not found")
-    return _summary_from_note(post)
+    return _summary_from_note(note)
+
+
+@router.get("/jobs/{source_id}/letter")
+def get_letter(source_id: str, request: Request) -> dict[str, Any]:
+    store = get_app_store(request)
+    letter = store.get_letter(source_id)
+    if letter is None:
+        raise HTTPException(status_code=404, detail="Letter not found")
+    return {
+        "source_id": letter.source_id,
+        "body": letter.body,
+        "model": letter.model,
+        "tokens_in": letter.tokens_in,
+        "tokens_out": letter.tokens_out,
+        "updated_at": letter.updated_at,
+    }
+
+
+@router.put("/jobs/{source_id}/letter")
+def put_letter(source_id: str, body: LetterPut, request: Request) -> dict[str, Any]:
+    store = get_app_store(request)
+    if _find_note(store, source_id) is None:
+        raise HTTPException(status_code=404, detail=f"Job {source_id} not found")
+    try:
+        letter = store.save_letter_body(source_id, body.body)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {
+        "source_id": letter.source_id,
+        "body": letter.body,
+        "model": letter.model,
+        "updated_at": letter.updated_at,
+    }
+
+
+@router.post("/jobs/{source_id}/letter/regenerate")
+def regenerate_letter(source_id: str, request: Request) -> dict[str, Any]:
+    """Force-write a letter for one job (ignores existing letter skip)."""
+
+    from jobhunt.features.write.letters import regenerate_letter_for_job
+
+    store = get_app_store(request)
+    config = get_config(request)
+    note = _find_note(store, source_id)
+    if note is None:
+        raise HTTPException(status_code=404, detail=f"Job {source_id} not found")
+    job = store.job_from_note(note)
+    try:
+        letter = regenerate_letter_for_job(config, store, job)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "source_id": source_id,
+        "body": letter,
+        "model": config.gemini_model,
+    }
 
 
 def _require_known_status(status: str | None) -> None:
-    """Reject statuses the vault does not use.
-
-    Purpose: Keep PATCH/filter values aligned with ``models.STATUSES``.
-    Inputs: Optional status string.
-    Returns: None.
-    Does not: Write the vault.
-    """
-
     if status is None:
         return
     if status not in STATUSES:
-        raise HTTPException(
-            status_code=422,
-            detail=f"status must be one of {list(STATUSES)}",
-        )
+        raise HTTPException(status_code=422, detail=f"status must be one of {list(STATUSES)}")
 
 
-def _find_job_note(vault: Vault, source_id: str) -> frontmatter.Post | None:
-    """Load the job note for a source_id.
-
-    Purpose: Shared lookup for GET and PATCH.
-    Inputs: Vault and source_id.
-    Returns: Frontmatter post or None.
-    Does not: Fetch remote listings.
-    """
-
-    for post in vault.iter_job_notes():
-        if str(post.metadata.get("source_id") or "") == source_id:
-            return post
+def _find_note(store: Any, source_id: str) -> JobNote | None:
+    for note in store.iter_job_notes():
+        if str(note.metadata.get("source_id") or "") == source_id:
+            return note
     return None
 
 
-def _summary_from_note(post: frontmatter.Post) -> JobSummary:
-    """Map a job note to a queue row.
-
-    Purpose: Flatten frontmatter into a secret-free summary.
-    Inputs: Parsed Jobs/*.md post.
-    Returns: ``JobSummary``.
-    Does not: Include description body or CV.
-    """
-
-    meta = post.metadata
-    letter = str(meta.get("letter") or "").strip()
+def _summary_from_note(note: JobNote) -> JobSummary:
+    meta = note.metadata
+    letter = str(meta.get("letter") or meta.get("letter_path") or "").strip()
     return JobSummary(
         source_id=str(meta.get("source_id") or ""),
         source=str(meta.get("source") or "unknown"),
@@ -142,24 +145,12 @@ def _summary_from_note(post: frontmatter.Post) -> JobSummary:
     )
 
 
-def _packet_from_note(
-    vault: Vault,
-    post: frontmatter.Post,
-    *,
-    excerpt_chars: int,
-) -> JobPacket:
-    """Build a UI packet for one job.
-
-    Purpose: One job's fields plus truncated excerpts.
-    Inputs: Vault (for the letter file), job post, excerpt length.
-    Returns: ``JobPacket``.
-    Does not: Attach CV, voice samples, or other jobs.
-    """
-
-    summary = _summary_from_note(post)
-    description = (post.content or "").strip()
-    letter_ref = str(post.metadata.get("letter") or "").strip()
-    letter_excerpt = _letter_excerpt(vault, letter_ref)
+def _packet_from_note(store: Any, note: JobNote, *, excerpt_chars: int) -> JobPacket:
+    summary = _summary_from_note(note)
+    description = (note.content or "").strip()
+    letter = store.get_letter(summary.source_id)
+    body = letter.body if letter else None
+    excerpt = body[:_LETTER_EXCERPT_CHARS] if body else None
     return JobPacket(
         source_id=summary.source_id,
         source=summary.source,
@@ -168,66 +159,18 @@ def _packet_from_note(
         status=summary.status,
         location=summary.location,
         url=summary.url,
-        salary=str(post.metadata.get("salary") or ""),
-        lang=str(post.metadata.get("lang") or ""),
+        salary=str(note.metadata.get("salary") or ""),
+        lang=str(note.metadata.get("lang") or ""),
         score=summary.score,
         crawl_allowed=summary.crawl_allowed,
         description_excerpt=description[:excerpt_chars],
-        letter_excerpt=letter_excerpt,
-        has_letter=letter_excerpt is not None or summary.has_letter,
+        letter_excerpt=excerpt,
+        letter_body=body,
+        has_letter=bool(body) or summary.has_letter,
     )
 
 
-def _letter_excerpt(vault: Vault, letter_ref: str) -> str | None:
-    """Read a short slice of the linked letter note.
-
-    Purpose: Show draft text in the UI without dumping Letters/.
-    Inputs: Vault and a wikilink such as ``[[Letters/stem]]``.
-    Returns: Truncated letter body, or None if missing.
-    Does not: Return CV master or other letters.
-    """
-
-    if not letter_ref or letter_ref in {"None", "null"}:
-        return None
-    target = _wikilink_target(letter_ref)
-    stem = target.split("/")[-1]
-    if not stem:
-        return None
-    path = vault.letters_dir / f"{stem}.md"
-    if not path.exists():
-        return None
-    post = frontmatter.loads(path.read_text(encoding="utf-8"))
-    body = (post.content or "").strip()
-    if not body:
-        return None
-    return body[:_LETTER_EXCERPT_CHARS]
-
-
-def _wikilink_target(value: str) -> str:
-    """Extract the path side of an Obsidian wikilink.
-
-    Purpose: Resolve ``[[Letters/stem|label]]`` to ``Letters/stem``.
-    Inputs: Raw frontmatter string.
-    Returns: Target path or the original string.
-    Does not: Read files.
-    """
-
-    text = value.strip()
-    match = re.match(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]", text)
-    if match:
-        return match.group(1).strip()
-    return text
-
-
 def _display_company(value: Any) -> str:
-    """Human company name from a wikilink or plain string.
-
-    Purpose: Queue rows should show “SAP”, not ``[[Companies/sap|SAP]]``.
-    Inputs: Frontmatter ``company`` value.
-    Returns: Display name.
-    Does not: Read company notes.
-    """
-
     text = str(value or "").strip()
     labeled = re.match(r"\[\[(?:.+\|)?(.+)\]\]", text)
     if labeled:
@@ -236,14 +179,6 @@ def _display_company(value: Any) -> str:
 
 
 def _as_score(value: Any) -> float | None:
-    """Parse a numeric score from YAML frontmatter.
-
-    Purpose: Normalize empty YAML nulls to JSON null.
-    Inputs: Raw metadata value.
-    Returns: Float or None.
-    Does not: Recompute matching scores.
-    """
-
     if value is None or value == "":
         return None
     try:
@@ -253,14 +188,6 @@ def _as_score(value: Any) -> float | None:
 
 
 def _as_bool(value: Any, *, default: bool) -> bool:
-    """Coerce YAML bool-ish values.
-
-    Purpose: ``crawl: false`` must survive round-trip to JSON.
-    Inputs: Raw metadata value and a default.
-    Returns: Boolean.
-    Does not: Change the note.
-    """
-
     if value is None:
         return default
     if isinstance(value, bool):

@@ -58,6 +58,7 @@ class JobPacket(BaseModel):
     crawl_allowed: bool = True
     description_excerpt: str = ""
     letter_excerpt: str | None = None
+    letter_body: str | None = None
     has_letter: bool = False
 
 
@@ -73,3 +74,17 @@ class JobStatusPatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     status: str = Field(description="New status; must be in jobhunt.models.STATUSES.")
+
+
+class LetterPut(BaseModel):
+    """Body for PUT /jobs/{source_id}/letter.
+
+    Purpose: Save the human-edited letter back to the store.
+    Inputs: Full letter markdown/text.
+    Returns: Validated model.
+    Does not: Call Gemini or change job status unless the route does.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    body: str = Field(min_length=1)

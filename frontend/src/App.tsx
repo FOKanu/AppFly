@@ -8,12 +8,13 @@ import { PacketPage } from "./features/packet/PacketPage";
 import { QueuePage } from "./features/queue/QueuePage";
 import { SettingsPage } from "./features/settings/SettingsPage";
 import { TonightPage } from "./features/tonight/TonightPage";
+import { VaultPage } from "./features/vault/VaultPage";
 import { WorkflowPage } from "./features/workflow/WorkflowPage";
 
 /**
  * Purpose: Route table for the instrument-panel shell.
  * Inputs: None.
- * Returns: BrowserRouter wrapping AppShell and feature placeholders.
+ * Returns: BrowserRouter wrapping AppShell and feature pages.
  * Does not: Call connector APIs from the router.
  */
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
           <Route path={`${ROUTES.queue}/:sourceId`} element={<QueuePage />} />
           <Route path="/packet/:sourceId" element={<PacketPage />} />
           <Route path={ROUTES.workflow} element={<WorkflowPage />} />
+          <Route path={ROUTES.vault} element={<VaultPage />} />
           <Route path={ROUTES.profiles} element={<ProfilesPage />} />
           <Route path={`${ROUTES.profiles}/:profileId`} element={<ProfilesPage />} />
           <Route path={ROUTES.memory} element={<MemoryPage />} />

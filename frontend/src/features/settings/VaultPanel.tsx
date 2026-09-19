@@ -56,9 +56,13 @@ export function VaultPanel({ vault, disabled = false, onSavePath }: VaultPanelPr
   return (
     <article className="settings-card">
       <p className="settings-card__kicker">Local-first storage</p>
-      <h2 className="settings-card__title">Obsidian vault</h2>
+      <h2 className="settings-card__title">App data & Obsidian</h2>
+      <p className="settingsHint">
+        Native installs store jobs and documents under the AppFly data directory. Obsidian is
+        optional — import from the Vault page if you already have a markdown vault.
+      </p>
       <form className="vaultForm" onSubmit={handleSubmit}>
-        <label htmlFor="vault-path">Vault path</label>
+        <label htmlFor="vault-path">Obsidian vault path (import source)</label>
         <div className="settingsActions">
           <input
             id="vault-path"
