@@ -196,7 +196,7 @@ export function VaultPage() {
       </header>
 
       <p className="vault__location">
-        Stored in <code>{workspace?.path ?? "—"}</code> ·{" "}
+        Stored in <code>{workspace?.data_path ?? "—"}</code> ·{" "}
         <Link to={ROUTES.settings}>change in Settings</Link>
       </p>
 

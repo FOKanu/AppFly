@@ -5,23 +5,25 @@ Jobhunt Copilot is a **local-first** job assistant. The human submits applicatio
 ## Layers
 
 ```
-frontend/          React UI (Vite). Feature folders only; A0 has no real screens.
-    └── HTTP       (A1) 127.0.0.1:8787  — never puts secret values in GET bodies
+frontend/          React UI (Vite). Feature folders under src/features/
+    └── HTTP       127.0.0.1:8787  — never puts secret values in GET bodies
 backend/          Python package `jobhunt`
     cli.py         `jobhunt init|scout|match|write|run`
-    api/           FastAPI. A0: GET /health only
+    api/           FastAPI (jobs, runs, settings, secrets, documents, workspace)
+    store/         AppStore protocol — SqliteStore (native) or MarkdownVaultStore
     policy.py      Canonical crawl deny-list (DENIED_CRAWL_HOSTS)
     config.py      Repo-root config.yaml, .env, vault-templates, .cache
     models.py      Job, Requirements
-    vault.py       Obsidian markdown I/O
+    vault.py       Obsidian markdown I/O (markdown backend + import source)
     features/      One capability per folder
         scout/     agentur, rss, inbox, apify, collect_jobs
         match/     hard filters + local embeddings
         write/     sealed packet → Gemini letter
-vault-templates/   Copied into the user's vault on init (repo root)
+        secrets/   write-only Keychain
+vault-templates/   Copied into markdown vaults / used on import (repo root)
 ```
 
-Shared code (config, models, vault, policy, runlog, CLI) stays under `backend/src/jobhunt/`, not inside a feature folder. Do not merge scout, match, and write into one module.
+Storage epic: [STORAGE.md](STORAGE.md). Shared code (config, models, vault, store, policy, runlog, CLI) stays under `backend/src/jobhunt/`, not inside a feature folder. Do not merge scout, match, and write into one module.
 
 ## How to add a feature
 
@@ -43,11 +45,11 @@ Do not implement a feature by editing an unrelated file. Do not crawl deny-liste
 `jobhunt write` → `features.write.write_letters` → `Letters/` + status `draft`  
 `jobhunt run` → all three, then `Runs/YYYY-MM-DD.md` and `Home.md`
 
-Config and `.env` are read from the **git repository root**, even though the package lives in `backend/`. The vault is a separate Obsidian folder (default `~/Documents/Job Search`).
+Config and `.env` are read from the **git repository root**, even though the package lives in `backend/`. Native installs use SQLite under the OS app-data dir; markdown mode still uses an Obsidian-compatible folder (default `~/Documents/Job Search`).
 
-**UI (scaffold only in A0):**
+**UI:**
 
-Browser → `VITE_API_BASE_URL` (default `http://127.0.0.1:8787`) → FastAPI → same vault and config. A0 serves `GET /health`. A1 adds jobs, runs, and settings routes from [API.md](API.md). The UI must not fetch listing URLs itself, especially deny-listed hosts.
+Browser → `VITE_API_BASE_URL` (default `http://127.0.0.1:8787`) → FastAPI → `get_store(config)`. Routes: [API.md](API.md). The UI must not fetch listing URLs itself, especially deny-listed hosts. Vault (`/vault`) is the in-app document library; Obsidian is optional import only.
 
 ## Crawl policy
 

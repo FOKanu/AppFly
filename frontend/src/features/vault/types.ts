@@ -73,12 +73,18 @@ export interface VaultSnapshot {
   availability: VaultAvailability;
 }
 
-/** Where AppFly keeps its own files, and whether that location is ready. */
+/**
+ * Where AppFly keeps its own files, and what is still missing.
+ * Mirrors `InitResponse` in backend/src/jobhunt/api/routes/workspace.py.
+ */
 export interface WorkspaceStatus {
-  /** Absolute path to the native app-data directory. */
-  path: string;
-  initialised: boolean;
-  documentCount: number;
-  /** True once an Obsidian vault has been imported at least once. */
-  importedFromObsidian: boolean;
+  /** "native" uses the app-data dir; "markdown" uses the Obsidian vault. */
+  storage_backend: "native" | "markdown" | string;
+  /** Absolute path to the store this install actually uses. */
+  data_path: string;
+  has_cv: boolean;
+  has_voice: boolean;
+  has_gemini: boolean;
+  has_keywords: boolean;
+  job_count: number;
 }

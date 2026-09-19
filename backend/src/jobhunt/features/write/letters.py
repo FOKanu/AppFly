@@ -8,6 +8,8 @@ Does not: Submit applications, include a second job, or crawl listing URLs.
 
 from __future__ import annotations
 
+from typing import Any
+
 from jobhunt.config import AppConfig
 from jobhunt.models import Job, Requirements
 from jobhunt.vault import Vault
@@ -69,6 +71,40 @@ def write_letters(config: AppConfig, vault: Vault) -> dict[str, int]:
         )
         written += 1
     return {"written": written, "skipped": skipped, "capped": max(0, len(candidates) - config.letter_cap)}
+
+
+def regenerate_letter_for_job(config: AppConfig, vault: Any, job: Job) -> str:
+    """Force-generate a letter for one job, overwriting any existing draft.
+
+    Purpose: Packet ``Regenerate`` control.
+    Inputs: Config, store/vault duck-type, single Job.
+    Returns: Letter markdown body.
+    Does not: Submit the application or include another job.
+    """
+
+    if not config.gemini_api_key:
+        raise RuntimeError("GEMINI_API_KEY is not set. Add it in Settings or .env.")
+    requirements = vault.load_requirements()
+    cv_text = _cv_slice(vault.read_cv())
+    samples = vault.read_voice_samples()
+    company_note = vault.read_company_body(job.company)
+    packet = build_packet(
+        job,
+        cv_text=cv_text,
+        samples=samples,
+        company_note=company_note,
+        requirements=requirements,
+        excerpt_chars=config.jd_excerpt_chars,
+    )
+    letter, tokens_in, tokens_out = _call_gemini(config, packet)
+    vault.write_letter(
+        job,
+        letter,
+        model=config.gemini_model,
+        tokens_in=tokens_in,
+        tokens_out=tokens_out,
+    )
+    return letter
 
 
 def build_packet(

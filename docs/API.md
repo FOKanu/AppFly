@@ -18,6 +18,19 @@ Local FastAPI app (`jobhunt.api.app:app`), default bind `http://127.0.0.1:8787`.
 | PUT | `/settings` | Replace non-secret settings | JSON subset of `config.yaml` | Updated settings (same shape as GET, still no raw secrets) | Write `GEMINI_API_KEY` / Apify tokens into YAML |
 | PUT | `/settings/secrets/{name}` | Store a named secret | `{"value": "..."}`; `name` is `gemini`, `apify`, or `jobsuche` | `{ "configured": true }` (no value echoed) | Return last-4 or plaintext |
 | DELETE | `/settings/secrets/{name}` | Remove a named secret | path `name` | `{ "configured": false }` | Return the old value |
+| GET | `/jobs/{id}/letter` | Full letter body | path | `{ body, model, … }` | CV body |
+| PUT | `/jobs/{id}/letter` | Save edited letter | `{ body }` | Saved letter | Auto-submit |
+| POST | `/jobs/{id}/letter/regenerate` | Force Gemini rewrite | none | New letter body | Include other jobs |
+| GET | `/runs/{id}` | Async run status | path | counts, errors, status | Secrets |
+| POST | `/runs/{id}/cancel` | Best-effort cancel | path | `{ cancelled }` | Kill Gemini mid-call reliably |
+| GET/POST | `/documents` | List / upload Vault docs | multipart on POST | metadata only | CV body in list |
+| GET/PATCH/DELETE | `/documents/{id}` | Meta / update / delete | patch fields | metadata | Echo originals in PATCH |
+| GET | `/documents/{id}/text` | Extracted text | path | plain text | Meant for engine; UI must not show CV in Memory |
+| GET | `/documents/{id}/file` | Download original | path | file bytes | Crawl URLs inside file |
+| GET/POST | `/workspace/status` `/workspace/init` | Readiness / ensure native store | none | checklist + data_path | Create Obsidian sync |
+| POST | `/workspace/import/obsidian` | One-shot Obsidian import | `{ vault_path }` | import report | Dual-write / live sync |
+
+See also [STORAGE.md](STORAGE.md).
 
 ### Job list query
 

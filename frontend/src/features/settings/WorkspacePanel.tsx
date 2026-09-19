@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "../../shared/ui/Button";
 import { ROUTES } from "../../routes";
-import { getWorkspace, initWorkspace, listDocuments } from "../vault/api";
+import { getWorkspace, initWorkspace } from "../vault/api";
 import type { WorkspaceStatus } from "../vault/types";
 
 interface WorkspacePanelProps {
@@ -20,29 +20,22 @@ interface ReadinessItem {
 }
 
 /**
- * Purpose: Where AppFly keeps your files, and whether that location is ready.
- * Does not: mention Obsidian — importing an existing vault is a separate,
- *           optional panel. AppFly owns its storage natively.
+ * Purpose: Where AppFly keeps its own files, and what is still missing before
+ *          a run will produce anything useful.
+ * Does not: mention Obsidian under "native" storage — importing an existing
+ *           vault is a separate, optional panel. The readiness flags come
+ *           straight from GET /workspace/status rather than being re-derived.
  */
 export function WorkspacePanel({ onToast }: WorkspacePanelProps) {
   const [workspace, setWorkspace] = useState<WorkspaceStatus | null>(null);
-  const [documents, setDocuments] = useState({ cv: 0, voice: 0, total: 0 });
   const [busy, setBusy] = useState(false);
-  const [storeLive, setStoreLive] = useState(false);
+  const [canInit, setCanInit] = useState(true);
 
   const load = useCallback(async () => {
-    const [status, snapshot] = await Promise.all([
-      getWorkspace().catch(() => null),
-      listDocuments().catch(() => null),
-    ]);
-    if (status) setWorkspace(status);
-    if (snapshot) {
-      setStoreLive(snapshot.availability === "live");
-      setDocuments({
-        cv: snapshot.documents.filter((doc) => doc.kind === "cv").length,
-        voice: snapshot.documents.filter((doc) => doc.kind === "voice").length,
-        total: snapshot.documents.length,
-      });
+    try {
+      setWorkspace(await getWorkspace());
+    } catch {
+      setCanInit(false);
     }
   }, []);
 
@@ -53,43 +46,46 @@ export function WorkspacePanel({ onToast }: WorkspacePanelProps) {
   const onInit = useCallback(async () => {
     setBusy(true);
     try {
-      const next = await initWorkspace();
-      setWorkspace(next);
+      setWorkspace(await initWorkspace());
       onToast("App data folder created.");
     } catch {
-      onToast("Could not create the folder — /workspace/init is not serving yet.");
+      setCanInit(false);
+      onToast("Could not create the folder — POST /workspace/init is not serving yet.");
     } finally {
       setBusy(false);
     }
   }, [onToast]);
 
+  // Under "markdown" the Obsidian vault is the live store, not the app-data dir.
+  const markdown = workspace?.storage_backend === "markdown";
+
   const checklist: ReadinessItem[] = [
     {
-      id: "folder",
-      label: "App data folder created",
-      done: Boolean(workspace?.initialised),
-      action: "Create",
-    },
-    {
       id: "cv",
-      label: "At least one CV stored",
-      done: documents.cv > 0,
+      label: "A CV stored",
+      done: Boolean(workspace?.has_cv),
       to: ROUTES.vault,
       action: "Add a CV",
     },
     {
       id: "voice",
-      label: "Voice sample stored",
-      done: documents.voice > 0,
+      label: "A voice sample stored",
+      done: Boolean(workspace?.has_voice),
       to: ROUTES.vault,
       action: "Add a sample",
     },
     {
-      id: "profile",
+      id: "keywords",
       label: "A search preset with role titles",
-      done: true,
+      done: Boolean(workspace?.has_keywords),
       to: ROUTES.profiles,
       action: "Edit preset",
+    },
+    {
+      id: "gemini",
+      label: "A writer model key",
+      done: Boolean(workspace?.has_gemini),
+      action: "Add below",
     },
   ];
 
@@ -97,19 +93,24 @@ export function WorkspacePanel({ onToast }: WorkspacePanelProps) {
 
   return (
     <article className="settings-card">
-      <p className="settings-card__kicker">Native storage</p>
-      <h2 className="settings-card__title">App data location</h2>
+      <p className="settings-card__kicker">
+        {markdown ? "Markdown storage" : "Native storage"}
+      </p>
+      <h2 className="settings-card__title">
+        {markdown ? "Vault location" : "App data location"}
+      </h2>
 
       <div className="workspace-path">
-        <code>{workspace?.path ?? "—"}</code>
-        <span className="workspace-path__state" data-ready={workspace?.initialised ?? false}>
-          {workspace?.initialised ? "ready" : "not created"}
+        <code>{workspace?.data_path ?? "—"}</code>
+        <span className="workspace-path__state" data-ready={Boolean(workspace)}>
+          {workspace ? workspace.storage_backend : "unknown"}
         </span>
       </div>
 
       <p className="settings-card__copy">
-        AppFly stores your CVs, voice samples and credentials here, on this machine. It reads
-        and writes them directly — no external note app is required.
+        {markdown
+          ? "This install reads and writes a markdown vault at the path above. Change it under Obsidian vault below."
+          : "AppFly stores your CVs, voice samples and credentials here, on this machine. It reads and writes them directly — no external note app is required."}
       </p>
 
       <p className="workspace-checklist__head">
@@ -127,26 +128,27 @@ export function WorkspacePanel({ onToast }: WorkspacePanelProps) {
                 {item.action} →
               </Link>
             ) : (
-              <Button
-                variant="quiet"
-                size="sm"
-                disabled={busy || !storeLive}
-                title={
-                  storeLive ? undefined : "POST /workspace/init is not serving yet."
-                }
-                onClick={() => void onInit()}
-              >
-                {busy ? "Working…" : item.action}
-              </Button>
+              <span className="workspace-check__hint">{item.action}</span>
             )}
           </li>
         ))}
       </ul>
 
-      <p className="settings-card__copy">
-        {documents.total} file{documents.total === 1 ? "" : "s"} stored ·{" "}
-        <Link to={ROUTES.vault}>open the Vault</Link>
-      </p>
+      <div className="workspace-foot">
+        <span>
+          {workspace?.job_count ?? 0} job note{workspace?.job_count === 1 ? "" : "s"} ·{" "}
+          <Link to={ROUTES.vault}>open the Vault</Link>
+        </span>
+        <Button
+          variant="quiet"
+          size="sm"
+          disabled={busy || !canInit}
+          title={canInit ? undefined : "POST /workspace/init is not serving yet."}
+          onClick={() => void onInit()}
+        >
+          {busy ? "Working…" : "Re-create folders"}
+        </Button>
+      </div>
     </article>
   );
 }

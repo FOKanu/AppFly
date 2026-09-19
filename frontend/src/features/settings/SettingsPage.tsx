@@ -70,8 +70,9 @@ export function SettingsPage() {
           <WorkspacePanel onToast={toast.show} />
           <ConnectivityPanel connectivity={settings.connectivity} />
           <ImportObsidianPanel
-            suggestedPath={settings.vault.path}
+            vaultPath={settings.vault.path}
             onToast={toast.show}
+            onSaved={() => void reload()}
           />
         </div>
         <div className="settings__col">

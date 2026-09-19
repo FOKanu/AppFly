@@ -86,14 +86,17 @@ export async function listDocuments(): Promise<VaultSnapshot> {
  */
 export async function getWorkspace(): Promise<WorkspaceStatus> {
   try {
-    return await apiGet<WorkspaceStatus>("/workspace");
+    return await apiGet<WorkspaceStatus>("/workspace/status");
   } catch (error) {
     if (isMissingEndpoint(error)) {
       return {
-        path: defaultWorkspacePath(),
-        initialised: false,
-        documentCount: 0,
-        importedFromObsidian: false,
+        storage_backend: "native",
+        data_path: defaultWorkspacePath(),
+        has_cv: false,
+        has_voice: false,
+        has_gemini: false,
+        has_keywords: false,
+        job_count: 0,
       };
     }
     throw error;
@@ -115,7 +118,7 @@ export async function initWorkspace(): Promise<WorkspaceStatus> {
 export async function importObsidianVault(path: string): Promise<WorkspaceStatus> {
   return apiFetch<WorkspaceStatus>("/workspace/import/obsidian", {
     method: "POST",
-    body: JSON.stringify({ path }),
+    body: JSON.stringify({ vault_path: path }),
   });
 }
 

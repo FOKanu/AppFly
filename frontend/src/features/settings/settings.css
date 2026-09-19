@@ -498,3 +498,26 @@
   display: block;
   margin-top: 14px;
 }
+
+.workspace-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.workspace-foot > :first-child {
+  flex: 1 1 auto;
+}
+
+.workspace-foot a {
+  color: var(--accent);
+}
+
+.workspace-check__hint {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+}

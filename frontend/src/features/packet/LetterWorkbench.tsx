@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "../../shared/ui/Button";
 import { Segmented } from "../../shared/ui/Segmented";
 
@@ -28,14 +28,13 @@ interface LetterWorkbenchProps {
   onRegenerate: () => void;
 }
 
-/** Why the write controls are inert: there is no endpoint behind them. */
-const NO_WRITE_ENDPOINT =
-  "The local API has no letter-write endpoint yet. The stored letter is the source of truth.";
+/** Why the write controls were inert before letter PUT landed. */
+const SAVE_HINT = "Saves to the local AppFly store (native SQLite or markdown vault).";
 
 /**
  * Purpose: Letter editor — the AI draft beside your edit, with the mode,
  *          language and save controls from the Figma packet frame.
- * Does not: send the letter anywhere. Saving writes to the vault on this machine.
+ * Does not: submit the application.
  */
 export function LetterWorkbench({
   aiDraft,
@@ -47,6 +46,10 @@ export function LetterWorkbench({
   const [mode, setMode] = useState<LetterMode>("split");
   const [language, setLanguage] = useState<"EN" | "DE">("EN");
   const [text, setText] = useState(yourEdit ?? aiDraft);
+
+  useEffect(() => {
+    setText(yourEdit ?? aiDraft);
+  }, [aiDraft, yourEdit]);
 
   const aiLines = lines(aiDraft);
   const yourLines = lines(text);
@@ -71,8 +74,7 @@ export function LetterWorkbench({
           type="button"
           className="letter__icon-button"
           aria-label="Regenerate letter"
-          disabled
-          title={NO_WRITE_ENDPOINT}
+          title="Regenerate with Gemini"
           onClick={onRegenerate}
         >
           ↻
@@ -81,14 +83,8 @@ export function LetterWorkbench({
           <span className="letter__added">+{added}</span>{" "}
           <span className="letter__removed">−{removed}</span>
         </span>
-        <Button
-          variant="primary"
-          shortcut="⌘S"
-          disabled
-          title={NO_WRITE_ENDPOINT}
-          onClick={() => onSave(text)}
-        >
-          Save to vault
+        <Button variant="primary" shortcut="⌘S" title={SAVE_HINT} onClick={() => onSave(text)}>
+          Save letter
         </Button>
       </header>
 
@@ -143,7 +139,7 @@ export function LetterWorkbench({
         ) : null}
       </div>
 
-      <p className="letter__note">{NO_WRITE_ENDPOINT}</p>
+      <p className="letter__note">{SAVE_HINT}</p>
     </section>
   );
 }

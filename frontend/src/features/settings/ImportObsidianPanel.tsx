@@ -1,47 +1,81 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "../../shared/ui/Button";
 import { importObsidianVault } from "../vault/api";
+import { putVaultPath } from "./settingsApi";
 
 interface ImportObsidianPanelProps {
-  /** Path the old config still points at, offered as the default. */
-  suggestedPath: string;
+  /** `vault_path` from config.yaml, the folder this panel edits. */
+  vaultPath: string;
   onToast: (message: string) => void;
+  /** Re-read settings after the path is saved. */
+  onSaved: () => void;
 }
 
 /**
- * Purpose: Optional one-way import of an existing Obsidian vault into AppFly's
- *          own storage.
- * Does not: keep the two in sync, and is not required to use the app. After an
- *           import the copy in AppFly is the one the copilot reads.
+ * Purpose: The Obsidian vault folder — persist it, and optionally copy it into
+ *          AppFly's own storage once.
+ * Does not: keep the two in sync. Saving the path only records it; importing is
+ *           a separate, one-way copy, and AppFly never writes back to Obsidian.
+ *
+ * Why the path is still editable: `storage_backend` in config.yaml can be
+ * "native" or "markdown". Under "markdown" this folder *is* the live store, so
+ * the UI must be able to set it, not just import from it.
  */
-export function ImportObsidianPanel({ suggestedPath, onToast }: ImportObsidianPanelProps) {
-  const [path, setPath] = useState(suggestedPath);
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
+export function ImportObsidianPanel({
+  vaultPath,
+  onToast,
+  onSaved,
+}: ImportObsidianPanelProps) {
+  const [path, setPath] = useState(vaultPath);
+  const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [imported, setImported] = useState(false);
+
+  // Adopt the stored path once settings arrive.
+  useEffect(() => {
+    setPath(vaultPath);
+  }, [vaultPath]);
+
+  const dirty = path.trim() !== vaultPath.trim();
+  const busy = saving || importing;
+
+  async function onSavePath() {
+    if (!path.trim()) return;
+    setSaving(true);
+    try {
+      await putVaultPath(path.trim());
+      onToast("Vault path saved to config.yaml.");
+      onSaved();
+    } catch {
+      onToast("Could not save the vault path.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function onImport() {
     if (!path.trim()) return;
-    setBusy(true);
+    setImporting(true);
     try {
       await importObsidianVault(path.trim());
-      setDone(true);
+      setImported(true);
       onToast("Vault imported into AppFly storage.");
     } catch {
       onToast("Import failed — /workspace/import/obsidian is not serving yet.");
     } finally {
-      setBusy(false);
+      setImporting(false);
     }
   }
 
   return (
     <article className="settings-card settings-card--secondary">
       <p className="settings-card__kicker settings-card__kicker--muted">Optional</p>
-      <h2 className="settings-card__title">Import an Obsidian vault</h2>
+      <h2 className="settings-card__title">Obsidian vault</h2>
 
       <p className="settings-card__copy">
-        Moving over from Obsidian? Point AppFly at the folder once and it copies your CVs,
-        letters and notes into its own storage. This is a one-time import, not a live sync —
-        afterwards AppFly reads its own copy.
+        Moving over from Obsidian? Point AppFly at the folder and import it once — it copies
+        your CVs, letters and notes into AppFly's own storage. This is a one-time import, not
+        a live sync.
       </p>
 
       <label className="import-field">
@@ -59,17 +93,26 @@ export function ImportObsidianPanel({ suggestedPath, onToast }: ImportObsidianPa
           />
           <Button
             variant="quiet"
+            disabled={busy || !dirty || !path.trim()}
+            title={dirty ? undefined : "The stored path already matches."}
+            onClick={() => void onSavePath()}
+          >
+            {saving ? "Saving…" : "Save path"}
+          </Button>
+          <Button
+            variant="quiet"
             disabled={busy || !path.trim()}
             onClick={() => void onImport()}
           >
-            {busy ? "Importing…" : done ? "Import again" : "Import"}
+            {importing ? "Importing…" : imported ? "Import again" : "Import"}
           </Button>
         </div>
       </label>
 
       <p className="settings-card__copy settings-card__copy--muted">
-        Nothing is deleted from the Obsidian folder, and you can keep using Obsidian on it
-        independently. AppFly will not write back to it.
+        Nothing is deleted from the Obsidian folder and you can keep using Obsidian on it
+        independently. If <code>storage_backend</code> is set to <code>markdown</code>, this
+        folder is the live store rather than an import source.
       </p>
     </article>
   );
