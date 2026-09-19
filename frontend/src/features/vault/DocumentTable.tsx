@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Chip } from "../../shared/ui/Chip";
 import { Tag } from "../../shared/ui/Tag";
 import { downloadUrl, formatBytes, formatUpdated } from "./api";
-import { DOCUMENT_KINDS, type VaultDocument } from "./types";
+import { DOCUMENT_KINDS, activeFlagFor, isActive, type VaultDocument } from "./types";
 
 interface DocumentTableProps {
   documents: VaultDocument[];
@@ -80,7 +80,7 @@ export function DocumentTable({
                   <span className="doc-table__label" title={document.label}>
                     {document.label}
                   </span>
-                  {document.active ? <Chip tone="accent">active</Chip> : null}
+                  {isActive(document) ? <Chip tone="accent">active</Chip> : null}
                 </>
               )}
             </span>
@@ -101,9 +101,9 @@ export function DocumentTable({
             </span>
 
             <span role="cell" className="doc-table__actions">
-              {document.kind === "cv" && !document.active ? (
+              {activeFlagFor(document.kind) && !isActive(document) ? (
                 <IconAction
-                  label={`Make ${document.label} the active CV`}
+                  label={`Make ${document.label} the active ${document.kind === "cv" ? "CV" : "voice sample"}`}
                   disabled={inert}
                   disabledReason={disabledReason}
                   onClick={() => onSetActive(document)}

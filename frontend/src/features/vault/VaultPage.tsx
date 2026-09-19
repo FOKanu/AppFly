@@ -15,7 +15,13 @@ import {
   patchDocument,
   uploadDocument,
 } from "./api";
-import { DOCUMENT_KINDS, type DocumentKind, type VaultDocument, type WorkspaceStatus } from "./types";
+import {
+  DOCUMENT_KINDS,
+  activeFlagFor,
+  type DocumentKind,
+  type VaultDocument,
+  type WorkspaceStatus,
+} from "./types";
 import "./vault.css";
 
 /** Kind filter values, with "all" in front of the real kinds. */
@@ -75,7 +81,12 @@ export function VaultPage() {
     async (files: File[], kind: DocumentKind) => {
       setUploading(true);
       try {
-        const added = await Promise.all(files.map((file) => uploadDocument(file, kind)));
+        const firstOfKind = !documents.some((doc) => doc.kind === kind);
+        const added = await Promise.all(
+          files.map((file, index) =>
+            uploadDocument(file, kind, firstOfKind && index === 0),
+          ),
+        );
         setDocuments((current) => [...added, ...current]);
         toast.show(
           added.length === 1
@@ -88,7 +99,7 @@ export function VaultPage() {
         setUploading(false);
       }
     },
-    [toast],
+    [documents, toast],
   );
 
   const onRename = useCallback(
@@ -111,18 +122,22 @@ export function VaultPage() {
 
   const onSetActive = useCallback(
     async (target: VaultDocument) => {
+      const flag = activeFlagFor(target.kind);
+      if (!flag) return;
       setBusyId(target.id);
       try {
-        await patchDocument(target.id, { active: true });
+        await patchDocument(target.id, { [flag]: true });
         // One active document per kind, so clear the flag on its siblings.
         setDocuments((current) =>
           current.map((doc) =>
-            doc.kind === target.kind ? { ...doc, active: doc.id === target.id } : doc,
+            doc.kind === target.kind ? { ...doc, [flag]: doc.id === target.id } : doc,
           ),
         );
-        toast.show(`${target.label} is now the active CV.`);
+        toast.show(
+          `${target.label} is now the active ${target.kind === "cv" ? "CV" : "voice sample"}.`,
+        );
       } catch {
-        toast.show("Could not set the active CV.");
+        toast.show("Could not change which file is active.");
       } finally {
         setBusyId(null);
       }
@@ -168,7 +183,7 @@ export function VaultPage() {
           <Stat
             label="Credentials"
             value={
-              documents.filter((d) => d.kind === "certification" || d.kind === "portfolio").length
+              documents.filter((d) => d.kind === "cert" || d.kind === "portfolio").length
             }
           />
         </div>

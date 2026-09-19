@@ -3,7 +3,7 @@ import { Button } from "../../shared/ui/Button";
 import { Chip } from "../../shared/ui/Chip";
 import { Tag } from "../../shared/ui/Tag";
 import { ROUTES } from "../../routes";
-import { DOCUMENT_KINDS, type DocumentKind, type VaultDocument } from "../vault/types";
+import { DOCUMENT_KINDS, isActive, type DocumentKind, type VaultDocument } from "../vault/types";
 
 interface ProfileDocumentsProps {
   /** Everything in the Vault, so the picker can offer real files. */
@@ -18,7 +18,7 @@ interface ProfileDocumentsProps {
 }
 
 /** Kinds a profile can attach. Inbox clips belong to the Queue, not a profile. */
-const ATTACHABLE: DocumentKind[] = ["cv", "voice", "certification", "portfolio"];
+const ATTACHABLE: DocumentKind[] = ["cv", "voice", "cert", "portfolio"];
 
 /**
  * Purpose: Attach files from the Vault to this profile — the CV and voice
@@ -71,7 +71,9 @@ export function ProfileDocuments({
                     : ""}
                 </span>
               </span>
-              {doc.active ? <Chip tone="accent">active CV</Chip> : null}
+              {isActive(doc) ? (
+                <Chip tone="accent">{doc.active_cv ? "active CV" : "active voice"}</Chip>
+              ) : null}
               <Button
                 variant="ghost"
                 size="sm"

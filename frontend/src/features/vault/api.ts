@@ -1,10 +1,6 @@
 import { ApiError, apiBaseUrl, apiFetch, apiGet } from "../../shared/api/client";
-import type {
-  DocumentKind,
-  VaultDocument,
-  VaultSnapshot,
-  WorkspaceStatus,
-} from "./types";
+import { activeFlagFor } from "./types";
+import type { DocumentKind, VaultDocument, VaultSnapshot, WorkspaceStatus } from "./types";
 
 /**
  * Purpose: Client for the native document store.
@@ -24,36 +20,33 @@ const SAMPLE_DOCUMENTS: VaultDocument[] = [
     kind: "cv",
     label: "CV — Software Engineer.md",
     mime: "text/markdown",
-    size_bytes: 8_214,
     word_count: 1_180,
     updated_at: "2026-09-18T20:12:00Z",
-    active: true,
+    active_cv: true,
   },
   {
     id: "sample-cv-2",
     kind: "cv",
     label: "CV — Platform focus.md",
     mime: "text/markdown",
-    size_bytes: 7_902,
     word_count: 1_044,
     updated_at: "2026-09-11T09:40:00Z",
-    active: false,
+    active_cv: false,
   },
   {
     id: "sample-voice-1",
     kind: "voice",
     label: "Voice samples.md",
     mime: "text/markdown",
-    size_bytes: 3_118,
     word_count: 470,
     updated_at: "2026-09-16T18:02:00Z",
+    active_voice: true,
   },
   {
     id: "sample-cert-1",
-    kind: "certification",
+    kind: "cert",
     label: "AWS Solutions Architect.pdf",
     mime: "application/pdf",
-    size_bytes: 412_880,
     updated_at: "2026-08-02T11:25:00Z",
   },
   {
@@ -61,7 +54,6 @@ const SAMPLE_DOCUMENTS: VaultDocument[] = [
     kind: "portfolio",
     label: "Payments platform case study.pdf",
     mime: "application/pdf",
-    size_bytes: 1_204_551,
     updated_at: "2026-07-21T15:48:00Z",
   },
 ];
@@ -133,11 +125,18 @@ export async function importObsidianVault(path: string): Promise<WorkspaceStatus
  * Does not: read the file in the browser; it is streamed as multipart so a CV
  *           body never enters the React tree.
  */
-export async function uploadDocument(file: File, kind: DocumentKind): Promise<VaultDocument> {
+export async function uploadDocument(
+  file: File,
+  kind: DocumentKind,
+  /** Mark this the active CV/voice sample on upload — used for a first file. */
+  makeActive = false,
+): Promise<VaultDocument> {
   const body = new FormData();
   body.append("file", file);
   body.append("kind", kind);
   body.append("label", file.name);
+  const flag = activeFlagFor(kind);
+  if (makeActive && flag) body.append(flag, "true");
   // Multipart sets its own boundary, so no Content-Type header here.
   return apiFetch<VaultDocument>("/documents", { method: "POST", body });
 }
@@ -148,7 +147,7 @@ export async function uploadDocument(file: File, kind: DocumentKind): Promise<Va
  */
 export async function patchDocument(
   id: string,
-  patch: { label?: string; active?: boolean },
+  patch: { label?: string; kind?: DocumentKind; active_cv?: boolean; active_voice?: boolean },
 ): Promise<VaultDocument> {
   return apiFetch<VaultDocument>(`/documents/${encodeURIComponent(id)}`, {
     method: "PATCH",

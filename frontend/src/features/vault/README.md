@@ -13,7 +13,17 @@ This is the *file* surface. Its two neighbours are deliberately separate:
 ## Never render a body
 
 `GET /documents` is metadata only by contract — id, kind, label, mime,
-word_count, active. There is no body field, so the table cannot leak a CV.
+word_count, `active_cv`/`active_voice`, timestamps. There is no body field, so
+the table cannot leak a CV.
+
+Field names and kinds mirror `DocumentOut` in
+`backend/src/jobhunt/api/routes/documents.py` and `DocumentKind` in
+`backend/src/jobhunt/store/types.py`:
+`cv | voice | cert | portfolio | inbox | other`, with the active CV and the
+active voice sample tracked as **two separate flags**.
+
+`DocumentOut` does not carry a byte size, so the Size column shows an em dash
+until the store reports one.
 
 `documentText(id)` exists in `api.ts` for a future preview pane and is **not
 called from any list view**. Keeping it out of the table, Memory and Profiles

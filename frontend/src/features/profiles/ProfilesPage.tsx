@@ -6,6 +6,7 @@ import { Toast, useToast } from "../../shared/ui/Toast";
 import { recordProfileSnapshot } from "../memory/versionLedger";
 import { fetchSettings, profileFromSettings, saveProfile, saveSources } from "./api";
 import { STORE_UNAVAILABLE_NOTE, listDocuments } from "../vault/api";
+import { isActive } from "../vault/types";
 import type { VaultDocument } from "../vault/types";
 import { ProfileDocuments } from "./ProfileDocuments";
 import { ProfileList } from "./ProfileList";
@@ -88,7 +89,7 @@ export function ProfilesPage() {
         setAttachedIds((current) =>
           current.length > 0
             ? current
-            : snapshot.documents.filter((doc) => doc.active).map((doc) => doc.id),
+            : snapshot.documents.filter(isActive).map((doc) => doc.id),
         );
       })
       .catch(() => undefined);

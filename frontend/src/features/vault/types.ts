@@ -4,16 +4,20 @@
  *           text never reaches the table, Memory, or Profiles.
  */
 
-/** What a stored file is for. */
-export type DocumentKind = "cv" | "voice" | "certification" | "portfolio" | "clip";
+/**
+ * What a stored file is for. These match `DocumentKind` in
+ * `backend/src/jobhunt/store/types.py` exactly — the store rejects anything else.
+ */
+export type DocumentKind = "cv" | "voice" | "cert" | "portfolio" | "inbox" | "other";
 
 /** Display order and labels for the kind filter. */
 export const DOCUMENT_KINDS: { value: DocumentKind; label: string; hint: string }[] = [
   { value: "cv", label: "CV", hint: "Given to the writer as your history" },
   { value: "voice", label: "Voice sample", hint: "Steers the tone of letters" },
-  { value: "certification", label: "Certification", hint: "Licences and credentials" },
+  { value: "cert", label: "Certification", hint: "Licences and credentials" },
   { value: "portfolio", label: "Portfolio", hint: "Case studies and work samples" },
-  { value: "clip", label: "Inbox clip", hint: "A listing you saved yourself" },
+  { value: "inbox", label: "Inbox clip", hint: "A listing you saved yourself" },
+  { value: "other", label: "Other", hint: "Anything else worth keeping" },
 ];
 
 /**
@@ -25,14 +29,36 @@ export interface VaultDocument {
   kind: DocumentKind;
   label: string;
   mime: string;
-  /** Bytes on disk, when the backend reports it. */
+  /**
+   * Bytes on disk. `DocumentOut` does not carry it yet, so the table shows an
+   * em dash until the store reports it.
+   */
   size_bytes?: number;
   /** Words in the extracted text, for documents the writer reads. */
   word_count?: number;
-  /** ISO timestamp of the last write. */
+  /** ISO timestamps from the store. */
+  created_at?: string;
   updated_at?: string;
-  /** True for the CV currently handed to the writer. One per kind at most. */
-  active?: boolean;
+  /** Filename as uploaded, before any rename. */
+  original_name?: string;
+  /**
+   * The store tracks the active CV and the active voice sample separately,
+   * so these are two flags rather than one.
+   */
+  active_cv?: boolean;
+  active_voice?: boolean;
+}
+
+/** Which active flag a kind uses, or null when the kind has none. */
+export function activeFlagFor(kind: DocumentKind): "active_cv" | "active_voice" | null {
+  if (kind === "cv") return "active_cv";
+  if (kind === "voice") return "active_voice";
+  return null;
+}
+
+/** Purpose: Whether this document is the one its kind hands to the writer. */
+export function isActive(document: VaultDocument): boolean {
+  return Boolean(document.active_cv || document.active_voice);
 }
 
 /**
