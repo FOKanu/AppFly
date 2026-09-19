@@ -1,7 +1,8 @@
 /*
- * Purpose: Memory & profiles — preset column beside the CV / profile column,
- *          from the Figma "Desktop 1440 · Memory & profiles" frame.
+ * Purpose: Memory screen — the career ledger: applications, companies and
+ *          profile version history.
  * Does not: define colours or type sizes of its own; both come from tokens.
+ *           The preset-editor styles moved to features/profiles/profiles.css.
  */
 
 .memory {
@@ -10,44 +11,69 @@
   gap: 16px;
 }
 
-.memory__banner {
-  padding: 10px 14px;
-  border: 1px solid rgba(233, 162, 59, 0.3);
-  border-radius: var(--radius-sm);
-  background: var(--warning-soft);
-  color: var(--warning);
-  font-size: 12px;
+.memory__head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.memory__columns {
-  display: grid;
-  grid-template-columns: 378px minmax(0, 1fr);
-  gap: 18px;
-  align-items: start;
+.memory__stats {
+  display: flex;
+  gap: 10px;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
 }
 
-.memory__col {
+.memory-stat {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  min-width: 0;
+  gap: 2px;
+  min-width: 118px;
+  padding: 10px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
 }
 
-.memory-card {
+.memory-stat__label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.memory-stat__value {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.memory__crosslink {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.memory__crosslink a {
+  color: var(--accent);
+}
+
+/* —— Ledger card —— */
+
+.ledger-card {
   padding: 17px 19px 19px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-1);
 }
 
-.memory-card__head {
+.ledger-card__head {
   display: flex;
   align-items: flex-start;
   gap: 12px;
   margin-bottom: 14px;
 }
 
-.memory-card__kicker {
+.ledger-card__kicker {
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.08em;
@@ -55,136 +81,64 @@
   color: var(--accent);
 }
 
-.memory-card__title {
+.ledger-card__title {
   margin-top: 2px;
   font-size: 18px;
   line-height: 26px;
   font-weight: 600;
 }
 
-.memory-card__action {
-  margin-left: auto;
-}
-
-.memory-card__sync {
+.ledger-card__count {
   margin-left: auto;
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-tertiary);
-  overflow-wrap: anywhere;
-  text-align: right;
+  white-space: nowrap;
 }
 
-.memory-card__copy {
-  margin-top: 12px;
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--text-secondary);
-}
-
-.memory-card__note {
-  margin-top: 10px;
-  font-size: 11px;
-  color: var(--text-tertiary);
-}
-
-.memory-card__empty {
+.ledger-card__empty {
+  padding: 18px 0;
   font-size: 13px;
   color: var(--text-tertiary);
 }
 
-.memory-card__footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-/* —— Profile list —— */
-
-.profile-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.profile-row {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  width: 100%;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  text-align: left;
-  cursor: pointer;
-}
-
-.profile-row:hover {
-  border-color: var(--border-strong);
-}
-
-.profile-row.is-active {
-  border-color: rgba(103, 212, 227, 0.45);
-  background: var(--accent-soft);
-}
-
-.profile-row__head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.profile-row__name {
-  flex: 1 1 auto;
-  min-width: 0;
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 600;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.profile-row__detail {
-  font-size: 12px;
+.ledger-card__note {
+  margin-top: 14px;
+  font-size: 11px;
   line-height: 16px;
   color: var(--text-tertiary);
 }
 
-.profile-row__stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  margin-top: 6px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-tertiary);
+/* —— Application table —— */
+
+.ledger-table {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
 }
 
-.profile-row__stats b {
-  font-weight: 500;
-  color: var(--text);
-}
-
-/* —— CV & voice —— */
-
-.memory-panes {
+.ledger-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.6fr) 110px 120px 60px;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13px;
 }
 
-.memory-pane {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-width: 0;
+.ledger-row:last-child {
+  border-bottom: 0;
 }
 
-.memory-pane__label {
+a.ledger-row:hover {
+  background: var(--surface-3);
+}
+
+.ledger-row--head {
+  background: var(--surface-1);
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.08em;
@@ -192,92 +146,182 @@
   color: var(--text-tertiary);
 }
 
-.memory-pane__label:not(:first-child) {
-  margin-top: 16px;
+.ledger-row__company {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.memory-pane__box {
-  flex: 1 1 auto;
-  min-height: 164px;
-  padding: 14px;
+.ledger-row__role {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ledger-row__sub {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ledger-row__salary {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* —— Companies —— */
+
+.company-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.company-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 120px 60px;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
 }
 
-.memory-pane__note {
-  font-size: 12px;
-  line-height: 17px;
+.company-row__col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.company-row__name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.company-row__roles {
+  font-size: 11px;
   color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.memory-stats {
-  margin-top: 12px;
+.company-row__counts {
+  display: flex;
+  gap: 8px;
 }
 
-.memory-stats__row {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  gap: 10px;
-  padding: 4px 0;
+.company-tally {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 9px;
+  border-radius: var(--radius-pill);
   font-family: var(--font-mono);
   font-size: 11px;
+  background: var(--surface-3);
+  color: var(--text-secondary);
 }
 
-.memory-stats__row dt {
-  color: var(--text-tertiary);
+.company-tally[data-tone="applied"] {
+  color: var(--status-applied);
 }
 
-.memory-stats__row dd {
-  margin: 0;
-  color: var(--text);
-  overflow-wrap: anywhere;
+.company-tally[data-tone="approved"] {
+  color: var(--status-approved);
 }
 
-/* —— Profile settings —— */
-
-.memory-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px 22px;
-  align-items: start;
+.company-row__salary {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
-.salary-field {
+/* —— Version timeline —— */
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+}
+
+.timeline__item {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  padding: 0 0 18px 0;
+}
+
+.timeline__item:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 14px;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+
+.timeline__dot {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+}
+
+.timeline__dot[data-event="saved"] {
+  background: var(--accent);
+}
+
+.timeline__body {
+  min-width: 0;
+}
+
+.timeline__when {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: var(--control-h);
-  padding: 0 11px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
   color: var(--text-tertiary);
-  font-family: var(--font-mono);
-  font-size: 12px;
 }
 
-.salary-field input {
-  flex: 1 1 auto;
-  min-width: 0;
-  border: 0;
-  background: none;
+.timeline__event {
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  color: var(--text-secondary);
+}
+
+.timeline__changes {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
   color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  outline: none;
 }
 
-@media (max-width: 1279px) and (min-width: 1024px) {
-  .memory__columns {
-    grid-template-columns: 320px minmax(0, 1fr);
-  }
+.timeline__state {
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
 }
 
 @media (max-width: 1023px) {
-  .memory__columns,
-  .memory-panes,
-  .memory-grid {
-    grid-template-columns: minmax(0, 1fr);
+  .ledger-row,
+  .company-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 6px;
   }
 }

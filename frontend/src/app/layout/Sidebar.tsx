@@ -2,15 +2,19 @@ import { NavLink } from "react-router-dom";
 import { NAV_ITEMS } from "../nav-config";
 import appflyMark from "../brand/appfly-mark.png";
 import type { LinkHealth, SystemStatusResponse } from "../../shared/api/client";
+import type { HuntProfile } from "../../features/profiles/types";
+import { ProfileMenu } from "./ProfileMenu";
 
 interface SidebarProps {
   queueCount: number;
-  /** Active search-preset profile shown in the switcher. */
-  profileName: string;
+  /** Every search preset the API knows about. */
+  profiles: HuntProfile[];
+  activeProfileId: string | null;
+  onActivateProfile: (id: string) => void;
+  onCopyVaultPath: () => void;
   status: SystemStatusResponse;
   /** App version shown under the brand name. */
   version: string;
-  onOpenProfiles: () => void;
 }
 
 /**
@@ -20,10 +24,12 @@ interface SidebarProps {
  */
 export function Sidebar({
   queueCount,
-  profileName,
+  profiles,
+  activeProfileId,
+  onActivateProfile,
+  onCopyVaultPath,
   status,
   version,
-  onOpenProfiles,
 }: SidebarProps) {
   return (
     <>
@@ -36,15 +42,12 @@ export function Sidebar({
           </div>
         </div>
 
-        <button type="button" className="sidebar__profile" onClick={onOpenProfiles}>
-          <span className="sidebar__profile-col">
-            <span className="sidebar__profile-label">Profile</span>
-            <span className="sidebar__profile-value">{profileName}</span>
-          </span>
-          <span className="sidebar__profile-caret" aria-hidden="true">
-            ⌄
-          </span>
-        </button>
+        <ProfileMenu
+          profiles={profiles}
+          activeId={activeProfileId}
+          onActivate={onActivateProfile}
+          onCopyVaultPath={onCopyVaultPath}
+        />
 
         <nav className="sidebar__nav">
           {NAV_ITEMS.map((item) => (

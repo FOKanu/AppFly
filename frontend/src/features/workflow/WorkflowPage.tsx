@@ -1,4 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { ROUTES } from "../../routes";
+import { apiPost } from "../../shared/api/client";
+import { Toast, useToast } from "../../shared/ui/Toast";
+import {
+  fetchSettings,
+  profileFromSettings,
+  saveSources,
+  NOT_PERSISTED_NOTE,
+} from "../profiles/api";
+import type { HuntProfile } from "../profiles/types";
+import { recordProfileSnapshot } from "../memory/versionLedger";
 import { retryGemini } from "./api";
 import { GeminiRateLimitBanner } from "./GeminiRateLimitBanner";
 import { HeartbeatPanel, type HeartbeatStateName } from "./HeartbeatPanel";
@@ -18,23 +30,9 @@ const BANNED_HOSTS = [
   "glassdoor.de",
 ] as const;
 
-/** Scout channels the copilot may read. None of them is a job board. */
-const DEFAULT_SOURCES: ScoutSource[] = [
-  {
-    id: "agentur",
-    name: "Arbeitsagentur Jobsuche API",
-    detail: "official API",
-    enabled: true,
-  },
-  { id: "rss", name: "RSS feeds", detail: "allow-listed feeds", enabled: true },
-  { id: "inbox", name: "_inbox/ clips", detail: "manual drops · URLs never fetched", enabled: true },
-  {
-    id: "apify",
-    name: "Apify · company pages",
-    detail: "public company / Impressum only",
-    enabled: false,
-  },
-];
+/** Schedule and caps live in config.yaml but PUT /settings cannot reach them. */
+const SCHEDULE_NOTE =
+  "Schedule and caps live in config.yaml, which PUT /settings does not expose. Edit the file directly for now.";
 
 const DEFAULT_PLAN: NightlyPlan = {
   start: "02:00",
@@ -57,40 +55,115 @@ const DEFAULT_GUARDRAILS: Guardrails = {
 /**
  * Purpose: Workflow control plane — heartbeat and run controls, scout sources,
  *          nightly schedule and caps, writer model, and matcher guardrails.
- * Does not: persist the control plane yet. There is no write endpoint for it,
- *           so edits stay in this session until one lands.
+ * Does not: pretend to persist what PUT /settings cannot accept. Source toggles
+ *           save for real; schedule, caps, writer and guardrails are read-only.
  */
 export function WorkflowPage() {
   const { snapshot } = useWorkflow();
+  const toast = useToast();
 
-  const [sources, setSources] = useState(DEFAULT_SOURCES);
-  const [startUrls, setStartUrls] = useState<string[]>([]);
-  const [plan, setPlan] = useState(DEFAULT_PLAN);
-  const [writerMode, setWriterMode] = useState<WriterMode>("auto");
-  const [guardrails, setGuardrails] = useState(DEFAULT_GUARDRAILS);
-  const [savedGuardrails, setSavedGuardrails] = useState(DEFAULT_GUARDRAILS);
+  const [profile, setProfile] = useState<HuntProfile | null>(null);
+  const [savingSources, setSavingSources] = useState(false);
+  const [plan] = useState(DEFAULT_PLAN);
+  const [writerMode] = useState<WriterMode>("auto");
+  const [guardrails] = useState(DEFAULT_GUARDRAILS);
   const [retryMessage, setRetryMessage] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
+  const [running, setRunning] = useState(false);
 
   useEffect(() => {
     document.title = "AppFly · Workflow";
   }, []);
 
-  const run = snapshot?.lastRun ?? null;
-  const running = run?.status === "running";
-  const state: HeartbeatStateName = heartbeatFor(run?.status, snapshot?.rateLimited);
+  useEffect(() => {
+    let cancelled = false;
+    fetchSettings()
+      .then((settings) => {
+        if (!cancelled) setProfile(profileFromSettings(settings));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const unsavedCount = useMemo(
-    () => countChanges(guardrails, savedGuardrails),
-    [guardrails, savedGuardrails],
+  const run = snapshot?.lastRun ?? null;
+  const state: HeartbeatStateName = running
+    ? "hunting"
+    : heartbeatFor(run?.status, snapshot?.rateLimited);
+
+  const sources: ScoutSource[] = [
+    {
+      id: "agentur",
+      name: "Arbeitsagentur Jobsuche API",
+      detail: "official API",
+      enabled: profile?.sources.agentur ?? false,
+    },
+    {
+      id: "inbox",
+      name: "_inbox/ clips",
+      detail: "manual drops · URLs never fetched",
+      enabled: profile?.sources.inbox ?? false,
+    },
+    {
+      id: "rss",
+      name: "RSS feeds",
+      detail: `${profile?.sources.rss.length ?? 0} allow-listed feeds`,
+      enabled: (profile?.sources.rss.length ?? 0) > 0,
+      readOnly: true,
+      reason: "Edit RSS feed URLs in config.yaml; this screen does not add feeds.",
+    },
+    {
+      id: "apify",
+      name: "Apify · company pages",
+      detail: "public company / Impressum only",
+      enabled: profile?.sources.apifyEnabled ?? false,
+      readOnly: true,
+      reason: "PUT /settings does not accept the Apify toggle, so it is read-only here.",
+    },
+  ];
+
+  const onToggleSource = useCallback(
+    async (id: string, enabled: boolean) => {
+      if (id !== "agentur" && id !== "inbox") return;
+      setSavingSources(true);
+      try {
+        const settings = await saveSources({ [id]: enabled });
+        const next = profileFromSettings(settings);
+        setProfile(next);
+        recordProfileSnapshot(next, "saved");
+        toast.show(`${id === "agentur" ? "Arbeitsagentur API" : "_inbox clips"} ${enabled ? "on" : "off"}.`);
+      } catch {
+        toast.show("Could not save the source toggle.");
+      } finally {
+        setSavingSources(false);
+      }
+    },
+    [toast],
   );
 
-  async function onRetry() {
+  const onRunNow = useCallback(async () => {
+    setRunning(true);
+    try {
+      const result = await apiPost<{ scouted: number; shortlisted: number; written: number }>(
+        "/runs",
+      );
+      toast.show(
+        `Run finished — scouted ${result.scouted}, shortlisted ${result.shortlisted}, wrote ${result.written}.`,
+      );
+    } catch {
+      toast.show("Run failed — the local API is unreachable.");
+    } finally {
+      setRunning(false);
+    }
+  }, [toast]);
+
+  const onRetry = useCallback(async () => {
     setRetrying(true);
     const result = await retryGemini();
     setRetryMessage(result.message);
     setRetrying(false);
-  }
+  }, []);
 
   return (
     <div className="workflow">
@@ -104,11 +177,13 @@ export function WorkflowPage() {
 
       <HeartbeatPanel
         state={state}
-        detail={heartbeatDetail(run)}
+        detail={heartbeatDetail(run, running)}
         nightlyOn={plan.days.some(Boolean)}
-        onNightly={(on) => setPlan({ ...plan, days: plan.days.map(() => on) })}
-        onRunNow={() => undefined}
+        onNightly={() => undefined}
+        nightlyReason={SCHEDULE_NOTE}
+        onRunNow={() => void onRunNow()}
         onStop={() => undefined}
+        stopReason="The API has no cancel endpoint; a run finishes on its own."
         running={running}
       />
 
@@ -116,22 +191,18 @@ export function WorkflowPage() {
         <div className="workflow__col">
           <SourcesPanel
             sources={sources}
-            onToggle={(id, enabled) =>
-              setSources((current) =>
-                current.map((source) => (source.id === id ? { ...source, enabled } : source)),
-              )
-            }
-            startUrls={startUrls}
-            onAddStartUrl={(url) => setStartUrls((current) => [...current, url])}
+            onToggle={(id, enabled) => void onToggleSource(id, enabled)}
+            saving={savingSources}
+            startUrls={profile?.sources.apifyStartUrls ?? []}
           />
           <CrawlPolicyCard bannedHosts={BANNED_HOSTS} />
         </div>
 
         <div className="workflow__col">
-          <SchedulePanel plan={plan} onChange={setPlan} />
+          <SchedulePanel plan={plan} readOnlyReason={SCHEDULE_NOTE} />
           <WriterPanel
             mode={writerMode}
-            onMode={setWriterMode}
+            readOnlyReason={SCHEDULE_NOTE}
             tokenHistory={[]}
             cloudLabel="gemini-2.5-flash"
             localLabel="llama3.1:8b (fallback)"
@@ -142,14 +213,16 @@ export function WorkflowPage() {
         <div className="workflow__col">
           <RequirementsPanel
             value={guardrails}
-            onChange={setGuardrails}
-            unsavedCount={unsavedCount}
-            onDiscard={() => setGuardrails(savedGuardrails)}
-            onSave={() => setSavedGuardrails(guardrails)}
-            saveNote="Local to this session — the control-plane write endpoint is not wired yet."
+            readOnlyReason={NOT_PERSISTED_NOTE}
           />
+          <p className="workflow__crosslink">
+            Role titles and location are editable in{" "}
+            <Link to={ROUTES.profiles}>Profiles</Link>.
+          </p>
         </div>
       </div>
+
+      <Toast message={toast.message} onDismiss={toast.dismiss} />
     </div>
   );
 }
@@ -172,14 +245,12 @@ function heartbeatFor(
   }
 }
 
-function heartbeatDetail(run: { id: string; status: string; written: number } | null): string {
+function heartbeatDetail(
+  run: { id: string; status: string; written: number } | null,
+  running: boolean,
+): string {
+  if (running) return "run in flight · started from this screen";
   if (!run) return "no run recorded · nothing needs review";
   const drafts = run.written > 0 ? `${run.written} drafts need review` : "no drafts need review";
   return `run ${run.id.slice(-5)} ${run.status} · ${drafts}`;
-}
-
-/** How many guardrail fields differ from what was last saved. */
-function countChanges(next: Guardrails, saved: Guardrails): number {
-  const keys = Object.keys(next) as (keyof Guardrails)[];
-  return keys.filter((key) => JSON.stringify(next[key]) !== JSON.stringify(saved[key])).length;
 }

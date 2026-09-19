@@ -1,4 +1,3 @@
-import { Button } from "../../shared/ui/Button";
 import { Segmented } from "../../shared/ui/Segmented";
 import { TokenField } from "../../shared/ui/TokenField";
 
@@ -23,12 +22,8 @@ export interface Guardrails {
 
 interface RequirementsPanelProps {
   value: Guardrails;
-  onChange: (next: Guardrails) => void;
-  unsavedCount: number;
-  onDiscard: () => void;
-  onSave: () => void;
-  /** Shown when the control-plane write endpoint is not available. */
-  saveNote?: string;
+  /** Why none of this is editable here. */
+  readOnlyReason: string;
 }
 
 /**
@@ -36,14 +31,7 @@ interface RequirementsPanelProps {
  *          Requirements.md in the vault.
  * Does not: enforce the crawl deny-list; that is separate and read-only.
  */
-export function RequirementsPanel({
-  value,
-  onChange,
-  unsavedCount,
-  onDiscard,
-  onSave,
-  saveNote,
-}: RequirementsPanelProps) {
+export function RequirementsPanel({ value, readOnlyReason }: RequirementsPanelProps) {
   return (
     <section className="control-card control-card--tall" aria-labelledby="requirements-title">
       <p className="control-card__kicker">Match · Requirements.md</p>
@@ -54,59 +42,54 @@ export function RequirementsPanel({
       <p className="control-card__label">Locations</p>
       <TokenField
         values={value.locations}
-        onChange={(locations) => onChange({ ...value, locations })}
+        onChange={() => undefined}
         ariaLabel="Locations"
+        readOnlyNote={readOnlyReason}
       />
 
       <p className="control-card__label">Languages</p>
       <TokenField
         values={value.languages}
-        onChange={(languages) => onChange({ ...value, languages })}
+        onChange={() => undefined}
         ariaLabel="Languages"
+        readOnlyNote={readOnlyReason}
       />
 
       <p className="control-card__label">Required skills</p>
       <TokenField
         values={value.requiredSkills}
-        onChange={(requiredSkills) => onChange({ ...value, requiredSkills })}
+        onChange={() => undefined}
         ariaLabel="Required skills"
+        readOnlyNote={readOnlyReason}
       />
 
       <p className="control-card__label">Banned terms</p>
       <TokenField
         values={value.bannedTerms}
-        onChange={(bannedTerms) => onChange({ ...value, bannedTerms })}
+        onChange={() => undefined}
         ariaLabel="Banned terms"
+        readOnlyNote={readOnlyReason}
       />
 
       <p className="control-card__label">Skip companies</p>
       <TokenField
         values={value.skipCompanies}
-        onChange={(skipCompanies) => onChange({ ...value, skipCompanies })}
+        onChange={() => undefined}
         ariaLabel="Skip companies"
-        readOnlyNote="synced with Memory"
+        readOnlyNote={readOnlyReason}
       />
 
       <p className="control-card__label">Letter tone</p>
       <Segmented
         options={TONES}
         value={value.tone}
-        onChange={(tone) => onChange({ ...value, tone })}
+        onChange={() => undefined}
         ariaLabel="Letter tone"
+        disabled
+        disabledReason={readOnlyReason}
       />
 
-      <footer className="control-card__footer">
-        <span className="control-card__unsaved">
-          {unsavedCount > 0 ? `${unsavedCount} unsaved changes` : "No unsaved changes"}
-        </span>
-        <Button variant="ghost" onClick={onDiscard} disabled={unsavedCount === 0}>
-          Discard
-        </Button>
-        <Button variant="primary" onClick={onSave} disabled={unsavedCount === 0}>
-          Save requirements
-        </Button>
-      </footer>
-      {saveNote ? <p className="control-card__note">{saveNote}</p> : null}
+      <p className="control-card__note">{readOnlyReason}</p>
     </section>
   );
 }

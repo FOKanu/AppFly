@@ -28,6 +28,10 @@ interface LetterWorkbenchProps {
   onRegenerate: () => void;
 }
 
+/** Why the write controls are inert: there is no endpoint behind them. */
+const NO_WRITE_ENDPOINT =
+  "The local API has no letter-write endpoint. Edit the letter in Obsidian; the vault is the source of truth.";
+
 /**
  * Purpose: Letter editor — the AI draft beside your edit, with the mode,
  *          language and save controls from the Figma packet frame.
@@ -59,12 +63,16 @@ export function LetterWorkbench({
           value={language}
           onChange={setLanguage}
           ariaLabel="Letter language"
+          disabled
+          disabledReason="The writer produces one language per letter; switching needs a re-run the API does not expose."
         />
         <span className="letter__rule" />
         <button
           type="button"
           className="letter__icon-button"
           aria-label="Regenerate letter"
+          disabled
+          title={NO_WRITE_ENDPOINT}
           onClick={onRegenerate}
         >
           ↻
@@ -73,7 +81,13 @@ export function LetterWorkbench({
           <span className="letter__added">+{added}</span>{" "}
           <span className="letter__removed">−{removed}</span>
         </span>
-        <Button variant="primary" shortcut="⌘S" onClick={() => onSave(text)}>
+        <Button
+          variant="primary"
+          shortcut="⌘S"
+          disabled
+          title={NO_WRITE_ENDPOINT}
+          onClick={() => onSave(text)}
+        >
           Save to vault
         </Button>
       </header>
@@ -123,11 +137,13 @@ export function LetterWorkbench({
               onChange={(event) => setText(event.target.value)}
               aria-label="Your edit of the application letter"
               spellCheck
-              placeholder="Edit the letter here. It saves to the vault on this machine."
+              placeholder="No letter drafted yet."
             />
           </article>
         ) : null}
       </div>
+
+      <p className="letter__note">{NO_WRITE_ENDPOINT}</p>
     </section>
   );
 }

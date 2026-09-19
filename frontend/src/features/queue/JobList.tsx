@@ -61,9 +61,6 @@ export function JobList({
         >
           Skip
         </Button>
-        <Button variant="ghost" size="sm" disabled={checkedIds.size === 0}>
-          Tag
-        </Button>
       </div>
 
       {jobs.length === 0 ? (

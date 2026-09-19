@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { filterJobs, type QueueFilterState } from "./filterJobs";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { EMPTY_FILTERS, filterJobs, type QueueFilterState } from "./filterJobs";
 import { listJobs, patchJobStatus } from "./jobsApi";
 import { JobList } from "./JobList";
+import { KanbanBoard } from "./KanbanBoard";
 import { QueueDetail } from "./QueueDetail";
 import { QueueToolbar, type QueueSort, type QueueView } from "./QueueToolbar";
 import { UndoToast, type UndoEntry } from "./UndoToast";
@@ -20,11 +21,23 @@ export function QueuePage() {
   const [jobs, setJobs] = useState<JobRecord[]>([]);
   const [usingMock, setUsingMock] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<QueueFilterState>({ status: "all", source: "all" });
+  const [searchParams] = useSearchParams();
+  const [filters, setFilters] = useState<QueueFilterState>(EMPTY_FILTERS);
   const [view, setView] = useState<QueueView>("list");
   const [sort, setSort] = useState<QueueSort>("score");
   const [checkedIds, setCheckedIds] = useState<ReadonlySet<string>>(new Set());
   const [undo, setUndo] = useState<UndoEntry | null>(null);
+
+  // Tonight links here with ?status=draft and the header search with ?q=.
+  useEffect(() => {
+    const status = searchParams.get("status");
+    const query = searchParams.get("q");
+    setFilters((current) => ({
+      ...current,
+      status: isStatus(status) ? status : current.status,
+      query: query ?? current.query,
+    }));
+  }, [searchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -137,6 +150,7 @@ export function QueuePage() {
       <QueueToolbar
         filters={filters}
         onFilters={setFilters}
+        onReset={() => setFilters(EMPTY_FILTERS)}
         counts={counts}
         view={view}
         onView={setView}
@@ -149,6 +163,14 @@ export function QueuePage() {
         The panes always render, even with an empty vault, so the layout matches
         the design and every field has a visible home.
       */}
+      {view === "kanban" ? (
+        <KanbanBoard
+          jobs={visible}
+          selectedId={selected?.source_id ?? null}
+          onSelect={onSelect}
+          onMove={(job, status) => void setStatus(job, status)}
+        />
+      ) : (
       <div className="queue-page__panes">
         {jobs.length === 0 ? (
           <div className="job-list job-list--empty">
@@ -175,10 +197,16 @@ export function QueuePage() {
           onStep={onStep}
         />
       </div>
+      )}
 
       <UndoToast entry={undo} onUndo={onUndo} onDismiss={() => setUndo(null)} />
     </section>
   );
+}
+
+/** Narrow a URL parameter to a real job status. */
+function isStatus(value: string | null): value is JobStatus {
+  return value !== null && (JOB_STATUSES as readonly string[]).includes(value);
 }
 
 /** Row count per status plus the all-bucket, for the toolbar tabs. */

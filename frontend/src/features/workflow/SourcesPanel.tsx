@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Switch } from "../../shared/ui/Switch";
 
 /** One scout ingest channel. Never a deny-listed job board. */
@@ -7,14 +6,19 @@ export interface ScoutSource {
   name: string;
   detail: string;
   enabled: boolean;
+  /** True when PUT /settings cannot change this source. */
+  readOnly?: boolean;
+  /** Shown as the row's tooltip when it is read-only. */
+  reason?: string;
 }
 
 interface SourcesPanelProps {
   sources: ScoutSource[];
   onToggle: (id: string, enabled: boolean) => void;
-  /** Public company / Impressum pages Apify may visit. */
+  /** True while a toggle is being written to config.yaml. */
+  saving: boolean;
+  /** Public company / Impressum pages Apify may visit; read-only here. */
   startUrls: string[];
-  onAddStartUrl: (url: string) => void;
 }
 
 interface CrawlPolicyProps {
@@ -27,31 +31,24 @@ interface CrawlPolicyProps {
  *          Apify start URLs.
  * Does not: decide policy; a banned host is refused in code before any request.
  */
-export function SourcesPanel({
-  sources,
-  onToggle,
-  startUrls,
-  onAddStartUrl,
-}: SourcesPanelProps) {
-  const [draft, setDraft] = useState("");
-
-  function submit() {
-    const next = draft.trim();
-    if (!next) return;
-    onAddStartUrl(next);
-    setDraft("");
-  }
-
+export function SourcesPanel({ sources, onToggle, saving, startUrls }: SourcesPanelProps) {
   return (
     <section className="control-card" aria-labelledby="sources-title">
       <p className="control-card__kicker">Scout</p>
       <h2 id="sources-title" className="control-card__title">
         Sources
       </h2>
+      <p className="control-card__note">
+        {saving ? "Saving to config.yaml…" : "Toggles save to config.yaml."}
+      </p>
 
       <div className="source-rows">
         {sources.map((source) => (
-          <div className="source-row" key={source.id}>
+          <div
+            className="source-row"
+            key={source.id}
+            title={source.readOnly ? source.reason : undefined}
+          >
             <span className="source-row__col">
               <span className="source-row__name">{source.name}</span>
               <span className="source-row__detail">{source.detail}</span>
@@ -60,6 +57,7 @@ export function SourcesPanel({
               checked={source.enabled}
               onChange={(next) => onToggle(source.id, next)}
               label={source.name}
+              disabled={saving || source.readOnly}
             />
           </div>
         ))}
@@ -76,23 +74,10 @@ export function SourcesPanel({
         <p className="start-url start-url--empty">No start URLs configured.</p>
       )}
 
-      <div className="start-url-input">
-        <input
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              submit();
-            }
-          }}
-          placeholder="Paste company or Impressum URL…"
-          aria-label="Add an Apify start URL"
-        />
-        <button type="button" onClick={submit} aria-label="Add start URL">
-          ↵
-        </button>
-      </div>
+      <p className="control-card__note">
+        Apify start URLs are read from config.yaml. PUT /settings does not accept them, so
+        they cannot be edited here.
+      </p>
     </section>
   );
 }

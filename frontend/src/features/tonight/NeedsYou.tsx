@@ -10,6 +10,8 @@ import type { Job } from "./types";
 
 interface NeedsYouProps {
   drafts: Job[];
+  /** Job currently being written to the API, if any. */
+  busyId: string | null;
   onApprove: (job: Job) => void;
   onDeny: (job: Job) => void;
 }
@@ -20,7 +22,7 @@ interface NeedsYouProps {
  * Does not: submit anything. Approving marks the packet ready in the vault; the
  *           person still applies in their own browser.
  */
-export function NeedsYou({ drafts, onApprove, onDeny }: NeedsYouProps) {
+export function NeedsYou({ drafts, busyId, onApprove, onDeny }: NeedsYouProps) {
   const [top, ...rest] = drafts;
 
   return (
@@ -37,7 +39,12 @@ export function NeedsYou({ drafts, onApprove, onDeny }: NeedsYouProps) {
       </header>
 
       {top ? (
-        <TopDraft draft={top} onApprove={onApprove} onDeny={onDeny} />
+        <TopDraft
+          draft={top}
+          busy={busyId === top.source_id}
+          onApprove={onApprove}
+          onDeny={onDeny}
+        />
       ) : (
         <article className="top-draft top-draft--empty">
           <p className="t-title-sm">Nothing waiting for you</p>
@@ -75,10 +82,12 @@ export function NeedsYou({ drafts, onApprove, onDeny }: NeedsYouProps) {
 
 function TopDraft({
   draft,
+  busy,
   onApprove,
   onDeny,
 }: {
   draft: Job;
+  busy: boolean;
   onApprove: (job: Job) => void;
   onDeny: (job: Job) => void;
 }) {
@@ -119,10 +128,15 @@ function TopDraft({
       </div>
 
       <footer className="top-draft__actions">
-        <Button variant="approve" shortcut="A" onClick={() => onApprove(draft)}>
-          Approve packet
+        <Button
+          variant="approve"
+          shortcut="A"
+          disabled={busy}
+          onClick={() => onApprove(draft)}
+        >
+          {busy ? "Saving…" : "Approve packet"}
         </Button>
-        <Button variant="quiet" shortcut="D" onClick={() => onDeny(draft)}>
+        <Button variant="quiet" shortcut="D" disabled={busy} onClick={() => onDeny(draft)}>
           Deny
         </Button>
         <Link className="button button--quiet" to={`${ROUTES.packet}/${draft.source_id}`}>
@@ -130,15 +144,20 @@ function TopDraft({
           <kbd className="button__kbd">E</kbd>
         </Link>
         <span className="top-draft__rule" />
-        <a
-          className="link-action"
-          href={draft.url}
-          target="_blank"
-          rel="noreferrer noopener"
-          aria-disabled={draft.url ? undefined : true}
-        >
-          ↗ Open posting
-        </a>
+        {draft.url ? (
+          <a
+            className="link-action"
+            href={draft.url}
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            ↗ Open posting
+          </a>
+        ) : (
+          <span className="link-action is-disabled" title="This job note has no posting URL.">
+            ↗ Open posting
+          </span>
+        )}
       </footer>
     </article>
   );

@@ -9,6 +9,10 @@ interface SegmentedProps<T extends string> {
   onChange: (value: T) => void;
   ariaLabel: string;
   className?: string;
+  /** Renders every option inert — used where the backend cannot persist it. */
+  disabled?: boolean;
+  /** Tooltip explaining why it is disabled. */
+  disabledReason?: string;
 }
 
 /**
@@ -21,8 +25,12 @@ export function Segmented<T extends string>({
   onChange,
   ariaLabel,
   className,
+  disabled = false,
+  disabledReason,
 }: SegmentedProps<T>) {
-  const classes = ["segmented", className].filter(Boolean).join(" ");
+  const classes = ["segmented", disabled ? "is-disabled" : "", className]
+    .filter(Boolean)
+    .join(" ");
   return (
     <div className={classes} role="tablist" aria-label={ariaLabel}>
       {options.map((option) => (
@@ -34,6 +42,8 @@ export function Segmented<T extends string>({
           className={
             option.value === value ? "segmented__option is-active" : "segmented__option"
           }
+          disabled={disabled}
+          title={disabled ? disabledReason : undefined}
           onClick={() => onChange(option.value)}
         >
           {option.label}

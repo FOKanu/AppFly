@@ -1,0 +1,332 @@
+/*
+ * Purpose: Profiles screen — presets and guardrails beside the preset editor
+ *          and the document list.
+ * Does not: define colours or type sizes of its own; both come from tokens.
+ */
+
+.profiles {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.profiles__columns {
+  display: grid;
+  grid-template-columns: 378px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.profiles__col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.profiles__crosslink {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.profiles__crosslink a {
+  color: var(--accent);
+}
+
+/* —— Card —— */
+
+.profile-card {
+  padding: 17px 19px 19px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.profile-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.profile-card__kicker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.profile-card__title {
+  margin-top: 2px;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
+}
+
+.profile-card__saved {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.profile-card__empty {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.profile-card__note {
+  margin-top: 12px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--text-tertiary);
+}
+
+.profile-card__footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.profile-card__footer .profile-card__note {
+  flex: 1 1 auto;
+  margin-top: 0;
+}
+
+/* —— Preset editor —— */
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 22px;
+  align-items: start;
+}
+
+.profile-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.profile-label:not(:first-child) {
+  margin-top: 16px;
+}
+
+.profile-label__live {
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--ok-soft);
+  color: var(--status-approved);
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.profile-label__unsupported {
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  color: var(--text-tertiary);
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.profile-input {
+  width: 100%;
+  height: var(--control-h);
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.profile-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.salary-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--control-h);
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.salary-field[data-disabled="true"] {
+  opacity: 0.55;
+}
+
+.salary-field input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  outline: none;
+}
+
+/* —— Preset list —— */
+
+.preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.preset-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  text-align: left;
+  cursor: pointer;
+}
+
+.preset-row:hover {
+  border-color: var(--border-strong);
+}
+
+.preset-row.is-active {
+  border-color: rgba(103, 212, 227, 0.45);
+  background: var(--accent-soft);
+}
+
+.preset-row__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.preset-row__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preset-row__detail {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-tertiary);
+}
+
+.preset-row__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.preset-row__stats b {
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* —— Documents —— */
+
+.doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.doc-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.doc-row__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warning);
+  flex: 0 0 auto;
+}
+
+.doc-row[data-present="true"] .doc-row__dot {
+  background: var(--status-approved);
+}
+
+.doc-row__col {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.doc-row__label {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text);
+}
+
+.doc-row__path {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--text-tertiary);
+  overflow-wrap: anywhere;
+}
+
+.doc-row__state {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.doc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+@media (max-width: 1279px) and (min-width: 1024px) {
+  .profiles__columns {
+    grid-template-columns: 320px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 1023px) {
+  .profiles__columns,
+  .profile-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

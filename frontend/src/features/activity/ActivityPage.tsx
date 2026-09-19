@@ -77,12 +77,32 @@ export function ActivityPage() {
           <ExecutionLog
             events={events}
             totalEvents={events.length}
-            onExport={() => undefined}
+            onExport={() => downloadLog(events)}
           />
         </div>
       </div>
     </div>
   );
+}
+
+/**
+ * Purpose: Save the execution log as a .log file from the browser.
+ * Does not: call the API — the lines are already in memory and already
+ *           redacted, so this is a pure client-side download.
+ */
+function downloadLog(events: LogEvent[]): void {
+  const body = events
+    .map((event) => `${event.time}\t${event.channel}\t${event.level}\t${event.message}`)
+    .join("\n");
+  const blob = new Blob([`${body}\n`], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `jobhunt-${new Date().toISOString().slice(0, 10)}.log`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 const EMPTY_FUNNEL: ActivityView["funnel"] = {

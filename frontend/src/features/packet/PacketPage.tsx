@@ -98,8 +98,8 @@ export function PacketPage() {
             <LetterWorkbench
               aiDraft={job.letter_excerpt}
               writer={job.source === "agentur" ? "gemini-2.5-flash" : undefined}
-              onSave={() => setFeedback("Saved to the vault on this machine.")}
-              onRegenerate={() => setFeedback("Rewrite queued with the local writer.")}
+              onSave={() => undefined}
+              onRegenerate={() => undefined}
             />
             <CvTweaks tweaks={[]} />
             <ApproveStrip

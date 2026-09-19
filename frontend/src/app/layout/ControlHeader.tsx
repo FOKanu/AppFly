@@ -13,6 +13,8 @@ interface ControlHeaderProps {
   searchValue: string;
   searchRef: RefObject<HTMLInputElement | null>;
   onSearchChange: (value: string) => void;
+  /** Submitting the search jumps to the Queue filtered by the term. */
+  onSearchSubmit: () => void;
   onRunNow: () => void;
   onPauseNightly: () => void;
   onStop: () => void;
@@ -34,6 +36,7 @@ export function ControlHeader({
   searchValue,
   searchRef,
   onSearchChange,
+  onSearchSubmit,
   onRunNow,
   onPauseNightly,
   onStop,
@@ -42,6 +45,7 @@ export function ControlHeader({
 }: ControlHeaderProps) {
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    onSearchSubmit();
   }
 
   return (

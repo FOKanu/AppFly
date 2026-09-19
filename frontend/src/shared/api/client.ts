@@ -106,12 +106,25 @@ export function apiPost<T>(path: string, body?: unknown, init?: RequestInit): Pr
 }
 
 /**
+ * Purpose: JSON PUT against the local API (settings, secrets).
+ * Does not: send connector key material on the settings resource.
+ */
+export function apiPut<T>(path: string, body?: unknown, init?: RequestInit): Promise<T> {
+  return apiFetch<T>(path, {
+    ...init,
+    method: "PUT",
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+
+/**
  * Purpose: Shared fetch with a short GET timeout and a longer POST timeout.
  * Does not: retry scrape/crawl endpoints or log response bodies.
  */
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController();
-  const timeoutMs = (init?.method ?? "GET").toUpperCase() === "POST" ? 60_000 : 2500;
+  const method = (init?.method ?? "GET").toUpperCase();
+  const timeoutMs = method === "POST" ? 60_000 : method === "PUT" ? 10_000 : 2500;
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
   const headers = new Headers(init?.headers);
   if (!headers.has("Accept")) headers.set("Accept", "application/json");

@@ -10,11 +10,14 @@ import {
   type HealthResponse,
   type JobSummary,
   type RunResponse,
-  type SettingsSnapshot,
   type SystemStatusResponse,
 } from "../../shared/api/client";
 import { OfflineBanner } from "../../shared/ui/OfflineBanner";
+import { Toast, useToast } from "../../shared/ui/Toast";
 import { useBreakpoint } from "../../shared/useBreakpoint";
+import { profileFromSettings } from "../../features/profiles/api";
+import type { HuntProfile, SettingsPayload } from "../../features/profiles/types";
+import { recordProfileSnapshot } from "../../features/memory/versionLedger";
 import { ControlHeader } from "./ControlHeader";
 import { RunningBar, type RunTelemetry } from "./RunningBar";
 import { Sidebar } from "./Sidebar";
@@ -40,12 +43,13 @@ const STUB_STATUS: SystemStatusResponse = {
 /**
  * Purpose: Persistent desktop chrome — sidebar rail, control header, scrolling
  *          content column and the mono running bar.
- * Does not: fetch jobs for a screen or display API keys.
+ * Does not: fetch a screen's data or display API keys.
  */
 export function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
   const { breakpoint } = useBreakpoint();
+  const toast = useToast();
 
   const searchRef = useRef<HTMLInputElement>(null);
   const [searchValue, setSearchValue] = useState("");
@@ -54,13 +58,16 @@ export function AppShell() {
   const [queueCount, setQueueCount] = useState(0);
   const [apiReachable, setApiReachable] = useState(false);
   const [telemetry, setTelemetry] = useState<RunTelemetry>({ nextNightly: "02:00" });
-  // The API carries one search preset today, so the shell shows that one.
-  const [profile, setProfile] = useState({ name: "No profile", count: 0 });
+  const [profiles, setProfiles] = useState<HuntProfile[]>([]);
+  const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
+
+  const activeProfile =
+    profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0] ?? null;
 
   const kicker = headerKicker(location.pathname, {
     queueCount,
-    profileName: profile.name,
-    profileCount: profile.count,
+    profileName: activeProfile?.name ?? "No profile",
+    profileCount: profiles.length,
     today: formatToday(),
   });
   const title = headerTitle(location.pathname);
@@ -72,10 +79,11 @@ export function AppShell() {
       try {
         const [health, settings, jobs] = await Promise.all([
           apiGet<HealthResponse>("/health"),
-          apiGet<SettingsSnapshot>("/settings"),
+          apiGet<SettingsPayload>("/settings"),
           apiGet<JobSummary[]>("/jobs"),
         ]);
         if (cancelled) return;
+        const profile = profileFromSettings(settings);
         setHeartbeat({
           state: "idle",
           message: health.ok ? "API live — idle" : "Idle — no run in progress",
@@ -89,8 +97,11 @@ export function AppShell() {
           vaultPath: settings.vault_path || "—",
         });
         setQueueCount(jobs.filter((job) => ACTIVE_QUEUE.has(job.status)).length);
-        setProfile(profileFrom(settings));
+        setProfiles([profile]);
+        setActiveProfileId((current) => current ?? profile.id);
         setApiReachable(health.ok);
+        // Seed the local version ledger so Memory has a baseline to diff against.
+        recordProfileSnapshot(profile, "loaded");
       } catch {
         if (!cancelled) setApiReachable(false);
       }
@@ -113,15 +124,33 @@ export function AppShell() {
 
   const onPauseNightly = useCallback(() => {
     applyState("paused", "Nightly paused");
-  }, [applyState]);
+    toast.show("Nightly schedule paused for this session.");
+  }, [applyState, toast]);
 
   const onStop = useCallback(() => {
     applyState("stopped", "Run stopped");
   }, [applyState]);
 
-  const onOpenProfiles = useCallback(() => {
-    navigate(ROUTES.memory);
-  }, [navigate]);
+  const onCopyVaultPath = useCallback(() => {
+    const path = activeProfile?.vaultPath || status.vaultPath;
+    void copyToClipboard(path).then((copied) =>
+      toast.show(copied ? `Vault path copied — ${path}` : `Vault path: ${path}`),
+    );
+  }, [activeProfile, status.vaultPath, toast]);
+
+  const onActivateProfile = useCallback(
+    (id: string) => {
+      setActiveProfileId(id);
+      const next = profiles.find((profile) => profile.id === id);
+      if (next) toast.show(`Tonight's run will use ${next.name}.`);
+    },
+    [profiles, toast],
+  );
+
+  const onSearchSubmit = useCallback(() => {
+    const term = searchValue.trim();
+    if (term) navigate(`${ROUTES.queue}?q=${encodeURIComponent(term)}`);
+  }, [navigate, searchValue]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -151,10 +180,12 @@ export function AppShell() {
     <div className="app-shell" data-breakpoint={breakpoint}>
       <Sidebar
         queueCount={queueCount}
-        profileName={profile.name}
+        profiles={profiles}
+        activeProfileId={activeProfile?.id ?? null}
+        onActivateProfile={onActivateProfile}
+        onCopyVaultPath={onCopyVaultPath}
         status={status}
         version={APP_VERSION}
-        onOpenProfiles={onOpenProfiles}
       />
 
       <div className="app-main-col">
@@ -166,6 +197,7 @@ export function AppShell() {
           searchValue={searchValue}
           searchRef={searchRef}
           onSearchChange={setSearchValue}
+          onSearchSubmit={onSearchSubmit}
           onRunNow={onRunNow}
           onPauseNightly={onPauseNightly}
           onStop={onStop}
@@ -188,6 +220,8 @@ export function AppShell() {
         telemetry={runTelemetry}
         ipcConnected={apiReachable}
       />
+
+      <Toast message={toast.message} onDismiss={toast.dismiss} />
     </div>
   );
 }
@@ -226,14 +260,16 @@ async function startPipeline(
 }
 
 /**
- * Purpose: Name the active search preset from what GET /settings exposes.
- * Does not: invent extra profiles — the API carries exactly one today.
+ * Purpose: Copy text without assuming the Clipboard API is available.
+ * Returns: whether the copy landed, so the caller can fall back to showing it.
  */
-function profileFrom(settings: SettingsSnapshot): { name: string; count: number } {
-  const keyword = settings.keywords?.[0];
-  const location = settings.location;
-  const name = [keyword, location].filter(Boolean).join(" — ");
-  return name ? { name, count: 1 } : { name: "No profile", count: 0 };
+export async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Header date in the Figma format, e.g. "Wed 17 Sep". */

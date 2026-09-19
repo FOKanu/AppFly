@@ -81,6 +81,7 @@ function runFromPayload(item: unknown): Run | null {
  */
 export async function fetchTonight(): Promise<{ data: TonightSnapshot; source: DataSource }> {
   const health = await getJson<Health>("/health", MOCK_TONIGHT.health);
+  const settings = await getJson<{ vault_path?: string }>("/settings", {});
   const runs = await getJson<unknown>("/runs", { runs: [MOCK_RUN] });
   const drafts = await getJson<unknown>("/jobs?status=draft", { jobs: MOCK_DRAFTS });
   const shortlist = await getJson<unknown>("/jobs?status=shortlist", { jobs: MOCK_SHORTLIST });
@@ -96,6 +97,7 @@ export async function fetchTonight(): Promise<{ data: TonightSnapshot; source: D
       lastRun: runList[0] ?? null,
       drafts: asJobList(drafts.data),
       shortlist: asJobList(shortlist.data),
+      vaultPath: settings.data.vault_path ?? "",
     },
   };
 }

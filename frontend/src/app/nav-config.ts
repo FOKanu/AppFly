@@ -42,8 +42,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     id: "memory",
     index: "04",
-    label: "Memory & profiles",
-    headerTitle: "Memory & profiles",
+    label: "Memory",
+    headerTitle: "Memory",
     path: ROUTES.memory,
   },
   {
@@ -91,6 +91,9 @@ export function headerKicker(pathname: string, context: HeaderContext): string {
   if (pathname.startsWith(`${ROUTES.packet}/`)) {
     return "Queue › Drafts › Packet";
   }
+  if (pathname.startsWith(ROUTES.profiles)) {
+    return `Profiles · ${context.profileName}`;
+  }
 
   const item = navItemForPath(pathname);
   switch (item?.id) {
@@ -101,7 +104,7 @@ export function headerKicker(pathname: string, context: HeaderContext): string {
     case "workflow":
       return "Workflow · Control plane";
     case "memory":
-      return `Memory · ${context.profileCount} profiles`;
+      return "Memory · career ledger";
     case "activity":
       return "Activity · Last 30 days";
     case "settings":
@@ -118,5 +121,6 @@ export function headerKicker(pathname: string, context: HeaderContext): string {
  */
 export function headerTitle(pathname: string): string {
   if (pathname.startsWith(`${ROUTES.packet}/`)) return "Packet detail";
+  if (pathname.startsWith(ROUTES.profiles)) return "Profiles";
   return navItemForPath(pathname)?.headerTitle ?? "Jobhunt Copilot";
 }

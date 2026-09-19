@@ -1,6 +1,10 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ROUTES } from "../../routes";
+import { Toast, useToast } from "../../shared/ui/Toast";
+import { copyToClipboard } from "../../app/layout/AppShell";
+import { patchJobStatus } from "../queue/jobsApi";
+import type { JobStatus } from "../queue/types";
 import { LastRunSummary } from "./LastRunSummary";
 import { NeedsYou } from "./NeedsYou";
 import { PipelineOrganism } from "./PipelineOrganism";
@@ -16,15 +20,21 @@ import "./tonight.css";
 export function TonightPage() {
   const { search } = useLocation();
   const navigate = useNavigate();
+  const toast = useToast();
   const preview = readPreview(search);
   const { snapshot, loading } = useTonight();
+
+  // Approve/deny write through to the API, so the list has to update locally.
+  const [decided, setDecided] = useState<Record<string, JobStatus>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = "AppFly · Tonight";
   }, []);
 
   const run = preview === "empty" ? null : (snapshot?.lastRun ?? null);
-  const drafts = preview === "empty" ? [] : (snapshot?.drafts ?? []);
+  const allDrafts = preview === "empty" ? [] : (snapshot?.drafts ?? []);
+  const drafts = allDrafts.filter((job) => !decided[job.source_id]);
   const refusals = run?.errors ?? [];
 
   const onReviewDrafts = useCallback(() => {
@@ -32,17 +42,35 @@ export function TonightPage() {
   }, [navigate]);
 
   const onOpenHome = useCallback(() => {
-    // Home.md lives in the vault on this machine; the shell has no file dialog yet.
-    navigate(ROUTES.memory);
-  }, [navigate]);
+    const path = `${snapshot?.vaultPath ?? ""}/Home.md`.replace(/^\//, "");
+    void copyToClipboard(path).then((copied) =>
+      toast.show(
+        copied
+          ? `Path copied — open ${path} in Obsidian`
+          : `Open ${path} in Obsidian on this machine`,
+      ),
+    );
+  }, [snapshot?.vaultPath, toast]);
 
-  const onApprove = useCallback((job: Job) => {
-    navigate(`${ROUTES.packet}/${job.source_id}`);
-  }, [navigate]);
-
-  const onDeny = useCallback((job: Job) => {
-    navigate(`${ROUTES.packet}/${job.source_id}`);
-  }, [navigate]);
+  const decide = useCallback(
+    async (job: Job, status: JobStatus) => {
+      setBusyId(job.source_id);
+      try {
+        await patchJobStatus(job.source_id, status);
+        setDecided((current) => ({ ...current, [job.source_id]: status }));
+        toast.show(
+          status === "approved"
+            ? `${job.title} approved — submit it yourself in the browser.`
+            : `${job.title} denied.`,
+        );
+      } catch {
+        toast.show(`Could not save ${job.title}. The local API rejected the change.`);
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [toast],
+  );
 
   return (
     <div className="tonight" aria-busy={loading || undefined}>
@@ -59,7 +87,12 @@ export function TonightPage() {
       <PipelineOrganism run={run} vaultNotes={snapshot?.shortlist.length} />
 
       <div className="tonight__lower">
-        <NeedsYou drafts={drafts} onApprove={onApprove} onDeny={onDeny} />
+        <NeedsYou
+          drafts={drafts}
+          busyId={busyId}
+          onApprove={(job) => void decide(job, "approved")}
+          onDeny={(job) => void decide(job, "skipped")}
+        />
         <LastRunSummary
           run={run}
           funnel={{
@@ -72,6 +105,8 @@ export function TonightPage() {
           refusals={refusals}
         />
       </div>
+
+      <Toast message={toast.message} onDismiss={toast.dismiss} />
     </div>
   );
 }

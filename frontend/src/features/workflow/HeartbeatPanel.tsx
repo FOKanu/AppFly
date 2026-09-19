@@ -20,8 +20,12 @@ interface HeartbeatPanelProps {
   detail: string;
   nightlyOn: boolean;
   onNightly: (next: boolean) => void;
+  /** Why the nightly toggle cannot be flipped from here. */
+  nightlyReason?: string;
   onRunNow: () => void;
   onStop: () => void;
+  /** Why Stop is inert. */
+  stopReason?: string;
   /** True while a run is in flight; Stop is dead otherwise. */
   running: boolean;
 }
@@ -36,8 +40,10 @@ export function HeartbeatPanel({
   detail,
   nightlyOn,
   onNightly,
+  nightlyReason,
   onRunNow,
   onStop,
+  stopReason,
   running,
 }: HeartbeatPanelProps) {
   return (
@@ -57,11 +63,22 @@ export function HeartbeatPanel({
           <Button variant="primary" icon="▶" onClick={onRunNow} disabled={running}>
             Run now
           </Button>
-          <span className="nightly-toggle">
+          <span className="nightly-toggle" title={nightlyReason}>
             Nightly schedule
-            <Switch checked={nightlyOn} onChange={onNightly} label="Nightly schedule" />
+            <Switch
+              checked={nightlyOn}
+              onChange={onNightly}
+              label="Nightly schedule"
+              disabled={Boolean(nightlyReason)}
+            />
           </span>
-          <Button variant="danger" icon="■" onClick={onStop} disabled={!running}>
+          <Button
+            variant="danger"
+            icon="■"
+            onClick={onStop}
+            disabled
+            title={stopReason}
+          >
             Stop current run
           </Button>
           <span className="heartbeat-panel__flight">

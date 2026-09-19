@@ -1,21 +1,23 @@
-# Memory & profiles
+# Memory
 
-Read-only vault / profile overview for Jobhunt Copilot.
+The copilot's career ledger: what you applied to, which companies you already
+hit, and how your profile changed. **Memory remembers, Profiles edits.**
 
-## What it shows
+Three sections, deep-linkable by hash from the PROFILE menu:
 
-- **Vault stats** — vault path and job-note counts by status (`inbox` → `applied`, plus `skipped`)
-- **CV** — path and word/char/section counts when the API provides stats
-- **Voice samples** — path and sample count
-- **Requirements** — locations, languages, banned-term / skip-company counts, tone
-- **Search presets** — keywords, location, radius, published window, source toggles
+- `#applications` — jobs that reached approved or applied, derived from
+  `GET /jobs` via the Queue's client (`ledger.ts`)
+- `#companies` — the same entries rolled up per company
+- `#versions` — profile changes, from `versionLedger.ts`
 
-## What it does not show
+## Honest gaps
 
-- Full CV or voice-sample markdown (bodies are measured then discarded)
-- Connector API keys, last-4, or `.env` values
-- Job-board scrape actions (LinkedIn / Indeed / Stepstone / ZipRecruiter / Xing / Glassdoor stay deny-listed)
+- **No dates.** Neither `JobSummary` nor `JobPacket` carries a timestamp, so
+  the ledger has no "when" column. The types are shaped so an `applied_at`
+  can land later without changing the screens.
+- **Salary** is only on `GET /jobs/{id}`, so it is hydrated for a bounded
+  slice of the ledger and shows "—" beyond that.
+- **Version history is local to the browser** (`localStorage`). There is no
+  profile-version endpoint; the entry shape matches what one would return.
 
-## Data
-
-`GET /settings` and `GET /jobs` at `VITE_API_BASE_URL` (default `http://127.0.0.1:8787`). If the local API is down, the page falls back to sample counts — still no CV body.
+Run logs are *not* here — those stay on `/activity`.

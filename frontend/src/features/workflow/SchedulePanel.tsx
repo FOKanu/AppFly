@@ -14,7 +14,8 @@ export interface NightlyPlan {
 
 interface SchedulePanelProps {
   plan: NightlyPlan;
-  onChange: (next: NightlyPlan) => void;
+  /** Why nothing here is editable. Shown as a note and on each control. */
+  readOnlyReason: string;
 }
 
 const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"] as const;
@@ -23,7 +24,7 @@ const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"] as const;
  * Purpose: When the nightly run fires and the hard caps it must respect.
  * Does not: start a run; the heartbeat panel and control header do that.
  */
-export function SchedulePanel({ plan, onChange }: SchedulePanelProps) {
+export function SchedulePanel({ plan, readOnlyReason }: SchedulePanelProps) {
   return (
     <section className="control-card" aria-labelledby="schedule-title">
       <p className="control-card__kicker">Nightly</p>
@@ -40,7 +41,9 @@ export function SchedulePanel({ plan, onChange }: SchedulePanelProps) {
           className="field-row__input field-row__input--time"
           type="time"
           value={plan.start}
-          onChange={(event) => onChange({ ...plan, start: event.target.value })}
+          readOnly
+          disabled
+          title={readOnlyReason}
         />
         <span className="field-row__suffix">{plan.timezone}</span>
       </div>
@@ -49,97 +52,45 @@ export function SchedulePanel({ plan, onChange }: SchedulePanelProps) {
         <span className="field-row__label">Days</span>
         <div className="day-picker" role="group" aria-label="Nights the run fires">
           {DAY_LABELS.map((label, index) => (
-            <button
+            <span
               key={`${label}-${index}`}
-              type="button"
               className={plan.days[index] ? "day-cell is-on" : "day-cell"}
-              aria-pressed={plan.days[index]}
-              aria-label={`Day ${index + 1}`}
-              onClick={() =>
-                onChange({
-                  ...plan,
-                  days: plan.days.map((on, i) => (i === index ? !on : on)),
-                })
-              }
+              aria-label={`Day ${index + 1}: ${plan.days[index] ? "on" : "off"}`}
+              title={readOnlyReason}
             >
               {label}
-            </button>
+            </span>
           ))}
         </div>
       </div>
 
-      <Stepper
-        label="Letters / night"
-        value={plan.lettersPerNight}
-        suffix="hard cap"
-        step={1}
-        min={0}
-        onChange={(lettersPerNight) => onChange({ ...plan, lettersPerNight })}
-      />
-      <Stepper
-        label="Max listings scouted"
-        value={plan.maxListings}
-        suffix="per run"
-        step={10}
-        min={0}
-        onChange={(maxListings) => onChange({ ...plan, maxListings })}
-      />
-      <Stepper
+      <Readout label="Letters / night" value={plan.lettersPerNight.toFixed(0)} suffix="hard cap" />
+      <Readout label="Max listings scouted" value={plan.maxListings.toFixed(0)} suffix="per run" />
+      <Readout
         label="Shortlist threshold"
-        value={plan.shortlistThreshold}
+        value={plan.shortlistThreshold.toFixed(1)}
         suffix="score ≥"
-        step={0.5}
-        min={0}
-        max={10}
-        decimals={1}
-        onChange={(shortlistThreshold) => onChange({ ...plan, shortlistThreshold })}
       />
+
+      <p className="control-card__note">{readOnlyReason}</p>
     </section>
   );
 }
 
-function Stepper({
+/** A value from config.yaml the UI can show but not change. */
+function Readout({
   label,
   value,
   suffix,
-  step,
-  min,
-  max,
-  decimals = 0,
-  onChange,
 }: {
   label: string;
-  value: number;
+  value: string;
   suffix: string;
-  step: number;
-  min: number;
-  max?: number;
-  decimals?: number;
-  onChange: (next: number) => void;
 }) {
-  const clamp = (next: number) =>
-    Math.min(max ?? Number.MAX_SAFE_INTEGER, Math.max(min, Number(next.toFixed(decimals))));
-
   return (
     <div className="field-row">
       <span className="field-row__label">{label}</span>
-      <span className="stepper">
-        <button
-          type="button"
-          aria-label={`Decrease ${label}`}
-          onClick={() => onChange(clamp(value - step))}
-        >
-          −
-        </button>
-        <span className="stepper__value">{value.toFixed(decimals)}</span>
-        <button
-          type="button"
-          aria-label={`Increase ${label}`}
-          onClick={() => onChange(clamp(value + step))}
-        >
-          +
-        </button>
-      </span>
+      <span className="readout">{value}</span>
       <span className="field-row__suffix">{suffix}</span>
     </div>
   );
@@ -156,7 +107,8 @@ const WRITER_MODES = [
 
 interface WriterPanelProps {
   mode: WriterMode;
-  onMode: (next: WriterMode) => void;
+  /** Why the mode cannot be changed from here. */
+  readOnlyReason: string;
   /** Tokens used per night for the last 7 nights, oldest first. */
   tokenHistory: number[];
   cloudLabel: string;
@@ -174,7 +126,7 @@ interface WriterPanelProps {
  */
 export function WriterPanel({
   mode,
-  onMode,
+  readOnlyReason,
   tokenHistory,
   cloudLabel,
   cloudTokens,
@@ -195,9 +147,11 @@ export function WriterPanel({
       <Segmented
         options={WRITER_MODES}
         value={mode}
-        onChange={onMode}
+        onChange={() => undefined}
         ariaLabel="Writer model"
         className="writer-modes"
+        disabled
+        disabledReason={readOnlyReason}
       />
 
       <div className="backend-box">

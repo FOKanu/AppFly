@@ -24,7 +24,12 @@ export function TokenField({
   className,
 }: TokenFieldProps) {
   const [draft, setDraft] = useState("");
-  const classes = ["token-field", className].filter(Boolean).join(" ");
+  // A read-only field shows its note instead of an input, and its chips lose
+  // their remove buttons — otherwise they would look clickable and do nothing.
+  const readOnly = Boolean(readOnlyNote);
+  const classes = ["token-field", readOnly ? "is-readonly" : "", className]
+    .filter(Boolean)
+    .join(" ");
 
   function commit() {
     const next = draft.trim();
@@ -52,17 +57,19 @@ export function TokenField({
       {values.map((value) => (
         <span key={value} className="token">
           {value}
-          <button
-            type="button"
-            className="token__remove"
-            aria-label={`Remove ${value}`}
-            onClick={() => onChange(values.filter((item) => item !== value))}
-          >
-            ×
-          </button>
+          {readOnly ? null : (
+            <button
+              type="button"
+              className="token__remove"
+              aria-label={`Remove ${value}`}
+              onClick={() => onChange(values.filter((item) => item !== value))}
+            >
+              ×
+            </button>
+          )}
         </span>
       ))}
-      {readOnlyNote ? (
+      {readOnly ? (
         <span className="token-field__note">{readOnlyNote}</span>
       ) : (
         <input

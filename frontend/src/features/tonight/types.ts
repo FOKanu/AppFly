@@ -82,6 +82,8 @@ export interface TonightSnapshot {
   lastRun: Run | null;
   drafts: Job[];
   shortlist: Job[];
+  /** Absolute vault root, used to name Home.md. Empty when the API is down. */
+  vaultPath: string;
 }
 
 /** Where Tonight data came from. */

@@ -8,6 +8,7 @@ export const ROUTES = {
   queue: "/queue",
   packet: "/packet",
   workflow: "/workflow",
+  profiles: "/profiles",
   memory: "/memory",
   activity: "/activity",
   settings: "/settings",
