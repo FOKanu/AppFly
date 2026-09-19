@@ -60,11 +60,12 @@ describe("MemoryPage", () => {
     );
 
     render(<MemoryPage />);
-    expect(await screen.findByText("Memory & profiles")).toBeInTheDocument();
+    // The page title lives in the app header, so the screen itself starts at
+    // the profile column.
+    expect(await screen.findByText("Search preset profiles")).toBeInTheDocument();
     expect(screen.getByText("~/Documents/Job Search/CV/Master.md")).toBeInTheDocument();
     expect(screen.queryByText(/THIS_CV_BODY_MUST_NOT_REACH_THE_DOM/)).not.toBeInTheDocument();
     expect(screen.queryByText(/HiddenEmployer/)).not.toBeInTheDocument();
-    expect(screen.getByText("shortlist")).toBeInTheDocument();
   });
 });
 

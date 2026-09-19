@@ -6,24 +6,16 @@ interface HeartbeatProps {
   message?: string;
 }
 
-const TONE: Record<HeartbeatState, "accent" | "warning" | "danger" | "muted" | "neutral"> = {
+const TONE: Record<HeartbeatState, "accent" | "ok" | "danger" | "muted" | "neutral"> = {
   running: "accent",
-  "waiting-for-you": "warning",
+  "waiting-for-you": "ok",
   paused: "neutral",
   stopped: "danger",
   idle: "muted",
 };
 
-const LABEL: Record<HeartbeatState, string> = {
-  running: "running",
-  "waiting-for-you": "waiting-for-you",
-  paused: "paused",
-  stopped: "stopped",
-  idle: "idle",
-};
-
 /**
- * Purpose: Header heartbeat chip, including the waiting-for-you state.
+ * Purpose: Header heartbeat pill — the state machine the jobhunt CLI emits.
  * Does not: inspect the vault or decide which letters need review.
  */
 export function Heartbeat({ state, message }: HeartbeatProps) {
@@ -32,12 +24,13 @@ export function Heartbeat({ state, message }: HeartbeatProps) {
     <Chip
       className="heartbeat"
       tone={TONE[state]}
+      size="lg"
       dot
       pulse={pulsing}
       title={message}
-      aria-label={`Heartbeat ${LABEL[state]}${message ? `: ${message}` : ""}`}
+      aria-label={`Heartbeat ${state}${message ? `: ${message}` : ""}`}
     >
-      {LABEL[state]}
+      {state}
     </Chip>
   );
 }

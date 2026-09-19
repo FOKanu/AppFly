@@ -22,13 +22,22 @@ export type StatusView = {
   detail?: string;
 };
 
-/** Vault path plus placeholder stats from GET /settings. */
+/**
+ * Vault path plus placeholder stats from GET /settings.
+ *
+ * The four counters are the tiles the Settings design shows. The API may not
+ * send them yet, so they default to an em dash rather than disappearing.
+ */
 export type VaultView = {
   path: string;
   notes: string;
   lastScout: string;
   lastMatch: string;
   lastWrite: string;
+  jobNotes: string;
+  companyNotes: string;
+  letterDrafts: string;
+  runLogs: string;
 };
 
 /** Local IPC + Phase-2 Remote Bridge (URL only; Connect is a stub). */

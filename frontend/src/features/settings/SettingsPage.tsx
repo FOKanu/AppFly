@@ -15,8 +15,9 @@ import { VaultPanel } from "./VaultPanel";
 const INITIAL = parseSettings(null, false);
 
 /**
- * Settings & connectivity (FigJam Desktop 1440 / Mobile Settings).
- * Four panels: vault, IPC/bridge, API health, write-only connector keys.
+ * Purpose: Settings & connectivity — vault path, Local IPC vs Remote Bridge,
+ *          API/model health, and write-only connector keys.
+ * Does not: read a key back. GET never returns key material.
  */
 export function SettingsPage() {
   const [settings, setSettings] = useState<SettingsView>(INITIAL);
@@ -35,6 +36,10 @@ export function SettingsPage() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    document.title = "AppFly · Settings";
   }, []);
 
   useEffect(() => {
@@ -59,38 +64,23 @@ export function SettingsPage() {
   }
 
   return (
-    <section className="settingsPage">
-      <header className="settingsHero">
-        <p className="settingsKicker">Jobhunt Copilot</p>
-        <div className="settingsHeroRow">
-          <h1>Settings &amp; connectivity</h1>
-          <span
-            className={
-              settings.connectivity.localIpc.status === "online"
-                ? "statusPill statusPill--ok"
-                : "statusPill statusPill--offline"
-            }
-            role="status"
-          >
-            {loading ? "checking…" : settings.connectivity.localIpc.status}
-          </span>
-        </div>
-        <p className="settingsLede">
-          Vault path, local IPC, and write-only connector keys for this Mac.
-          Remote Bridge stays a stub in Phase 1.
+    <div className="settings">
+      {loadError ? (
+        <p className="settings__banner" role="alert">
+          {loadError}
         </p>
-        {loadError ? (
-          <p className="settingsError" role="alert">
-            {loadError}
-          </p>
-        ) : null}
-      </header>
-      <div className="settingsGrid">
-        <VaultPanel vault={settings.vault} disabled={loading} onSavePath={handleSaveVault} />
-        <ConnectivityPanel connectivity={settings.connectivity} />
-        <ApiHealthPanel health={settings.health} />
-        <ApiKeysPanel secrets={settings.secrets} saving={saving} onSave={handleSaveSecret} />
+      ) : null}
+
+      <div className="settings__columns">
+        <div className="settings__col">
+          <VaultPanel vault={settings.vault} disabled={loading} onSavePath={handleSaveVault} />
+          <ConnectivityPanel connectivity={settings.connectivity} />
+        </div>
+        <div className="settings__col">
+          <ApiHealthPanel health={settings.health} />
+          <ApiKeysPanel secrets={settings.secrets} saving={saving} onSave={handleSaveSecret} />
+        </div>
       </div>
-    </section>
+    </div>
   );
 }

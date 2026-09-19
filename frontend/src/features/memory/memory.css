@@ -1,178 +1,283 @@
-.page {
-  max-width: 960px;
+/*
+ * Purpose: Memory & profiles — preset column beside the CV / profile column,
+ *          from the Figma "Desktop 1440 · Memory & profiles" frame.
+ * Does not: define colours or type sizes of its own; both come from tokens.
+ */
+
+.memory {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.page header h1 {
-  margin: 0 0 6px;
-  font-size: 22px;
-  font-weight: 600;
+.memory__banner {
+  padding: 10px 14px;
+  border: 1px solid rgba(233, 162, 59, 0.3);
+  border-radius: var(--radius-sm);
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-size: 12px;
 }
 
-.lede {
-  margin: 0 0 20px;
-  color: var(--muted);
-  max-width: 62ch;
-}
-
-.banner {
-  margin: 0 0 16px;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-elevated);
-  color: var(--warn);
-  font-size: 13px;
-}
-
-.status {
-  color: var(--muted);
-}
-
-.grid {
+.memory__columns {
   display: grid;
+  grid-template-columns: 378px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.memory__col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.memory-card {
+  padding: 17px 19px 19px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.memory-card__head {
+  display: flex;
+  align-items: flex-start;
   gap: 12px;
+  margin-bottom: 14px;
 }
 
-.stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.stat {
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px 14px;
-  min-height: 72px;
-}
-
-.stat dt {
-  margin: 0;
-  color: var(--muted);
-  font-size: 11px;
-  letter-spacing: 0.06em;
+.memory-card__kicker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-.stat dd {
-  margin: 6px 0 0;
-  font-size: 22px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
-.stat-path {
-  grid-column: 1 / -1;
-}
-
-.stat-path dd {
-  font-size: 13px;
-  font-family: var(--mono);
-  font-weight: 500;
-  word-break: break-all;
   color: var(--accent);
 }
 
-.cards {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+.memory-card__title {
+  margin-top: 2px;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
 }
 
-.card {
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px 16px;
+.memory-card__action {
+  margin-left: auto;
+}
+
+.memory-card__sync {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.memory-card__copy {
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--text-secondary);
+}
+
+.memory-card__note {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.memory-card__empty {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.memory-card__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+/* —— Profile list —— */
+
+.profile-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  min-height: 160px;
 }
 
-.card-head {
+.profile-row {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.card h2 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.badge {
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 2px 8px;
-  border-radius: 99px;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 12px 14px;
   border: 1px solid var(--border);
-  color: var(--muted);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  text-align: left;
+  cursor: pointer;
 }
 
-.badge-ok {
-  color: var(--ok);
-  border-color: #2e5a44;
+.profile-row:hover {
+  border-color: var(--border-strong);
 }
 
-.path {
-  margin: 0;
-  font-family: var(--mono);
+.profile-row.is-active {
+  border-color: rgba(103, 212, 227, 0.45);
+  background: var(--accent-soft);
+}
+
+.profile-row__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-row__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-row__detail {
   font-size: 12px;
-  color: var(--accent);
-  word-break: break-all;
+  line-height: 16px;
+  color: var(--text-tertiary);
 }
 
-.meta {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
-  gap: 8px;
-}
-
-.meta div {
-  background: var(--bg);
-  border-radius: var(--radius);
-  padding: 8px 10px;
-}
-
-.meta dt {
-  color: var(--muted);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.meta dd {
-  margin: 2px 0 0;
-  font-variant-numeric: tabular-nums;
-}
-
-.chips {
+.profile-row__stats {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 14px;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
 }
 
-.chip {
-  background: var(--chip);
-  border-radius: 99px;
-  padding: 3px 9px;
+.profile-row__stats b {
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* —— CV & voice —— */
+
+.memory-panes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.memory-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.memory-pane__label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.memory-pane__label:not(:first-child) {
+  margin-top: 16px;
+}
+
+.memory-pane__box {
+  flex: 1 1 auto;
+  min-height: 164px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.memory-pane__note {
   font-size: 12px;
+  line-height: 17px;
+  color: var(--text-tertiary);
 }
 
-.note {
+.memory-stats {
+  margin-top: 12px;
+}
+
+.memory-stats__row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 10px;
+  padding: 4px 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.memory-stats__row dt {
+  color: var(--text-tertiary);
+}
+
+.memory-stats__row dd {
   margin: 0;
-  color: var(--muted);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+/* —— Profile settings —— */
+
+.memory-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 22px;
+  align-items: start;
+}
+
+.salary-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--control-h);
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
   font-size: 12px;
 }
 
-@media (max-width: 720px) {
-  .cards {
-    grid-template-columns: 1fr;
+.salary-field input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  outline: none;
+}
+
+@media (max-width: 1279px) and (min-width: 1024px) {
+  .memory__columns {
+    grid-template-columns: 320px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 1023px) {
+  .memory__columns,
+  .memory-panes,
+  .memory-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

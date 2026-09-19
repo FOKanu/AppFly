@@ -5,6 +5,8 @@ import { Input } from "../../shared/ui/Input";
 import { Heartbeat } from "./Heartbeat";
 
 interface ControlHeaderProps {
+  /** Breadcrumb / context line above the title. */
+  kicker: string;
   title: string;
   heartbeat: HeartbeatState;
   heartbeatMessage?: string;
@@ -15,13 +17,17 @@ interface ControlHeaderProps {
   onPauseNightly: () => void;
   onStop: () => void;
   runDisabled?: boolean;
+  /** Stop is only live while something is in flight. */
+  stopDisabled?: boolean;
 }
 
 /**
- * Purpose: Sticky chrome header — title, ⌘K search, heartbeat, run controls.
+ * Purpose: 60px chrome header — breadcrumb + title, ⌘K search, heartbeat pill,
+ *          and the three run controls.
  * Does not: write letters, open Easy Apply, or accept API keys.
  */
 export function ControlHeader({
+  kicker,
   title,
   heartbeat,
   heartbeatMessage,
@@ -32,6 +38,7 @@ export function ControlHeader({
   onPauseNightly,
   onStop,
   runDisabled = false,
+  stopDisabled = false,
 }: ControlHeaderProps) {
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -39,30 +46,40 @@ export function ControlHeader({
 
   return (
     <header className="control-header">
-      <h1 className="control-header__title">{title}</h1>
+      <div className="control-header__title-col">
+        <p className="control-header__kicker">{kicker}</p>
+        <h1 className="control-header__title">{title}</h1>
+      </div>
+
       <form className="control-header__search" onSubmit={handleSubmit} role="search">
         <Input
           ref={searchRef}
           value={searchValue}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Search jobs, companies…"
+          placeholder="Search jobs, companies, runs"
           hint={searchShortcutHint()}
-          aria-label="Search"
+          aria-label="Search jobs, companies, runs"
           autoComplete="off"
           spellCheck={false}
         />
       </form>
-      <div className="control-header__status">
-        <Heartbeat state={heartbeat} message={heartbeatMessage} />
-      </div>
+
+      <Heartbeat state={heartbeat} message={heartbeatMessage} />
+
       <div className="control-header__runs">
-        <Button variant="primary" shortcut="R" onClick={onRunNow} disabled={runDisabled}>
+        <Button
+          variant="primary"
+          icon="▶"
+          shortcut="R"
+          onClick={onRunNow}
+          disabled={runDisabled}
+        >
           Run now
         </Button>
-        <Button variant="quiet" onClick={onPauseNightly}>
+        <Button variant="quiet" icon="‖" onClick={onPauseNightly}>
           Pause nightly
         </Button>
-        <Button variant="danger" onClick={onStop}>
+        <Button variant="quiet" icon="■" onClick={onStop} disabled={stopDisabled}>
           Stop
         </Button>
       </div>

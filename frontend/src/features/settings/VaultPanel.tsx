@@ -54,11 +54,9 @@ export function VaultPanel({ vault, disabled = false, onSavePath }: VaultPanelPr
   }
 
   return (
-    <article className="settingsPanel">
-      <header className="settingsPanelHeader">
-        <h2>Obsidian vault</h2>
-        <p>Local folder this copilot writes into. Not crawled; not uploaded.</p>
-      </header>
+    <article className="settings-card">
+      <p className="settings-card__kicker">Local-first storage</p>
+      <h2 className="settings-card__title">Obsidian vault</h2>
       <form className="vaultForm" onSubmit={handleSubmit}>
         <label htmlFor="vault-path">Vault path</label>
         <div className="settingsActions">
@@ -86,24 +84,34 @@ export function VaultPanel({ vault, disabled = false, onSavePath }: VaultPanelPr
           {error}
         </p>
       ) : null}
-      <dl className="vaultStats">
-        <div>
-          <dt>Notes</dt>
-          <dd>{vault.notes}</dd>
-        </div>
-        <div>
-          <dt>Last scout</dt>
-          <dd>{vault.lastScout}</dd>
-        </div>
-        <div>
-          <dt>Last match</dt>
-          <dd>{vault.lastMatch}</dd>
-        </div>
-        <div>
-          <dt>Last write</dt>
-          <dd>{vault.lastWrite}</dd>
-        </div>
+      <dl className="vault-tiles">
+        <Tile label="Jobs" value={vault.jobNotes} unit="notes" />
+        <Tile label="Companies" value={vault.companyNotes} unit="notes" />
+        <Tile label="Letters" value={vault.letterDrafts} unit="drafts" />
+        <Tile label="Runs" value={vault.runLogs} unit="logs" />
       </dl>
+
+      <p className="settings-card__copy">
+        Home.md, CV/, and Requirements.md live in this vault and are the single source of
+        truth — the app reads and writes here directly, nothing is duplicated server-side.
+      </p>
+
+      <p className="vault-lastrun">
+        last scout {vault.lastScout} · last match {vault.lastMatch} · last write{" "}
+        {vault.lastWrite}
+      </p>
     </article>
+  );
+}
+
+/** One boxed vault counter, with an em dash when the API has not sent it. */
+function Tile({ label, value, unit }: { label: string; value: string; unit: string }) {
+  return (
+    <div className="vault-tile">
+      <dt>{label}</dt>
+      <dd>
+        {value} <span className="vault-tile__unit">{unit}</span>
+      </dd>
+    </div>
   );
 }

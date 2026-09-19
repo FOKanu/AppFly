@@ -5,12 +5,12 @@ export type ApiHealthPanelProps = {
   health: SettingsView["health"];
 };
 
-const ROWS: { key: keyof SettingsView["health"]; label: string }[] = [
-  { key: "geminiFlash", label: "Gemini Flash" },
-  { key: "ollama", label: "Ollama" },
-  { key: "arbeitsagentur", label: "Arbeitsagentur" },
-  { key: "apify", label: "Apify" },
-  { key: "minilm", label: "MiniLM" },
+const ROWS: { key: keyof SettingsView["health"]; label: string; role: string }[] = [
+  { key: "geminiFlash", label: "Gemini Flash", role: "writer · cloud letters" },
+  { key: "ollama", label: "Ollama (local 8B)", role: "llama3.1:8b · fallback writer" },
+  { key: "arbeitsagentur", label: "Arbeitsagentur API", role: "scout · official job search API" },
+  { key: "apify", label: "Apify", role: "company / Impressum pages only" },
+  { key: "minilm", label: "MiniLM embeddings", role: "match · runs locally, no network" },
 ];
 
 function pillClass(status: StatusView["status"]): string {
@@ -25,17 +25,19 @@ function pillClass(status: StatusView["status"]): string {
  */
 export function ApiHealthPanel({ health }: ApiHealthPanelProps) {
   return (
-    <article className="settingsPanel">
-      <header className="settingsPanelHeader">
-        <h2>API &amp; model health</h2>
-        <p>Reachability from this machine. Keys are entered in the panel next door.</p>
-      </header>
+    <article className="settings-card">
+      <p className="settings-card__kicker">Status</p>
+      <h2 className="settings-card__title">API &amp; model health</h2>
       <ul className="healthList">
         {ROWS.map((row) => {
           const view = health[row.key];
           return (
-            <li key={row.key} className="healthRow">
-              <span>{row.label}</span>
+            <li key={row.key} className="healthRow" data-status={view.status}>
+              <span className="healthRow__dot" aria-hidden="true" />
+              <span className="healthRow__col">
+                <span className="healthRow__label">{row.label}</span>
+                <span className="healthRow__role">{row.role}</span>
+              </span>
               <span className={pillClass(view.status)} role="status">
                 {formatStatus(view.status)}
               </span>

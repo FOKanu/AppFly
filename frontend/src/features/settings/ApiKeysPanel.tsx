@@ -13,11 +13,9 @@ export type ApiKeysPanelProps = {
  */
 export function ApiKeysPanel({ secrets, saving, onSave }: ApiKeysPanelProps) {
   return (
-    <article className="settingsPanel settingsPanel--keys">
-      <header className="settingsPanelHeader">
-        <h2>API keys</h2>
-        <p>Write-only. Rotate overwrites. The current value is never shown.</p>
-      </header>
+    <article className="settings-card">
+      <p className="settings-card__kicker">Stored locally · .env</p>
+      <h2 className="settings-card__title">API keys</h2>
       <ConnectorKeyField
         name="GEMINI_API_KEY"
         configured={secrets.GEMINI_API_KEY}

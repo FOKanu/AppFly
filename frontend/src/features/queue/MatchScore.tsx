@@ -1,21 +1,26 @@
-import { formatScore } from "./filterJobs";
-import styles from "./MatchScore.module.css";
+import { Score } from "../../shared/ui/Score";
 
 type MatchScoreProps = {
   score: number | null;
+  size?: "md" | "sm";
 };
 
-/** Compact matcher score (0–100) with a small meter. */
-export function MatchScore({ score }: MatchScoreProps) {
-  const label = formatScore(score);
-  const width = score == null ? 0 : Math.max(0, Math.min(100, Math.round(score * 100)));
+/**
+ * Purpose: Matcher score on the 0–10 scale the Figma frames print.
+ * Does not: compute the score; the local MiniLM matcher does.
+ */
+export function MatchScore({ score, size = "sm" }: MatchScoreProps) {
   return (
-    <div className={styles.score} data-testid="match-score" title={score == null ? "Unscored" : `Match ${label}`}>
-      <span className={styles.value}>{label}</span>
-      <span className={styles.meta}>match</span>
-      <span className={styles.bar} aria-hidden="true">
-        <span className={styles.fill} style={{ width: `${width}%` }} />
-      </span>
-    </div>
+    <span
+      data-testid="match-score"
+      title={score == null ? "Unscored" : `Match ${toTen(score).toFixed(1)} of 10`}
+    >
+      <Score value={score == null ? null : toTen(score)} size={size} />
+    </span>
   );
+}
+
+/** Matcher scores arrive as a 0–1 cosine; the UI prints 0–10. */
+function toTen(score: number): number {
+  return score <= 1 ? Math.round(score * 100) / 10 : score;
 }

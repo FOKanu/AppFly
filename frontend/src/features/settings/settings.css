@@ -1,337 +1,391 @@
-.settingsPage {
-  --ink: #1c1915;
-  --muted: #6f675c;
-  --line: #d9d0bf;
-  --paper: #f7f1e4;
-  --card: #fffaf0;
-  --accent: #9a3412;
-  --ok: #3f6212;
-  --ok-bg: #ecfccb;
-  --miss: #92400e;
-  --miss-bg: #ffedd5;
-  --off: #9f1239;
-  --off-bg: #ffe4e6;
-  --shadow: 0 18px 40px rgba(48, 38, 22, 0.08);
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 48px 64px 80px;
-  color: var(--ink);
-  font-family: "Public Sans", "Segoe UI", system-ui, sans-serif;
+/*
+ * Purpose: Settings & connectivity — vault / connectivity column beside the
+ *          health / keys column, from the Figma "Desktop 1440 · Settings" frame.
+ * Does not: define colours or type sizes of its own; both come from tokens.
+ *           This file replaced the light "paper" styling the screen shipped with.
+ */
+
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.settingsHero {
-  margin-bottom: 32px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid var(--line);
+.settings__banner {
+  padding: 10px 14px;
+  border: 1px solid rgba(239, 78, 78, 0.35);
+  border-radius: var(--radius-sm);
+  background: var(--error-soft);
+  color: var(--error);
+  font-size: 12px;
 }
 
-.settingsKicker {
-  margin: 0 0 8px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
+.settings__columns {
+  display: grid;
+  grid-template-columns: minmax(0, 720fr) minmax(0, 422fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.settings__col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* —— Card —— */
+
+.settings-card {
+  padding: 17px 19px 19px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.settings-card__kicker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--accent);
 }
 
-.settingsHeroRow {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.settingsPage h1 {
-  margin: 0;
-  font-family: Fraunces, "Iowan Old Style", Georgia, serif;
-  font-size: clamp(2rem, 3vw, 2.75rem);
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
-}
-
-.settingsLede {
-  max-width: 46rem;
-  margin: 12px 0 0;
-  color: var(--muted);
-  font-size: 1.02rem;
-  line-height: 1.5;
-}
-
-.settingsGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-
-.settingsPanel {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: 22px 22px 20px;
-  box-shadow: var(--shadow);
-  min-width: 0;
-}
-
-.settingsPanel--keys {
-  background:
-    linear-gradient(180deg, #fff7ed 0%, var(--card) 42%);
-}
-
-.settingsPanelHeader h2 {
-  margin: 0;
-  font-family: Fraunces, Georgia, serif;
-  font-size: 1.35rem;
+.settings-card__title {
+  margin: 2px 0 16px;
+  font-size: 18px;
+  line-height: 26px;
   font-weight: 600;
 }
 
-.settingsPanelHeader p {
-  margin: 6px 0 16px;
-  color: var(--muted);
-  font-size: 0.92rem;
-  line-height: 1.45;
+.settings-card__copy {
+  margin-top: 14px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--text-secondary);
 }
 
-.settingsPanel label {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
+/* —— Shared controls —— */
 
 .settingsActions {
   display: flex;
-  gap: 8px;
-  align-items: stretch;
+  align-items: center;
+  gap: 10px;
 }
 
 .settingsActions input {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
-  height: 42px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--paper);
-  color: var(--ink);
+  height: var(--control-h);
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.settingsActions input::placeholder {
+  color: var(--text-tertiary);
 }
 
 .settingsActions input:focus {
-  outline: 2px solid #c2410c;
-  outline-offset: 1px;
+  outline: none;
+  border-color: var(--accent);
 }
 
-.settingsActions button,
-.vaultForm button {
-  height: 42px;
-  padding: 0 14px;
-  border: 1px solid var(--ink);
-  border-radius: 10px;
-  background: var(--ink);
-  color: #fffaf0;
-  font-weight: 600;
+.settingsActions button {
+  height: var(--control-h);
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 13px;
   cursor: pointer;
   white-space: nowrap;
 }
 
-.settingsActions button[type="button"],
-.vaultForm button[type="button"] {
-  background: transparent;
-  color: var(--ink);
+.settingsActions button:hover:not(:disabled) {
+  border-color: var(--text-tertiary);
 }
 
-.settingsActions button:disabled,
-.vaultForm button:disabled {
+.settingsActions button:disabled {
+  opacity: 0.45;
   cursor: not-allowed;
-  background: #efe8d8;
-  color: var(--muted);
-  border-color: var(--line);
 }
 
-.settingsActions button[type="button"]:disabled,
-.vaultForm button[type="button"]:disabled {
-  background: #efe8d8;
-  color: var(--muted);
+.settingsActions button[type="submit"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.settingsHint {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--text-tertiary);
+}
+
+.settingsError {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--error);
+}
+
+.settingsCaption {
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--text-tertiary);
 }
 
 .statusPill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: #efe8d8;
-  color: var(--muted);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: lowercase;
-}
-
-.statusPill::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.statusPill--ok {
-  background: var(--ok-bg);
-  color: var(--ok);
-}
-
-.statusPill--missing {
-  background: var(--miss-bg);
-  color: var(--miss);
-}
-
-.statusPill--offline {
-  background: var(--off-bg);
-  color: var(--off);
-}
-
-.vaultStats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin: 18px 0 0;
-}
-
-.vaultStats div {
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: var(--paper);
-}
-
-.vaultStats dt {
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.vaultStats dd {
-  margin: 4px 0 0;
-  font-variant-numeric: tabular-nums;
-}
-
-.healthList {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.healthRow,
-.connectivityRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.healthRow > span:first-child {
+  height: 22px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
   white-space: nowrap;
 }
 
-.healthRow:last-child {
-  border-bottom: 0;
-  padding-bottom: 0;
+.statusPill--ok {
+  border-color: rgba(69, 196, 134, 0.35);
+  background: var(--ok-soft);
+  color: var(--status-approved);
 }
 
-.connectivityBlock {
-  margin-top: 8px;
+.statusPill--offline {
+  border-color: rgba(239, 78, 78, 0.35);
+  background: var(--error-soft);
+  color: var(--error);
+}
+
+.statusPill--missing {
+  border-color: var(--border-strong);
+  color: var(--text-tertiary);
+}
+
+/* —— Vault —— */
+
+.vaultForm {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.vaultForm label {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.vaultForm .settingsActions {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.vault-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.vault-tile {
+  padding: 10px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.vault-tile dt {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.vault-tile dd {
+  margin: 3px 0 0;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.vault-tile__unit {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+.vault-lastrun {
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* —— Connectivity —— */
+
+.connectivityRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 15px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
 }
 
 .connectivityRow h3 {
   margin: 0;
-  font-size: 0.98rem;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--text);
 }
 
-.connectivityRow .settingsHint {
-  margin: 2px 0 0;
+.connectivityRow > span[role="status"] {
+  margin-left: auto;
 }
 
-.settingsHint,
-.settingsCaption {
-  margin: 10px 0 0;
-  color: var(--muted);
-  font-size: 0.88rem;
-  line-height: 1.45;
+.connectivityBlock {
+  margin-top: 12px;
+  padding: 13px 15px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
 }
 
-.settingsCaption {
-  padding-top: 12px;
-  border-top: 1px dashed var(--line);
-  font-style: italic;
+.connectivityBlock .connectivityRow {
+  padding: 0;
+  border: 0;
+  background: none;
 }
 
-.settingsError {
-  margin: 10px 0 0;
-  color: var(--off);
-  font-size: 0.88rem;
+.connectivityBlock label {
+  display: block;
+  margin: 12px 0 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
 }
 
-.connectorKeyField {
-  padding: 12px 0;
-  border-top: 1px solid var(--line);
+.connectivityBlock .settingsHint {
+  margin-top: 10px;
 }
 
-.connectorKeyField:first-of-type {
-  border-top: 0;
-  padding-top: 0;
+/* —— API health —— */
+
+.healthList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.healthRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.healthRow__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--status-skipped);
+  flex: 0 0 auto;
+}
+
+.healthRow[data-status="ok"] .healthRow__dot,
+.healthRow[data-status="online"] .healthRow__dot {
+  background: var(--status-approved);
+}
+
+.healthRow[data-status="missing"] .healthRow__dot,
+.healthRow[data-status="not_configured"] .healthRow__dot {
+  background: var(--warning);
+}
+
+.healthRow[data-status="offline"] .healthRow__dot,
+.healthRow[data-status="error"] .healthRow__dot {
+  background: var(--error);
+}
+
+.healthRow__col {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.healthRow__label {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text);
+}
+
+.healthRow__role {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--text-tertiary);
+}
+
+/* —— API keys —— */
+
+.connectorKeyField + .connectorKeyField {
+  margin-top: 14px;
 }
 
 .connectorKeyFieldHeader {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 8px;
 }
 
 .connectorKeyFieldHeader label {
-  margin: 0;
-  text-transform: none;
-  letter-spacing: 0;
-  font-size: 0.92rem;
-  font-weight: 600;
-  color: var(--ink);
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.connectorKeyFieldHeader > span[role="status"] {
+  margin-left: auto;
+}
+
+@media (max-width: 1279px) and (min-width: 1024px) {
+  .vault-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 1023px) {
-  .settingsPage {
-    padding: 20px 0 32px;
+  .settings__columns {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .settingsGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .vaultStats {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 720px) {
-  .settingsHeroRow {
+  .vaultForm {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    gap: 8px;
   }
 
-  .settingsActions {
-    flex-direction: column;
-  }
-
-  .settingsActions button,
-  .vaultForm button {
-    width: 100%;
+  .vault-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

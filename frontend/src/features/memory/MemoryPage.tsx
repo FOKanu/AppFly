@@ -1,23 +1,48 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { loadMemory } from "./api";
-import { ProfileCard } from "./ProfileCard";
-import { VaultStats } from "./VaultStats";
+import { CvAndVoice } from "./CvAndVoice";
+import { ProfileList, SkipCompanies, type SearchProfile } from "./ProfileList";
+import { ProfileSettings, type ProfileSettingsValue } from "./ProfileSettings";
 import type { MemoryView } from "./types";
 import "./memory.css";
 
+const EMPTY_SETTINGS: ProfileSettingsValue = {
+  roleTitles: [],
+  seniority: "senior",
+  salaryFloor: null,
+  workMode: "hybrid",
+};
+
 /**
- * Purpose: Memory & profiles overview — CV, voice samples, requirements, search presets.
- * Does not: dump full CV into the DOM, accept API keys, or write the vault.
+ * Purpose: Memory & profiles — search presets, the CV/voice the writer is given,
+ *          per-profile settings, and the global skip-company list.
+ * Does not: render the CV or letter bodies. Paths, counts and structure only.
  */
 export function MemoryPage() {
   const [view, setView] = useState<MemoryView | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [settings, setSettings] = useState<ProfileSettingsValue>(EMPTY_SETTINGS);
+  const [skipCompanies, setSkipCompanies] = useState<string[]>([]);
+  const [saveNote, setSaveNote] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    document.title = "AppFly · Memory";
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     loadMemory()
       .then((data) => {
-        if (!cancelled) setView(data);
+        if (cancelled) return;
+        setView(data);
+        setSettings({
+          roleTitles: data.search.keywords,
+          seniority: "senior",
+          salaryFloor: data.requirements.salaryFloor || null,
+          workMode: "hybrid",
+        });
+        setSkipCompanies([]);
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load memory");
@@ -27,105 +52,90 @@ export function MemoryPage() {
     };
   }, []);
 
+  const profiles = useMemo<SearchProfile[]>(() => profilesFrom(view), [view]);
+  const selectedId = activeId ?? profiles[0]?.id ?? null;
+  const selected = profiles.find((profile) => profile.id === selectedId) ?? null;
+  const profileName = selected?.name ?? "No profile";
+
   if (error) {
     return (
-      <section className="page">
-        <header>
-          <h1>Memory & profiles</h1>
-        </header>
-        <p className="banner" role="alert">
+      <div className="memory">
+        <p className="memory__banner" role="alert">
           {error}
         </p>
-      </section>
+      </div>
     );
   }
-
-  if (!view) {
-    return (
-      <section className="page" aria-busy="true">
-        <header>
-          <h1>Memory & profiles</h1>
-          <p className="lede status">Loading vault overview…</p>
-        </header>
-      </section>
-    );
-  }
-
-  const { cv, voiceSamples, requirements, search } = view;
-  const sourceChips = [
-    search.sources.agentur ? "Agentur API" : null,
-    search.sources.inbox ? "Inbox clips" : null,
-    search.sources.rssCount ? `${search.sources.rssCount} RSS feeds` : "RSS off",
-    search.sources.apifyEnabled ? "Apify · Impressum only" : "Apify off",
-  ].filter((item): item is string => Boolean(item));
 
   return (
-    <section className="page">
-      <header>
-        <h1>Memory & profiles</h1>
-        <p className="lede">
-          Read-only vault map. Counts and paths only — CV and letters stay in Obsidian, not in this
-          page.
-        </p>
-      </header>
-      {view.source === "mock" ? (
-        <p className="banner" role="status">
+    <div className="memory" aria-busy={view ? undefined : true}>
+      {view?.source === "mock" ? (
+        <p className="memory__banner" role="status">
           Local API unreachable — showing sample vault stats, not your CV.
         </p>
       ) : null}
-      <VaultStats vaultPath={view.vaultPath} jobCounts={view.jobCounts} />
-      <div className="cards">
-        <ProfileCard
-          title="CV"
-          path={cv.path}
-          exists={cv.exists}
-          stats={[
-            { label: "Words", value: cv.wordCount ?? "—" },
-            { label: "Chars", value: cv.charCount ?? "—" },
-            { label: "Sections", value: cv.sectionCount ?? "—" },
-          ]}
-          note="Master CV is not inlined here. Edit CV/Master.md in the vault."
-        />
-        <ProfileCard
-          title="Voice samples"
-          path={voiceSamples.path}
-          exists={voiceSamples.exists}
-          stats={[
-            { label: "Samples", value: voiceSamples.sampleCount ?? "—" },
-            { label: "Chars", value: voiceSamples.charCount ?? "—" },
-          ]}
-          note="Gemini uses this note for tone. Paste 1–3 sent letters in the vault."
-        />
-        <ProfileCard
-          title="Requirements"
-          path={requirements.path}
-          exists={requirements.exists}
-          stats={[
-            { label: "Salary floor", value: requirements.salaryFloor || "off" },
-            { label: "Banned terms", value: requirements.bannedTermCount },
-            { label: "Skip companies", value: requirements.skipCompanyCount },
-          ]}
-          chips={[
-            ...requirements.locations,
-            ...requirements.languages,
-            ...requirements.mustHave.map((item) => `must: ${item}`),
-            ...requirements.niceToHave.map((item) => `nice: ${item}`),
-          ]}
-          note={requirements.tone ? `Tone: ${requirements.tone}` : undefined}
-        />
-        <ProfileCard
-          title="Search presets"
-          path="config.yaml · keywords / location / sources"
-          exists={search.keywords.length > 0 || Boolean(search.location)}
-          stats={[
-            { label: "Location", value: search.location || "—" },
-            { label: "Radius", value: search.radiusKm ? `${search.radiusKm} km` : "—" },
-            { label: "Posted within", value: search.publishedDays ? `${search.publishedDays}d` : "—" },
-          ]}
-          chips={[...search.keywords, ...sourceChips]}
-          note="Presets are read from GET /settings. Source toggles are not scrape buttons."
-        />
+
+      <div className="memory__columns">
+        <div className="memory__col">
+          <ProfileList
+            profiles={profiles}
+            activeId={selectedId}
+            onSelect={setActiveId}
+            onNew={() => setSaveNote("Creating profiles needs a write endpoint that is not wired yet.")}
+          />
+          <SkipCompanies companies={skipCompanies} onChange={setSkipCompanies} />
+        </div>
+
+        <div className="memory__col">
+          <CvAndVoice
+            profileName={profileName}
+            cv={view?.cv ?? { path: "—", exists: false }}
+            voice={view?.voiceSamples ?? { path: "—", exists: false }}
+            onOpenInObsidian={() =>
+              setSaveNote("Open the vault in Obsidian on this machine to edit the CV.")
+            }
+            onReplaceSample={() =>
+              setSaveNote("Replace the voice sample in the vault; this page never holds it.")
+            }
+          />
+          <ProfileSettings
+            profileName={profileName}
+            value={settings}
+            onChange={setSettings}
+            onDelete={() => setSaveNote("Deleting profiles needs a write endpoint.")}
+            onSave={() => setSaveNote("Local to this session — the profile write endpoint is not wired yet.")}
+            saveNote={saveNote}
+          />
+        </div>
       </div>
-    </section>
+    </div>
   );
+}
+
+/**
+ * Purpose: Build the profile list from what GET /settings exposes today.
+ * Does not: invent profiles — the API carries one search preset, so that is
+ *           the one profile shown until a profiles endpoint lands.
+ */
+function profilesFrom(view: MemoryView | null): SearchProfile[] {
+  if (!view) return [];
+  const name =
+    [view.search.keywords[0], view.search.location].filter(Boolean).join(" — ") ||
+    "Default preset";
+  return [
+    {
+      id: "default",
+      name,
+      detail: [
+        view.search.keywords.slice(1).join(" · "),
+        view.search.radiusKm ? `${view.search.radiusKm} km` : "",
+        view.search.publishedDays ? `posted ≤ ${view.search.publishedDays}d` : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      shortlisted: view.jobCounts.shortlist,
+      applied: view.jobCounts.applied,
+      scoreFloor: undefined,
+    },
+  ];
 }

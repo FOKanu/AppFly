@@ -43,11 +43,11 @@ describe("PacketPage", () => {
     const user = userEvent.setup();
     renderPacket("agentur-ref-88112");
     await screen.findByRole("heading", { name: "Staff Platform Engineer" });
-    await user.click(screen.getByRole("button", { name: "Approve" }));
+    await user.click(screen.getByRole("button", { name: /Approve packet/ }));
     expect(await screen.findByText(/Marked approved/)).toBeInTheDocument();
     expect(screen.getByTestId("status-chip")).toHaveAttribute("data-status", "approved");
 
-    await user.click(screen.getByRole("button", { name: "Skip" }));
+    await user.click(screen.getByRole("button", { name: /^Deny/ }));
     expect(await screen.findByText(/Marked skipped/)).toBeInTheDocument();
     expect(screen.getByTestId("status-chip")).toHaveAttribute("data-status", "skipped");
   });

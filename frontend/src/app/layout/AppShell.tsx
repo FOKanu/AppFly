@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
-import { navItemForPath } from "../nav-config";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { headerKicker, headerTitle } from "../nav-config";
+import { ROUTES } from "../../routes";
 import {
   apiGet,
   apiPost,
@@ -15,9 +16,14 @@ import {
 import { OfflineBanner } from "../../shared/ui/OfflineBanner";
 import { useBreakpoint } from "../../shared/useBreakpoint";
 import { ControlHeader } from "./ControlHeader";
-import { RunningBar } from "./RunningBar";
+import { RunningBar, type RunTelemetry } from "./RunningBar";
 import { Sidebar } from "./Sidebar";
-import { SystemStatus } from "./SystemStatus";
+
+/** App version printed under the brand mark. */
+const APP_VERSION = "0.4.2";
+
+/** Statuses that count toward the Queue badge. */
+const ACTIVE_QUEUE = new Set(["inbox", "shortlist", "draft", "approved"]);
 
 const STUB_HEARTBEAT: HeartbeatResponse = {
   state: "idle",
@@ -32,14 +38,14 @@ const STUB_STATUS: SystemStatusResponse = {
 };
 
 /**
- * Purpose: Persistent app chrome (sidebar + header + run bar + status).
- * Does not: fetch jobs or display API keys.
+ * Purpose: Persistent desktop chrome — sidebar rail, control header, scrolling
+ *          content column and the mono running bar.
+ * Does not: fetch jobs for a screen or display API keys.
  */
 export function AppShell() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { breakpoint } = useBreakpoint();
-  const navItem = navItemForPath(location.pathname);
-  const title = navItem?.label ?? "Jobhunt Copilot";
 
   const searchRef = useRef<HTMLInputElement>(null);
   const [searchValue, setSearchValue] = useState("");
@@ -47,6 +53,17 @@ export function AppShell() {
   const [status, setStatus] = useState<SystemStatusResponse>(STUB_STATUS);
   const [queueCount, setQueueCount] = useState(0);
   const [apiReachable, setApiReachable] = useState(false);
+  const [telemetry, setTelemetry] = useState<RunTelemetry>({ nextNightly: "02:00" });
+  // The API carries one search preset today, so the shell shows that one.
+  const [profile, setProfile] = useState({ name: "No profile", count: 0 });
+
+  const kicker = headerKicker(location.pathname, {
+    queueCount,
+    profileName: profile.name,
+    profileCount: profile.count,
+    today: formatToday(),
+  });
+  const title = headerTitle(location.pathname);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,10 +83,13 @@ export function AppShell() {
         setStatus({
           ipc: health.ok ? "ok" : "down",
           ollama: "unknown",
+          ollamaDetail: "not probed",
           gemini: settings.secrets.gemini ? "ok" : "down",
+          geminiDetail: settings.secrets.gemini ? "key set" : "no key",
           vaultPath: settings.vault_path || "—",
         });
         setQueueCount(jobs.filter((job) => ACTIVE_QUEUE.has(job.status)).length);
+        setProfile(profileFrom(settings));
         setApiReachable(health.ok);
       } catch {
         if (!cancelled) setApiReachable(false);
@@ -88,7 +108,7 @@ export function AppShell() {
 
   const onRunNow = useCallback(() => {
     applyState("running", "Running nightly pipeline");
-    void startPipeline(applyState);
+    void startPipeline(applyState, setTelemetry);
   }, [applyState]);
 
   const onPauseNightly = useCallback(() => {
@@ -99,6 +119,10 @@ export function AppShell() {
     applyState("stopped", "Run stopped");
   }, [applyState]);
 
+  const onOpenProfiles = useCallback(() => {
+    navigate(ROUTES.memory);
+  }, [navigate]);
+
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       const metaK = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k";
@@ -108,8 +132,7 @@ export function AppShell() {
         return;
       }
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
-      const target = event.target;
-      if (isTypingTarget(target)) return;
+      if (isTypingTarget(event.target)) return;
       if (event.key === "r" || event.key === "R") {
         event.preventDefault();
         onRunNow();
@@ -119,32 +142,52 @@ export function AppShell() {
     return () => window.removeEventListener("keydown", onKey);
   }, [onRunNow]);
 
+  const runTelemetry = useMemo<RunTelemetry>(
+    () => ({ nextNightly: "02:00", ...telemetry }),
+    [telemetry],
+  );
+
   return (
     <div className="app-shell" data-breakpoint={breakpoint}>
-      <Sidebar queueCount={queueCount} />
-      <ControlHeader
-        title={title}
-        heartbeat={heartbeat.state}
-        heartbeatMessage={heartbeat.message}
-        searchValue={searchValue}
-        searchRef={searchRef}
-        onSearchChange={setSearchValue}
-        onRunNow={onRunNow}
-        onPauseNightly={onPauseNightly}
-        onStop={onStop}
-        runDisabled={heartbeat.state === "running"}
+      <Sidebar
+        queueCount={queueCount}
+        profileName={profile.name}
+        status={status}
+        version={APP_VERSION}
+        onOpenProfiles={onOpenProfiles}
       />
-      <main className="app-main" id="main">
-        <OfflineBanner
-          connectivity={{
-            localIpc: apiReachable ? "connected" : "disconnected",
-            remoteBridge: "connected",
-          }}
+
+      <div className="app-main-col">
+        <ControlHeader
+          kicker={kicker}
+          title={title}
+          heartbeat={heartbeat.state}
+          heartbeatMessage={heartbeat.message}
+          searchValue={searchValue}
+          searchRef={searchRef}
+          onSearchChange={setSearchValue}
+          onRunNow={onRunNow}
+          onPauseNightly={onPauseNightly}
+          onStop={onStop}
+          runDisabled={heartbeat.state === "running"}
+          stopDisabled={heartbeat.state !== "running"}
         />
-        <Outlet />
-      </main>
-      <RunningBar state={heartbeat.state} message={heartbeat.message} />
-      <SystemStatus status={status} apiReachable={apiReachable} />
+        <main className="app-main" id="main">
+          <OfflineBanner
+            connectivity={{
+              localIpc: apiReachable ? "connected" : "disconnected",
+              remoteBridge: "connected",
+            }}
+          />
+          <Outlet />
+        </main>
+      </div>
+
+      <RunningBar
+        state={heartbeat.state}
+        telemetry={runTelemetry}
+        ipcConnected={apiReachable}
+      />
     </div>
   );
 }
@@ -155,9 +198,16 @@ export function AppShell() {
  */
 async function startPipeline(
   applyState: (state: HeartbeatState, message?: string) => void,
+  setTelemetry: (next: RunTelemetry) => void,
 ): Promise<void> {
   try {
     const result = await apiPost<RunResponse>("/runs");
+    setTelemetry({
+      scouted: result.scouted,
+      matched: result.shortlisted,
+      written: result.written,
+      nextNightly: "02:00",
+    });
     if (result.written > 0) {
       applyState("waiting-for-you", "Waiting for you — review drafts in the vault");
       return;
@@ -166,13 +216,34 @@ async function startPipeline(
       applyState("stopped", result.errors[0]);
       return;
     }
-    applyState("idle", `Run complete. Scouted ${result.scouted}, shortlisted ${result.shortlisted}.`);
+    applyState(
+      "idle",
+      `Run complete. Scouted ${result.scouted}, shortlisted ${result.shortlisted}.`,
+    );
   } catch {
     applyState("stopped", "Run failed — API unreachable");
   }
 }
 
-const ACTIVE_QUEUE = new Set(["inbox", "shortlist", "draft", "approved"]);
+/**
+ * Purpose: Name the active search preset from what GET /settings exposes.
+ * Does not: invent extra profiles — the API carries exactly one today.
+ */
+function profileFrom(settings: SettingsSnapshot): { name: string; count: number } {
+  const keyword = settings.keywords?.[0];
+  const location = settings.location;
+  const name = [keyword, location].filter(Boolean).join(" — ");
+  return name ? { name, count: 1 } : { name: "No profile", count: 0 };
+}
+
+/** Header date in the Figma format, e.g. "Wed 17 Sep". */
+function formatToday(): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).format(new Date());
+}
 
 function fallbackMessage(state: HeartbeatState): string {
   switch (state) {

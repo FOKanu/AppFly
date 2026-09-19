@@ -57,7 +57,8 @@ describe("ActivityPage", () => {
     );
 
     render(<ActivityPage />);
-    expect(await screen.findByText("Activity & logs")).toBeInTheDocument();
+    // The page title lives in the app header, so assert on the funnel card.
+    expect(await screen.findByText("Conversion funnel")).toBeInTheDocument();
     expect(screen.getByText("Scouted")).toBeInTheDocument();
     expect(screen.queryByText(/sk-leaked-token-value/)).not.toBeInTheDocument();
     expect(screen.getByText(/\[redacted\]/)).toBeInTheDocument();

@@ -1,15 +1,16 @@
-import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { getJob, patchJobStatus } from "../queue/jobsApi";
+import { useCallback, useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import { getJob, patchJobStatus, requestListingFetch } from "../queue/jobsApi";
 import type { JobRecord, JobStatus } from "../queue/types";
-import { LetterPanel } from "./LetterPanel";
-import { PacketActions } from "./PacketActions";
-import { PacketHeader } from "./PacketHeader";
-import styles from "./PacketPage.module.css";
+import { ApproveStrip } from "./ApproveStrip";
+import { CvTweaks } from "./CvTweaks";
+import { LetterWorkbench } from "./LetterWorkbench";
+import { PacketSpec } from "./PacketSpec";
+import "./packet.css";
 
 /**
- * Sealed writer packet: one job + letter excerpt, approve / skip via PATCH.
- * Does not load the rest of the vault.
+ * Purpose: Sealed writer packet — one job, its letter, and the approval step.
+ * Does not: load the rest of the vault, render the CV body, or submit anything.
  */
 export function PacketPage() {
   const { sourceId = "" } = useParams();
@@ -45,48 +46,68 @@ export function PacketPage() {
     };
   }, [decodedId]);
 
-  async function onStatus(status: JobStatus) {
+  const onStatus = useCallback(
+    async (status: JobStatus) => {
+      if (!job) return;
+      setBusy(true);
+      setFeedback(null);
+      try {
+        const updated = await patchJobStatus(job.source_id, status);
+        setJob({
+          ...job,
+          ...updated,
+          letter_excerpt: job.letter_excerpt,
+          description: job.description,
+        });
+        setFeedback(
+          status === "approved" ? "Marked approved. Submit it yourself." : "Marked skipped.",
+        );
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "PATCH failed");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [job],
+  );
+
+  const onFetchListing = useCallback(async () => {
     if (!job) return;
-    setBusy(true);
-    setFeedback(null);
-    try {
-      const updated = await patchJobStatus(job.source_id, status);
-      setJob({ ...job, ...updated, letter_excerpt: job.letter_excerpt, description: job.description });
-      setFeedback(status === "approved" ? "Marked approved. Submit it yourself." : "Marked skipped.");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "PATCH failed");
-    } finally {
-      setBusy(false);
-    }
-  }
+    const result = await requestListingFetch(job.source_id, job.crawl_allowed);
+    setFeedback(result.message);
+  }, [job]);
 
   return (
-    <section className={styles.page} data-testid="packet-page">
-      <Link className={styles.back} to={job ? `/queue/${encodeURIComponent(job.source_id)}` : "/queue"}>
-        ← Queue
-      </Link>
+    <section className="packet-page page-flush" data-testid="packet-page">
       {usingMock ? (
-        <p className={styles.banner} data-testid="mock-banner">
+        <p className="packet-page__banner" data-testid="mock-banner">
           Sample packet — GET /jobs/{"{id}"} is unavailable.
         </p>
       ) : null}
       {error ? (
-        <p className={styles.error} data-testid="packet-error">
+        <p className="packet-page__banner" data-testid="packet-error">
           {error}
         </p>
       ) : null}
+
       {job ? (
-        <div className={styles.layout}>
-          <PacketActions
-            job={job}
-            busy={busy}
-            feedback={feedback}
-            onStatus={(status) => void onStatus(status)}
-            onFeedback={setFeedback}
-          />
-          <div className={styles.main}>
-            <PacketHeader job={job} />
-            <LetterPanel excerpt={job.letter_excerpt} />
+        <div className="packet-page__panes">
+          <PacketSpec job={job} onFetchListing={() => void onFetchListing()} />
+
+          <div className="packet-page__work">
+            <LetterWorkbench
+              aiDraft={job.letter_excerpt}
+              writer={job.source === "agentur" ? "gemini-2.5-flash" : undefined}
+              onSave={() => setFeedback("Saved to the vault on this machine.")}
+              onRegenerate={() => setFeedback("Rewrite queued with the local writer.")}
+            />
+            <CvTweaks tweaks={[]} />
+            <ApproveStrip
+              job={job}
+              busy={busy}
+              feedback={feedback}
+              onStatus={(status) => void onStatus(status)}
+            />
           </div>
         </div>
       ) : null}

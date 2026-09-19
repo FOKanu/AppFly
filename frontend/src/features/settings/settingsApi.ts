@@ -118,6 +118,10 @@ function emptySettings(ipc: StatusView): SettingsView {
       lastScout: "—",
       lastMatch: "—",
       lastWrite: "—",
+      jobNotes: "—",
+      companyNotes: "—",
+      letterDrafts: "—",
+      runLogs: "—",
     },
     connectivity: {
       localIpc: ipc,
@@ -152,6 +156,10 @@ function parseVault(raw: unknown): VaultView {
     lastScout: placeholder(pick(record, ["lastScout", "last_scout", "scout"])),
     lastMatch: placeholder(pick(record, ["lastMatch", "last_match", "match"])),
     lastWrite: placeholder(pick(record, ["lastWrite", "last_write", "write"])),
+    jobNotes: placeholder(pick(record, ["jobNotes", "job_notes", "jobs"])),
+    companyNotes: placeholder(pick(record, ["companyNotes", "company_notes", "companies"])),
+    letterDrafts: placeholder(pick(record, ["letterDrafts", "letter_drafts", "letters"])),
+    runLogs: placeholder(pick(record, ["runLogs", "run_logs", "runs"])),
   };
 }
 

@@ -1,55 +1,60 @@
+import { Meter } from "../../shared/ui/Meter";
 import type { FunnelView } from "./types";
-
-const PIPELINE: { key: keyof Omit<FunnelView, "jobs">; label: string }[] = [
-  { key: "scouted", label: "Scouted" },
-  { key: "shortlisted", label: "Shortlisted" },
-  { key: "skipped", label: "Matcher skip" },
-  { key: "written", label: "Letters" },
-  { key: "writeSkipped", label: "Write skip" },
-];
-
-const VAULT: { key: keyof FunnelView["jobs"]; label: string }[] = [
-  { key: "inbox", label: "Inbox" },
-  { key: "shortlist", label: "Shortlist" },
-  { key: "draft", label: "Draft" },
-  { key: "approved", label: "Approved" },
-  { key: "applied", label: "Applied" },
-  { key: "skipped", label: "Skipped" },
-];
 
 type FunnelSummaryProps = {
   funnel: FunnelView;
+  /** Days the funnel covers, printed in the kicker. */
+  windowDays?: number;
 };
 
+/** The five funnel stages, from what scout found to what you sent. */
+const STAGES = [
+  { label: "Scouted", tone: "accent" },
+  { label: "Shortlisted", tone: "shortlist" },
+  { label: "Drafted", tone: "draft" },
+  { label: "Approved", tone: "approved" },
+  { label: "Applied", tone: "applied" },
+] as const;
+
 /**
- * Purpose: Show pipeline totals and vault job-status funnel.
+ * Purpose: Conversion funnel — how many listings survive each stage.
  * Does not: start runs or list individual job packets.
  */
-export function FunnelSummary({ funnel }: FunnelSummaryProps) {
+export function FunnelSummary({ funnel, windowDays = 30 }: FunnelSummaryProps) {
+  const values: Record<string, number> = {
+    Scouted: funnel.scouted,
+    Shortlisted: funnel.shortlisted,
+    Drafted: funnel.written,
+    Approved: funnel.jobs.approved,
+    Applied: funnel.jobs.applied,
+  };
+  const top = values.Scouted || 0;
+
   return (
-    <div className="funnel">
-      <section className="funnel-row" aria-label="Pipeline funnel">
-        <h2>Pipeline (all loaded runs)</h2>
-        <dl className="steps">
-          {PIPELINE.map((step) => (
-            <div className="step" key={step.key}>
-              <dt>{step.label}</dt>
-              <dd>{funnel[step.key]}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-      <section className="funnel-row" aria-label="Vault funnel">
-        <h2>Vault jobs by status</h2>
-        <dl className="steps">
-          {VAULT.map((step) => (
-            <div className="step" key={step.key}>
-              <dt>{step.label}</dt>
-              <dd>{funnel.jobs[step.key]}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-    </div>
+    <section className="activity-card" aria-labelledby="funnel-title">
+      <p className="activity-card__kicker">Last {windowDays} days</p>
+      <h2 id="funnel-title" className="activity-card__title">
+        Conversion funnel
+      </h2>
+
+      {STAGES.map((stage) => {
+        const value = values[stage.label] ?? 0;
+        return (
+          <div className="funnel-stage" key={stage.label}>
+            <p className="funnel-stage__head">
+              <span className="funnel-stage__label">{stage.label}</span>
+              <span className="funnel-stage__value">{value.toLocaleString()}</span>
+              <span className="funnel-stage__pct">{percent(value, top)}</span>
+            </p>
+            <Meter value={top > 0 ? value / top : 0} tone={stage.tone} label={stage.label} />
+          </div>
+        );
+      })}
+    </section>
   );
+}
+
+function percent(value: number, top: number): string {
+  if (top <= 0) return "—";
+  return `${((value / top) * 100).toFixed(1)}%`;
 }

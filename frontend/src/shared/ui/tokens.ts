@@ -1,27 +1,25 @@
 /**
- * Purpose: Design tokens for the dark calm instrument panel.
+ * Purpose: Design tokens for the dark instrument panel, mirrored from the
+ *          Figma board "UI · 00 Cover & Foundations".
  * Does not: encode copy, crawl policy, or API payloads.
  */
 export const tokens = {
   color: {
-    bg: "#0c0f0e",
-    bgRaised: "#121715",
-    bgPanel: "#161b19",
-    bgHover: "#1c2320",
-    bgActive: "#1a2622",
-    border: "#24302b",
-    borderStrong: "#31433b",
-    text: "#dce6e1",
-    textMuted: "#8b9a93",
-    textFaint: "#5c6b64",
-    accent: "#3dba9a",
-    accentDim: "#1f6f5c",
-    accentGlow: "rgba(61, 186, 154, 0.28)",
-    warning: "#d4a017",
-    warningGlow: "rgba(212, 160, 23, 0.28)",
-    danger: "#d46767",
-    info: "#6a9cbf",
-    idle: "#4a5852",
+    /** surface/0 · canvas — app background. */
+    surface0: "#0B0D10",
+    /** surface/1 · panel — sidebar, cards. */
+    surface1: "#111418",
+    /** surface/2 · raised — header, list rows. */
+    surface2: "#161A20",
+    /** surface/3 · control — inputs, buttons. */
+    surface3: "#1D222A",
+    border: "#232932",
+    borderStrong: "#2E3642",
+    textPrimary: "#E6E9ED",
+    textSecondary: "#A1AAB6",
+    textTertiary: "#6B7481",
+    /** accent/signal — focus, live run, primary action. */
+    accent: "#67D4E3",
     status: {
       inbox: "#B8C0CC",
       shortlist: "#7EA6FF",
@@ -30,20 +28,40 @@ export const tokens = {
       applied: "#A98BFA",
       skipped: "#7C8795",
     },
+    signal: {
+      error: "#EF4E4E",
+      /** Banned host — deliberately distinct from error. */
+      policyBlock: "#FF7417",
+      warning: "#E9A23B",
+    },
   },
-  radius: 7,
+  space: { 1: 4, 2: 8, 3: 12, 4: 16, 5: 24, 6: 32, 7: 48 },
+  radius: { xs: 4, sm: 7, md: 10, lg: 16, pill: 999 },
+  /** Every button, checkbox and row hit area is at least this tall. */
+  touchTarget: 44,
   controlHeight: 32,
-  space: {
-    1: 4,
-    2: 8,
-    3: 12,
-    4: 16,
-    5: 24,
-    6: 32,
+  layout: {
+    sidebarWidth: 232,
+    sidebarWidthCompact: 208,
+    headerHeight: 60,
+    runningBarHeight: 32,
+    contentGutter: 24,
   },
   type: {
-    sans: '"IBM Plex Sans", "Segoe UI", system-ui, sans-serif',
-    mono: '"IBM Plex Mono", ui-monospace, monospace',
+    sans: '"Inter", "Inter var", system-ui, -apple-system, "Segoe UI", sans-serif',
+    mono: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace',
+    /** [font-size, line-height, weight, letter-spacing] straight off the Figma scale. */
+    scale: {
+      display: ["32px", "40px", 600, "-0.01em"],
+      titleLg: ["24px", "32px", 600, "-0.01em"],
+      titleMd: ["18px", "26px", 600, "0"],
+      titleSm: ["15px", "22px", 600, "0"],
+      bodyMd: ["15px", "22px", 400, "0"],
+      bodySm: ["13px", "20px", 400, "0"],
+      labelCaps: ["11px", "16px", 500, "0.06em"],
+      monoMd: ["12px", "18px", 400, "0"],
+      monoNum: ["20px", "28px", 500, "0"],
+    },
   },
   breakpoint: {
     /** Product mobile frame. */
@@ -72,62 +90,119 @@ export const breakpoints = tokens.breakpoint;
  * Does not: touch the DOM; call applyTokens to assign them.
  */
 export function cssVariables(source: Tokens = tokens): Record<string, string> {
+  const c = source.color;
   return {
-    "--bg": source.color.bg,
-    "--bg-raised": source.color.bgRaised,
-    "--bg-panel": source.color.bgPanel,
-    "--bg-hover": source.color.bgHover,
-    "--bg-active": source.color.bgActive,
-    "--border": source.color.border,
-    "--border-strong": source.color.borderStrong,
-    "--text": source.color.text,
-    "--text-muted": source.color.textMuted,
-    "--text-faint": source.color.textFaint,
-    "--accent": source.color.accent,
-    "--accent-dim": source.color.accentDim,
-    "--accent-glow": source.color.accentGlow,
-    "--warning": source.color.warning,
-    "--warning-glow": source.color.warningGlow,
-    "--danger": source.color.danger,
-    "--info": source.color.info,
-    "--idle": source.color.idle,
-    "--radius": `${source.radius}px`,
+    /* Surfaces & text */
+    "--surface-0": c.surface0,
+    "--surface-1": c.surface1,
+    "--surface-2": c.surface2,
+    "--surface-3": c.surface3,
+    "--border": c.border,
+    "--border-strong": c.borderStrong,
+    "--text": c.textPrimary,
+    "--text-secondary": c.textSecondary,
+    "--text-tertiary": c.textTertiary,
+    "--accent": c.accent,
+    "--accent-soft": "rgba(103, 212, 227, 0.14)",
+    "--accent-glow": "rgba(103, 212, 227, 0.26)",
+    /** Text colour to sit on a solid --accent fill. */
+    "--accent-ink": c.surface0,
+
+    /* Job status */
+    "--status-inbox": c.status.inbox,
+    "--status-shortlist": c.status.shortlist,
+    "--status-draft": c.status.draft,
+    "--status-approved": c.status.approved,
+    "--status-applied": c.status.applied,
+    "--status-skipped": c.status.skipped,
+
+    /* System signals */
+    "--error": c.signal.error,
+    "--error-soft": "rgba(239, 78, 78, 0.14)",
+    "--policy": c.signal.policyBlock,
+    "--policy-soft": "rgba(255, 116, 23, 0.12)",
+    "--warning": c.signal.warning,
+    "--warning-soft": "rgba(233, 162, 59, 0.14)",
+    "--ok-soft": "rgba(69, 196, 134, 0.14)",
+
+    /* Space */
+    "--space-1": `${source.space[1]}px`,
+    "--space-2": `${source.space[2]}px`,
+    "--space-3": `${source.space[3]}px`,
+    "--space-4": `${source.space[4]}px`,
+    "--space-5": `${source.space[5]}px`,
+    "--space-6": `${source.space[6]}px`,
+    "--space-7": `${source.space[7]}px`,
+
+    /* Radius */
+    "--radius-xs": `${source.radius.xs}px`,
+    "--radius-sm": `${source.radius.sm}px`,
+    "--radius-md": `${source.radius.md}px`,
+    "--radius-lg": `${source.radius.lg}px`,
+    "--radius-pill": `${source.radius.pill}px`,
+    "--radius": `${source.radius.sm}px`,
+
+    /* Controls & layout */
     "--control-h": `${source.controlHeight}px`,
+    "--touch-target": `${source.touchTarget}px`,
+    "--sidebar-w": `${source.layout.sidebarWidth}px`,
+    "--header-h": `${source.layout.headerHeight}px`,
+    "--runbar-h": `${source.layout.runningBarHeight}px`,
+    "--gutter": `${source.layout.contentGutter}px`,
+
+    /* Type */
     "--font-sans": source.type.sans,
     "--font-mono": source.type.mono,
+
+    /* Breakpoints (read by JS-free CSS comments / container queries) */
     "--bp-mobile": `${source.breakpoint.mobile}px`,
     "--bp-tablet": `${source.breakpoint.tablet}px`,
     "--bp-tablet-max": `${source.breakpoint.tabletMax}px`,
     "--bp-compact": `${source.breakpoint.compact}px`,
     "--bp-desktop": `${source.breakpoint.desktop}px`,
-    "--ink": source.color.text,
-    "--ink-soft": source.color.textMuted,
-    "--paper": source.color.bg,
-    "--paper-raised": source.color.bgPanel,
-    "--paper-sunken": source.color.bgRaised,
-    "--line": source.color.border,
+
+    /*
+     * Legacy aliases. Existing feature stylesheets still read these names;
+     * they now resolve to the Figma palette so there is one source of colour.
+     */
+    "--bg": c.surface0,
+    "--bg-raised": c.surface1,
+    "--bg-panel": c.surface1,
+    "--bg-elevated": c.surface2,
+    "--bg-hover": c.surface2,
+    "--bg-active": c.surface3,
+    "--text-muted": c.textSecondary,
+    "--text-faint": c.textTertiary,
+    "--accent-dim": "rgba(103, 212, 227, 0.22)",
+    "--danger": c.signal.error,
+    "--danger-soft": "rgba(239, 78, 78, 0.14)",
+    "--info": c.status.shortlist,
+    "--info-soft": "rgba(126, 166, 255, 0.14)",
+    "--warn": c.signal.warning,
+    "--warn-soft": "rgba(233, 162, 59, 0.14)",
+    "--idle": c.status.skipped,
+    "--ink": c.textPrimary,
+    "--ink-soft": c.textSecondary,
+    "--ink-muted": c.textSecondary,
+    "--muted": c.textSecondary,
+    "--paper": c.surface0,
+    "--paper-raised": c.surface1,
+    "--paper-sunken": c.surface2,
+    "--line": c.border,
     "--shadow": "none",
-    "--forest": source.color.accent,
-    "--copper": source.color.warning,
-    "--copper-ink": source.color.bg,
-    "--muted": source.color.textMuted,
-    "--bg-elevated": source.color.bgRaised,
-    "--warn": source.color.warning,
-    "--ok": source.color.accent,
-    "--err": source.color.danger,
-    "--chip": source.color.bgHover,
+    "--forest": c.status.approved,
+    "--copper": c.signal.warning,
+    "--copper-ink": c.surface0,
+    "--ok": c.status.approved,
+    "--err": c.signal.error,
+    "--miss": c.signal.error,
+    "--off": c.status.skipped,
+    "--chip": c.surface3,
+    "--card": c.surface1,
     "--mono": source.type.mono,
-    "--card": source.color.bgPanel,
-    "--ok-bg": source.color.bgActive,
-    "--miss-bg": source.color.bgRaised,
-    "--off-bg": source.color.bgRaised,
-    "--miss": source.color.danger,
-    "--off": source.color.idle,
-    "--ink-muted": source.color.textMuted,
-    "--info-soft": "rgba(106, 156, 191, 0.16)",
-    "--warn-soft": "rgba(212, 160, 23, 0.16)",
-    "--danger-soft": "rgba(212, 103, 103, 0.16)",
-    "--accent-soft": source.color.accentGlow,
+    "--ok-bg": "rgba(69, 196, 134, 0.14)",
+    "--miss-bg": "rgba(239, 78, 78, 0.14)",
+    "--off-bg": c.surface2,
   };
 }
 

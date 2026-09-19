@@ -6,6 +6,7 @@ export const ROUTES = {
   root: "/",
   tonight: "/tonight",
   queue: "/queue",
+  packet: "/packet",
   workflow: "/workflow",
   memory: "/memory",
   activity: "/activity",

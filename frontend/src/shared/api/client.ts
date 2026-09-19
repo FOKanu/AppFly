@@ -23,6 +23,10 @@ export interface SystemStatusResponse {
   ipc: LinkHealth;
   ollama: LinkHealth;
   gemini: LinkHealth;
+  /** Short mono detail beside the dot, e.g. "8b · idle". */
+  ollamaDetail?: string;
+  /** Short mono detail beside the dot, e.g. "ok · 41%". */
+  geminiDetail?: string;
   vaultPath: string;
 }
 
@@ -33,6 +37,9 @@ export interface HealthResponse {
 
 export interface SettingsSnapshot {
   vault_path: string;
+  /** Search-preset keywords; the first one names the active profile. */
+  keywords?: string[];
+  location?: string;
   secrets: {
     gemini: boolean;
     apify: boolean;

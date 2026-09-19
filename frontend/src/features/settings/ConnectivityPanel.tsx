@@ -22,15 +22,13 @@ export function ConnectivityPanel({ connectivity }: ConnectivityPanelProps) {
     bridgeStatus === "not_configured" || !url.trim() ? "not configured" : "offline";
 
   return (
-    <article className="settingsPanel">
-      <header className="settingsPanelHeader">
-        <h2>Connectivity</h2>
-        <p>Scout and matching stay on this Mac. The Remote Bridge is Phase 2.</p>
-      </header>
+    <article className="settings-card">
+      <p className="settings-card__kicker">Local IPC vs Remote Bridge</p>
+      <h2 className="settings-card__title">Connectivity</h2>
       <div className="connectivityRow">
         <div>
           <h3>Local IPC</h3>
-          <p className="settingsHint">Jobhunt local API on this Mac</p>
+          <p className="settingsHint">macOS · jobhunt CLI ↔ app</p>
         </div>
         <span
           className={
@@ -47,12 +45,15 @@ export function ConnectivityPanel({ connectivity }: ConnectivityPanelProps) {
         <div className="connectivityRow">
           <div>
             <h3>Remote Bridge API</h3>
-            <p className="settingsHint">Not started from this page.</p>
+            <p className="settingsHint">mobile / Android · REST + WebSocket</p>
           </div>
           <span className="statusPill statusPill--missing" role="status">
             {bridgeLabel}
           </span>
         </div>
+        <p className="settingsHint">
+          not configured — required for phone access to a headless runner
+        </p>
         <label htmlFor="bridge-url">Bridge URL</label>
         <div className="settingsActions">
           <input
@@ -69,6 +70,10 @@ export function ConnectivityPanel({ connectivity }: ConnectivityPanelProps) {
           </button>
         </div>
       </div>
+      <p className="settings-card__copy">
+        Phase 2: the Bridge API lets an Android client reach this same pipeline running on a
+        home server or cloud runner, without exposing the vault directly.
+      </p>
     </article>
   );
 }
