@@ -35,6 +35,10 @@ interface MenuProps {
   labelledBy: string;
   /** Rendered above the first section — the active-context summary. */
   header?: ReactNode;
+  /** When set, the header becomes the control that collapses the menu. */
+  onHeaderClick?: () => void;
+  /** Accessible label for that collapse control. */
+  headerLabel?: string;
   /** Rendered under the last section — usually the keyboard hint. */
   footer?: ReactNode;
 }
@@ -53,6 +57,8 @@ export function Menu({
   onChoose,
   labelledBy,
   header,
+  onHeaderClick,
+  headerLabel,
   footer,
 }: MenuProps) {
   const navigate = useNavigate();
@@ -60,7 +66,20 @@ export function Menu({
 
   return (
     <div className="menu" role="menu" aria-labelledby={labelledBy}>
-      {header ? <div className="menu__header">{header}</div> : null}
+      {header ? (
+        onHeaderClick ? (
+          <button
+            type="button"
+            className="menu__header menu__header--button"
+            aria-label={headerLabel}
+            onClick={onHeaderClick}
+          >
+            {header}
+          </button>
+        ) : (
+          <div className="menu__header">{header}</div>
+        )
+      ) : null}
 
       <div className="menu__scroll">
         {sections.map((section) => (

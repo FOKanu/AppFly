@@ -15,6 +15,12 @@ interface UseMenuOptions {
   width?: number;
   /** Gap between the trigger and the menu. */
   offset?: number;
+  /**
+   * "below" drops the menu under the trigger.
+   * "overlay" paints it starting at the trigger's own top edge, so a menu
+   * whose header restates the trigger shows that information once, not twice.
+   */
+  align?: "below" | "overlay";
 }
 
 interface UseMenuResult {
@@ -63,7 +69,11 @@ function nearestScrollable(from: HTMLElement): HTMLElement | null {
  * Returns: Refs, handlers, the active index, and where to paint the menu.
  * Does not: render anything, or decide what an item does when chosen.
  */
-export function useMenu({ width = 280, offset = 8 }: UseMenuOptions = {}): UseMenuResult {
+export function useMenu({
+  width = 280,
+  offset = 8,
+  align = "below",
+}: UseMenuOptions = {}): UseMenuResult {
   const [open, setOpenState] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [position, setPosition] = useState<MenuPosition>({
@@ -90,17 +100,29 @@ export function useMenu({ width = 280, offset = 8 }: UseMenuOptions = {}): UseMe
     triggerRef.current?.focus();
   }, []);
 
-  const setOpen = useCallback((next: boolean) => {
-    if (next) openingRef.current = true;
-    setOpenState(next);
-    if (next) setActiveIndex(0);
+  /** Index of the first item arrow keys would accept, so opening never lands
+   *  focus on a disabled row. */
+  const firstEnabledIndex = useCallback(() => {
+    const index = itemsRef.current.findIndex(
+      (element) => element && !element.hasAttribute("disabled"),
+    );
+    return index < 0 ? 0 : index;
   }, []);
+
+  const setOpen = useCallback(
+    (next: boolean) => {
+      if (next) openingRef.current = true;
+      setOpenState(next);
+      if (next) setActiveIndex(firstEnabledIndex());
+    },
+    [firstEnabledIndex],
+  );
 
   const toggle = useCallback(() => {
     openingRef.current = true;
     setOpenState((current) => !current);
-    setActiveIndex(0);
-  }, []);
+    setActiveIndex(firstEnabledIndex());
+  }, [firstEnabledIndex]);
 
   /**
    * Anchor under the trigger, flipping above it when the space below is too
@@ -110,8 +132,11 @@ export function useMenu({ width = 280, offset = 8 }: UseMenuOptions = {}): UseMe
     const trigger = triggerRef.current;
     if (!trigger) return;
     const rect = trigger.getBoundingClientRect();
-    const below = window.innerHeight - rect.bottom - offset - VIEWPORT_MARGIN;
-    const above = rect.top - offset - VIEWPORT_MARGIN;
+    // An overlay menu starts where the trigger starts; a dropped one clears it.
+    const anchorTop = align === "overlay" ? rect.top : rect.bottom + offset;
+    const anchorBottom = align === "overlay" ? rect.bottom : rect.top - offset;
+    const below = window.innerHeight - anchorTop - VIEWPORT_MARGIN;
+    const above = anchorBottom - VIEWPORT_MARGIN;
     const flipped = below < 280 && above > below;
 
     setPosition({
@@ -119,11 +144,11 @@ export function useMenu({ width = 280, offset = 8 }: UseMenuOptions = {}): UseMe
         Math.max(VIEWPORT_MARGIN, rect.left),
         window.innerWidth - width - VIEWPORT_MARGIN,
       ),
-      top: flipped ? Math.max(VIEWPORT_MARGIN, rect.top - offset) : rect.bottom + offset,
+      top: flipped ? Math.max(VIEWPORT_MARGIN, anchorBottom) : anchorTop,
       maxHeight: Math.max(160, flipped ? above : below),
       flipped,
     });
-  }, [offset, width]);
+  }, [align, offset, width]);
 
   // Measure before paint so the menu never flashes in the wrong place.
   useLayoutEffect(() => {
@@ -165,13 +190,21 @@ export function useMenu({ width = 280, offset = 8 }: UseMenuOptions = {}): UseMe
     if (!element) return;
     if (openingRef.current) {
       openingRef.current = false;
+      if (element.hasAttribute("disabled")) {
+        // The list only mounts after the first render, so re-resolve now.
+        const next = firstEnabledIndex();
+        if (next !== activeIndex) {
+          setActiveIndex(next);
+          return;
+        }
+      }
       element.focus({ preventScroll: true });
       const scroller = nearestScrollable(element);
       if (scroller) scroller.scrollTop = 0;
       return;
     }
     element.focus();
-  }, [open, activeIndex]);
+  }, [open, activeIndex, firstEnabledIndex]);
 
   const step = useCallback((delta: number) => {
     const items = itemsRef.current;

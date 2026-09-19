@@ -34,31 +34,36 @@ export function ProfileMenu({
   onActivate,
   onCopyVaultPath,
 }: ProfileMenuProps) {
-  const menu = useMenu({ width: MENU_WIDTH });
+  const menu = useMenu({ width: MENU_WIDTH, align: "overlay" });
   const active = profiles.find((profile) => profile.id === activeId) ?? profiles[0] ?? null;
   const activeName = active?.name ?? "No profile";
+  const others = profiles.filter((profile) => profile.id !== active?.id);
   const profileHref = active ? `${ROUTES.profiles}/${active.id}` : ROUTES.profiles;
 
   const sections: MenuSectionSpec[] = [
     {
       id: "context",
-      label: "Switch profile",
+      label: "Profiles",
       items: [
-        ...profiles.map((profile) => ({
+        // The active profile is the header card above, so it is not repeated
+        // here — this list is only the presets you could switch to.
+        ...others.map((profile) => ({
           id: `switch-${profile.id}`,
           label: profile.name,
           icon: "profile" as const,
-          checked: profile.id === active?.id,
+          detail: "switch",
           onSelect: () => onActivate(profile.id),
         })),
-        ...(profiles.length === 0
+        ...(others.length === 0
           ? [
               {
-                id: "no-profiles",
-                label: "No preset configured",
+                id: "only-preset",
+                label: active ? "No other preset to switch to" : "No preset configured",
                 icon: "profile" as const,
                 disabled: true,
-                reason: "Set role titles and a location in Profiles to create one.",
+                reason: active
+                  ? SINGLE_PRESET_NOTE
+                  : "Set role titles and a location in Profiles to create one.",
               },
             ]
           : []),
@@ -226,6 +231,8 @@ export function ProfileMenu({
                 activeIndex={menu.activeIndex}
                 onChoose={menu.close}
                 labelledBy="profile-menu-trigger"
+                onHeaderClick={menu.close}
+                headerLabel={`${activeName} — close profile menu`}
                 header={
                   <>
                     <span className="menu__header-avatar" aria-hidden="true">
@@ -240,6 +247,11 @@ export function ProfileMenu({
                       </span>
                     </span>
                     <span className="menu__header-badge">active</span>
+                    <span className="menu__header-caret" aria-hidden="true">
+                      <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m4 10 4-4 4 4" />
+                      </svg>
+                    </span>
                   </>
                 }
                 footer={
