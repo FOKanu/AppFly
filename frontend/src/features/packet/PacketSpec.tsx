@@ -83,11 +83,11 @@ export function PacketSpec({ job, onFetchListing }: PacketSpecProps) {
         Match breakdown · {score === null ? "—" : score.toFixed(1)}
       </p>
       {["Skills", "Domain", "Seniority", "Language", "Location"].map((axis) => (
-        <p className="match-row" key={axis}>
+        <div className="match-row" key={axis}>
           <span className="match-row__label">{axis}</span>
           <Meter value={(score ?? 0) / 10} label={axis} />
           <span className="match-row__value">{score === null ? "—" : score.toFixed(1)}</span>
-        </p>
+        </div>
       ))}
 
       <p className="packet-spec__label">Company note</p>

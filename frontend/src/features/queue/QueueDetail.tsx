@@ -219,13 +219,13 @@ function MatchPanel({ job }: { job: JobRecord }) {
       </header>
 
       {axes.map((axis) => (
-        <p className="match-row" key={axis.label}>
+        <div className="match-row" key={axis.label}>
           <span className="match-row__label">{axis.label}</span>
           <Meter value={(axis.value ?? 0) / 10} label={axis.label} />
           <span className="match-row__value">
             {axis.value === null ? "—" : axis.value.toFixed(1)}
           </span>
-        </p>
+        </div>
       ))}
 
       <p className="detail-card__label">Hard filters</p>

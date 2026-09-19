@@ -124,13 +124,13 @@ function FunnelRow({
   tone: "accent" | "shortlist" | "approved" | "applied";
 }) {
   return (
-    <p className="funnel-row">
+    <div className="funnel-row">
       <span className="funnel-row__label">{label}</span>
       <Meter value={of > 0 ? (value ?? 0) / of : 0} tone={tone} label={label} />
       <span className="funnel-row__value">
         {value === undefined ? "—" : value.toLocaleString()}
       </span>
-    </p>
+    </div>
   );
 }
 
