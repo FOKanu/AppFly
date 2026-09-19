@@ -292,7 +292,8 @@ export async function putConnectorSecret(name: SecretName, value: string): Promi
 }
 
 /**
- * Persist the Obsidian vault path. Not a secret. Backend may ignore until A2.
+ * Persist the legacy vault path. Not a secret. Used only to seed the
+ * optional Obsidian import; AppFly's own storage is configured elsewhere.
  */
 export async function putVaultPath(path: string): Promise<void> {
   const response = await fetch(joinApi("/settings"), {

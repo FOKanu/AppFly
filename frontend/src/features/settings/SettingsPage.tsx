@@ -6,22 +6,24 @@ import {
   fetchSettings,
   parseSettings,
   putConnectorSecret,
-  putVaultPath,
 } from "./settingsApi";
 import "./settings.css";
 import type { SecretName, SettingsView } from "./types";
-import { VaultPanel } from "./VaultPanel";
+import { WorkspacePanel } from "./WorkspacePanel";
+import { ImportObsidianPanel } from "./ImportObsidianPanel";
+import { Toast, useToast } from "../../shared/ui/Toast";
 
 const INITIAL = parseSettings(null, false);
 
 /**
- * Purpose: Settings & connectivity — vault path, Local IPC vs Remote Bridge,
- *          API/model health, and write-only connector keys.
+ * Purpose: Settings & connectivity — where AppFly keeps its own files, Local
+ *          IPC vs Remote Bridge, API/model health, write-only connector keys,
+ *          and the optional one-time Obsidian import.
  * Does not: read a key back. GET never returns key material.
  */
 export function SettingsPage() {
+  const toast = useToast();
   const [settings, setSettings] = useState<SettingsView>(INITIAL);
-  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -33,8 +35,6 @@ export function SettingsPage() {
     } catch {
       setLoadError("Could not load settings. Local IPC looks offline.");
       setSettings(parseSettings(null, false));
-    } finally {
-      setLoading(false);
     }
   }, []);
 
@@ -57,12 +57,6 @@ export function SettingsPage() {
     }
   }
 
-  async function handleSaveVault(path: string) {
-    await putVaultPath(path);
-    const next = await fetchSettings();
-    setSettings(next);
-  }
-
   return (
     <div className="settings">
       {loadError ? (
@@ -73,14 +67,20 @@ export function SettingsPage() {
 
       <div className="settings__columns">
         <div className="settings__col">
-          <VaultPanel vault={settings.vault} disabled={loading} onSavePath={handleSaveVault} />
+          <WorkspacePanel onToast={toast.show} />
           <ConnectivityPanel connectivity={settings.connectivity} />
+          <ImportObsidianPanel
+            suggestedPath={settings.vault.path}
+            onToast={toast.show}
+          />
         </div>
         <div className="settings__col">
           <ApiHealthPanel health={settings.health} />
           <ApiKeysPanel secrets={settings.secrets} saving={saving} onSave={handleSaveSecret} />
         </div>
       </div>
+
+      <Toast message={toast.message} onDismiss={toast.dismiss} />
     </div>
   );
 }

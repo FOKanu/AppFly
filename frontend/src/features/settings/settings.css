@@ -389,3 +389,112 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* —— Native workspace —— */
+
+.settings-card--secondary {
+  border-style: dashed;
+  background: var(--surface-0);
+}
+
+.settings-card__kicker--muted {
+  color: var(--text-tertiary);
+}
+
+.settings-card__copy--muted {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.workspace-path {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.workspace-path code {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.workspace-path__state {
+  flex: 0 0 auto;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.workspace-path__state[data-ready="true"] {
+  background: var(--ok-soft);
+  color: var(--status-approved);
+}
+
+.workspace-checklist__head {
+  margin-top: 16px;
+  margin-bottom: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.workspace-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.workspace-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 13px;
+}
+
+.workspace-check__mark {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  font-size: 10px;
+  color: var(--surface-0);
+}
+
+.workspace-check[data-done="true"] .workspace-check__mark {
+  border-color: var(--status-approved);
+  background: var(--status-approved);
+}
+
+.workspace-check__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text-secondary);
+}
+
+.workspace-check[data-done="true"] .workspace-check__label {
+  color: var(--text);
+}
+
+.import-field {
+  display: block;
+  margin-top: 14px;
+}

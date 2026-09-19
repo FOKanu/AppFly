@@ -45,9 +45,7 @@ export function TonightPage() {
     const path = `${snapshot?.vaultPath ?? ""}/Home.md`.replace(/^\//, "");
     void copyToClipboard(path).then((copied) =>
       toast.show(
-        copied
-          ? `Path copied — open ${path} in Obsidian`
-          : `Open ${path} in Obsidian on this machine`,
+        copied ? `Path copied — ${path}` : `Home note: ${path}`,
       ),
     );
   }, [snapshot?.vaultPath, toast]);

@@ -9,6 +9,7 @@ export const ROUTES = {
   packet: "/packet",
   workflow: "/workflow",
   profiles: "/profiles",
+  vault: "/vault",
   memory: "/memory",
   activity: "/activity",
   settings: "/settings",

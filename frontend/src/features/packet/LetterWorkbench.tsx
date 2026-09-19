@@ -30,7 +30,7 @@ interface LetterWorkbenchProps {
 
 /** Why the write controls are inert: there is no endpoint behind them. */
 const NO_WRITE_ENDPOINT =
-  "The local API has no letter-write endpoint. Edit the letter in Obsidian; the vault is the source of truth.";
+  "The local API has no letter-write endpoint yet. The stored letter is the source of truth.";
 
 /**
  * Purpose: Letter editor — the AI draft beside your edit, with the mode,

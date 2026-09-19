@@ -4,6 +4,7 @@ import { ROUTES } from "./routes";
 import { ActivityPage } from "./features/activity/ActivityPage";
 import { MemoryPage } from "./features/memory/MemoryPage";
 import { ProfilesPage } from "./features/profiles/ProfilesPage";
+import { VaultPage } from "./features/vault/VaultPage";
 import { PacketPage } from "./features/packet/PacketPage";
 import { QueuePage } from "./features/queue/QueuePage";
 import { SettingsPage } from "./features/settings/SettingsPage";
@@ -29,6 +30,7 @@ export default function App() {
           <Route path={ROUTES.workflow} element={<WorkflowPage />} />
           <Route path={ROUTES.profiles} element={<ProfilesPage />} />
           <Route path={`${ROUTES.profiles}/:profileId`} element={<ProfilesPage />} />
+          <Route path={ROUTES.vault} element={<VaultPage />} />
           <Route path={ROUTES.memory} element={<MemoryPage />} />
           <Route path={ROUTES.activity} element={<ActivityPage />} />
           <Route path={ROUTES.settings} element={<SettingsPage />} />

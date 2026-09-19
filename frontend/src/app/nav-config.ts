@@ -40,22 +40,29 @@ export const NAV_ITEMS: readonly NavItem[] = [
     path: ROUTES.workflow,
   },
   {
-    id: "memory",
+    id: "vault",
     index: "04",
+    label: "Vault",
+    headerTitle: "Vault",
+    path: ROUTES.vault,
+  },
+  {
+    id: "memory",
+    index: "05",
     label: "Memory",
     headerTitle: "Memory",
     path: ROUTES.memory,
   },
   {
     id: "activity",
-    index: "05",
+    index: "06",
     label: "Activity & logs",
     headerTitle: "Activity & logs",
     path: ROUTES.activity,
   },
   {
     id: "settings",
-    index: "06",
+    index: "07",
     label: "Settings",
     headerTitle: "Settings & connectivity",
     path: ROUTES.settings,
@@ -81,6 +88,8 @@ export interface HeaderContext {
   profileCount: number;
   /** Already-formatted date, e.g. "Wed 17 Sep". */
   today: string;
+  /** Files AppFly holds, for the Vault breadcrumb. */
+  documentCount: number;
 }
 
 /**
@@ -103,6 +112,8 @@ export function headerKicker(pathname: string, context: HeaderContext): string {
       return `Queue · ${context.queueCount} jobs · Profile ${context.profileName}`;
     case "workflow":
       return "Workflow · Control plane";
+    case "vault":
+      return `Vault · ${context.documentCount} file${context.documentCount === 1 ? "" : "s"}`;
     case "memory":
       return "Memory · career ledger";
     case "activity":

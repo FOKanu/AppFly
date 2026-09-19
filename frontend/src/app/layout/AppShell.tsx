@@ -18,6 +18,7 @@ import { useBreakpoint } from "../../shared/useBreakpoint";
 import { profileFromSettings } from "../../features/profiles/api";
 import type { HuntProfile, SettingsPayload } from "../../features/profiles/types";
 import { recordProfileSnapshot } from "../../features/memory/versionLedger";
+import { listDocuments } from "../../features/vault/api";
 import { ControlHeader } from "./ControlHeader";
 import { RunningBar, type RunTelemetry } from "./RunningBar";
 import { Sidebar } from "./Sidebar";
@@ -59,6 +60,7 @@ export function AppShell() {
   const [apiReachable, setApiReachable] = useState(false);
   const [telemetry, setTelemetry] = useState<RunTelemetry>({ nextNightly: "02:00" });
   const [profiles, setProfiles] = useState<HuntProfile[]>([]);
+  const [documentCount, setDocumentCount] = useState(0);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
 
   const activeProfile =
@@ -69,6 +71,7 @@ export function AppShell() {
     profileName: activeProfile?.name ?? "No profile",
     profileCount: profiles.length,
     today: formatToday(),
+    documentCount,
   });
   const title = headerTitle(location.pathname);
 
@@ -102,6 +105,11 @@ export function AppShell() {
         setApiReachable(health.ok);
         // Seed the local version ledger so Memory has a baseline to diff against.
         recordProfileSnapshot(profile, "loaded");
+        // The Vault breadcrumb needs a count; a missing store just reads zero.
+        const vault = await listDocuments().catch(() => null);
+        if (!cancelled && vault?.availability === "live") {
+          setDocumentCount(vault.documents.length);
+        }
       } catch {
         if (!cancelled) setApiReachable(false);
       }
