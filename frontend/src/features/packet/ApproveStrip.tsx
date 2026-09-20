@@ -19,7 +19,7 @@ export function ApproveStrip({ job, busy, feedback, onStatus }: ApproveStripProp
       <span className="approve-strip__dot" aria-hidden="true" />
       <div className="approve-strip__col">
         <p className="approve-strip__copy">
-          Approving marks the packet ready in Obsidian. You still submit it yourself in the
+          Approving marks the packet ready in your vault. You still submit it yourself in the
           browser.
         </p>
         <p className="approve-strip__paths">

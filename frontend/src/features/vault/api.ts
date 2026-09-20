@@ -1,114 +1,215 @@
+import { ApiError, apiBaseUrl, apiFetch, apiGet } from "../../shared/api/client";
+import { activeFlagFor } from "./types";
+import type { DocumentKind, VaultDocument, VaultSnapshot, WorkspaceStatus } from "./types";
+
 /**
- * Purpose: Typed client for /documents and workspace endpoints.
- * Does not: Render CV bodies or store API keys.
+ * Purpose: Client for the native document store.
+ * Does not: fetch or render a document body in any list path. `documentText`
+ *           exists for a future preview pane and is never called from the
+ *           Vault table, Memory, or Profiles.
  */
 
-import { apiBaseUrl } from "../../shared/api/client";
+/** Shown wherever the store is specified but not yet serving. */
+export const STORE_UNAVAILABLE_NOTE =
+  "The document store is not serving yet — /documents returns 404. This is sample metadata; uploads and edits are disabled until the endpoint lands.";
 
-export type DocumentKind = "cv" | "voice" | "cert" | "portfolio" | "inbox" | "other";
+/** Sample rows so the table's shape is reviewable before the API exists. */
+const SAMPLE_DOCUMENTS: VaultDocument[] = [
+  {
+    id: "sample-cv-1",
+    kind: "cv",
+    label: "CV — Software Engineer.md",
+    mime: "text/markdown",
+    word_count: 1_180,
+    updated_at: "2026-09-18T20:12:00Z",
+    active_cv: true,
+  },
+  {
+    id: "sample-cv-2",
+    kind: "cv",
+    label: "CV — Platform focus.md",
+    mime: "text/markdown",
+    word_count: 1_044,
+    updated_at: "2026-09-11T09:40:00Z",
+    active_cv: false,
+  },
+  {
+    id: "sample-voice-1",
+    kind: "voice",
+    label: "Voice samples.md",
+    mime: "text/markdown",
+    word_count: 470,
+    updated_at: "2026-09-16T18:02:00Z",
+    active_voice: true,
+  },
+  {
+    id: "sample-cert-1",
+    kind: "cert",
+    label: "AWS Solutions Architect.pdf",
+    mime: "application/pdf",
+    updated_at: "2026-08-02T11:25:00Z",
+  },
+  {
+    id: "sample-portfolio-1",
+    kind: "portfolio",
+    label: "Payments platform case study.pdf",
+    mime: "application/pdf",
+    updated_at: "2026-07-21T15:48:00Z",
+  },
+];
 
-export interface DocumentMeta {
-  id: string;
-  kind: DocumentKind | string;
-  label: string;
-  mime: string;
-  word_count: number;
-  active_cv: boolean;
-  active_voice: boolean;
-  created_at: string;
-  updated_at: string;
-  original_name: string;
+/** A 404 means "not built yet"; anything else is a real failure worth showing. */
+function isMissingEndpoint(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 404;
 }
 
-export interface WorkspaceStatus {
-  storage_backend: string;
-  data_path: string;
-  has_cv: boolean;
-  has_voice: boolean;
-  has_gemini: boolean;
-  has_keywords: boolean;
-  job_count: number;
-}
-
-async function parseJson<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || response.statusText);
+/**
+ * Purpose: List stored documents, falling back to sample metadata while the
+ *          endpoint is still being built.
+ * Returns: The rows plus whether they came from a live store.
+ */
+export async function listDocuments(): Promise<VaultSnapshot> {
+  try {
+    const documents = await apiGet<VaultDocument[]>("/documents");
+    return { documents, availability: "live" };
+  } catch (error) {
+    if (isMissingEndpoint(error)) {
+      return { documents: SAMPLE_DOCUMENTS, availability: "unavailable" };
+    }
+    throw error;
   }
-  return (await response.json()) as T;
 }
 
 /**
- * Purpose: List document metadata from GET /documents.
+ * Purpose: Read where AppFly keeps its own files.
+ * Does not: create the directory — `initWorkspace` does that on request.
  */
-export async function listDocuments(kind?: DocumentKind): Promise<DocumentMeta[]> {
-  const url = new URL("/documents", apiBaseUrl());
-  if (kind) url.searchParams.set("kind", kind);
-  const response = await fetch(url);
-  return parseJson<DocumentMeta[]>(response);
+export async function getWorkspace(): Promise<WorkspaceStatus> {
+  try {
+    return await apiGet<WorkspaceStatus>("/workspace/status");
+  } catch (error) {
+    if (isMissingEndpoint(error)) {
+      return {
+        storage_backend: "native",
+        data_path: defaultWorkspacePath(),
+        has_cv: false,
+        has_voice: false,
+        has_gemini: false,
+        has_keywords: false,
+        job_count: 0,
+      };
+    }
+    throw error;
+  }
 }
 
 /**
- * Purpose: Multipart upload to POST /documents.
+ * Purpose: Create the native app-data directory on this machine.
+ * Does not: touch an Obsidian vault; importing is a separate, explicit step.
  */
-export async function uploadDocument(input: {
-  file: File;
-  kind: DocumentKind;
-  label?: string;
-  active_cv?: boolean;
-  active_voice?: boolean;
-}): Promise<DocumentMeta> {
-  const body = new FormData();
-  body.append("file", input.file);
-  body.append("kind", input.kind);
-  body.append("label", input.label ?? input.file.name);
-  body.append("active_cv", String(Boolean(input.active_cv)));
-  body.append("active_voice", String(Boolean(input.active_voice)));
-  const response = await fetch(new URL("/documents", apiBaseUrl()), {
+export async function initWorkspace(): Promise<WorkspaceStatus> {
+  return apiFetch<WorkspaceStatus>("/workspace/init", { method: "POST" });
+}
+
+/**
+ * Purpose: Copy an existing Obsidian vault into AppFly's own storage, once.
+ * Does not: keep the two in sync — this is a one-way import, not a mount.
+ */
+export async function importObsidianVault(path: string): Promise<WorkspaceStatus> {
+  return apiFetch<WorkspaceStatus>("/workspace/import/obsidian", {
     method: "POST",
-    body,
+    body: JSON.stringify({ vault_path: path }),
   });
-  return parseJson<DocumentMeta>(response);
 }
 
+/**
+ * Purpose: Upload a file into the store.
+ * Inputs: The browser File plus the kind it should be filed under.
+ * Does not: read the file in the browser; it is streamed as multipart so a CV
+ *           body never enters the React tree.
+ */
+export async function uploadDocument(
+  file: File,
+  kind: DocumentKind,
+  /** Mark this the active CV/voice sample on upload — used for a first file. */
+  makeActive = false,
+): Promise<VaultDocument> {
+  const body = new FormData();
+  body.append("file", file);
+  body.append("kind", kind);
+  body.append("label", file.name);
+  const flag = activeFlagFor(kind);
+  if (makeActive && flag) body.append(flag, "true");
+  // Multipart sets its own boundary, so no Content-Type header here.
+  return apiFetch<VaultDocument>("/documents", { method: "POST", body });
+}
+
+/**
+ * Purpose: Rename a document or mark it the active one for its kind.
+ * Does not: accept a body — the store owns file contents.
+ */
 export async function patchDocument(
   id: string,
-  patch: Partial<Pick<DocumentMeta, "label" | "kind" | "active_cv" | "active_voice">>,
-): Promise<DocumentMeta> {
-  const response = await fetch(new URL(`/documents/${encodeURIComponent(id)}`, apiBaseUrl()), {
+  patch: { label?: string; kind?: DocumentKind; active_cv?: boolean; active_voice?: boolean },
+): Promise<VaultDocument> {
+  return apiFetch<VaultDocument>(`/documents/${encodeURIComponent(id)}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),
   });
-  return parseJson<DocumentMeta>(response);
 }
 
+/** Purpose: Remove a document from the store. Does not: empty a trash. */
 export async function deleteDocument(id: string): Promise<void> {
-  const response = await fetch(new URL(`/documents/${encodeURIComponent(id)}`, apiBaseUrl()), {
-    method: "DELETE",
-  });
-  if (!response.ok) throw new Error(await response.text());
+  await apiFetch<void>(`/documents/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
-export function documentFileUrl(id: string): string {
-  return new URL(`/documents/${encodeURIComponent(id)}/file`, apiBaseUrl()).toString();
+/**
+ * Purpose: Direct download URL for a stored file.
+ * Does not: fetch the bytes — the browser does, via a plain link.
+ */
+export function downloadUrl(id: string): string {
+  return `${apiBaseUrl()}/documents/${encodeURIComponent(id)}/file`;
 }
 
-export async function fetchWorkspaceStatus(): Promise<WorkspaceStatus> {
-  const response = await fetch(new URL("/workspace/status", apiBaseUrl()));
-  return parseJson<WorkspaceStatus>(response);
+/**
+ * Purpose: Extracted text for a single document, for a future preview pane.
+ * Does not: get called from any list view. Keeping it out of the table is what
+ *           stops a CV body reaching Vault or Memory.
+ */
+export async function documentText(id: string): Promise<string> {
+  const result = await apiGet<{ text: string }>(
+    `/documents/${encodeURIComponent(id)}/text`,
+  );
+  return result.text;
 }
 
-export async function initWorkspace(): Promise<WorkspaceStatus> {
-  const response = await fetch(new URL("/workspace/init", apiBaseUrl()), { method: "POST" });
-  return parseJson<WorkspaceStatus>(response);
+/** Best guess at the native location before the API can report it. */
+function defaultWorkspacePath(): string {
+  return "~/Library/Application Support/AppFly";
 }
 
-export async function importObsidianVault(vaultPath: string): Promise<unknown> {
-  const response = await fetch(new URL("/workspace/import/obsidian", apiBaseUrl()), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ vault_path: vaultPath }),
-  });
-  return parseJson(response);
+/** Purpose: Human file size. Does not: round to a misleading precision. */
+export function formatBytes(bytes: number | undefined): string {
+  if (bytes === undefined) return "—";
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB"];
+  let value = bytes / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
+}
+
+/** Purpose: Short relative date for the table. Does not: invent a timestamp. */
+export function formatUpdated(iso: string | undefined): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
 }

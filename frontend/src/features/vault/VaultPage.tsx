@@ -1,261 +1,298 @@
-/**
- * Purpose: AppFly Vault — local document library (no Obsidian required).
- * Does not: Render CV markdown bodies in the table; crawl listing URLs.
- */
-
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { ROUTES } from "../../routes";
+import { Banner } from "../../shared/ui/Banner";
+import { Button } from "../../shared/ui/Button";
+import { Segmented } from "../../shared/ui/Segmented";
+import { Toast, useToast } from "../../shared/ui/Toast";
+import { DocumentTable } from "./DocumentTable";
+import { UploadZone } from "./UploadZone";
 import {
+  STORE_UNAVAILABLE_NOTE,
   deleteDocument,
-  documentFileUrl,
-  fetchWorkspaceStatus,
-  importObsidianVault,
-  initWorkspace,
+  getWorkspace,
   listDocuments,
   patchDocument,
   uploadDocument,
-  type DocumentKind,
-  type DocumentMeta,
-  type WorkspaceStatus,
 } from "./api";
+import {
+  DOCUMENT_KINDS,
+  activeFlagFor,
+  type DocumentKind,
+  type VaultDocument,
+  type WorkspaceStatus,
+} from "./types";
 import "./vault.css";
 
-const KINDS: DocumentKind[] = ["cv", "voice", "cert", "portfolio", "inbox", "other"];
+/** Kind filter values, with "all" in front of the real kinds. */
+const FILTERS = [
+  { value: "all" as const, label: "All" },
+  ...DOCUMENT_KINDS.map((entry) => ({ value: entry.value, label: entry.label })),
+];
+
+type Filter = "all" | DocumentKind;
 
 /**
- * Purpose: File management page for user context documents.
+ * Purpose: Vault — the files AppFly owns, without Obsidian. Upload, rename,
+ *          set the active CV, download and delete.
+ * Does not: render any document body, and does not hold application history —
+ *           that stays in Memory.
  */
 export function VaultPage() {
-  const [docs, setDocs] = useState<DocumentMeta[]>([]);
-  const [status, setStatus] = useState<WorkspaceStatus | null>(null);
+  const toast = useToast();
+  const [documents, setDocuments] = useState<VaultDocument[]>([]);
+  const [workspace, setWorkspace] = useState<WorkspaceStatus | null>(null);
+  const [live, setLive] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [kind, setKind] = useState<DocumentKind>("cv");
-  const [importPath, setImportPath] = useState("");
-  const [note, setNote] = useState<string | null>(null);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
-  const reload = useCallback(async () => {
-    setError(null);
+  useEffect(() => {
+    document.title = "AppFly · Vault";
+  }, []);
+
+  const load = useCallback(async () => {
     try {
-      const [documents, workspace] = await Promise.all([
-        listDocuments(),
-        fetchWorkspaceStatus().catch(() => null),
-      ]);
-      setDocs(documents);
-      setStatus(workspace);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load vault");
-      setDocs([]);
+      const [snapshot, status] = await Promise.all([listDocuments(), getWorkspace()]);
+      setDocuments(snapshot.documents);
+      setLive(snapshot.availability === "live");
+      setWorkspace(status);
+      setError(null);
+    } catch {
+      setError("Could not reach the local API. Start the copilot to manage your files.");
+      setLive(false);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    document.title = "AppFly · Vault";
-    void reload();
-  }, [reload]);
+    void load();
+  }, [load]);
 
-  async function onUpload(fileList: FileList | null) {
-    if (!fileList?.length) return;
-    setBusy(true);
-    setNote(null);
-    try {
-      for (const file of Array.from(fileList)) {
-        await uploadDocument({
-          file,
-          kind,
-          active_cv: kind === "cv" && !docs.some((d) => d.active_cv),
-          active_voice: kind === "voice" && !docs.some((d) => d.active_voice),
-        });
+  const visible = useMemo(
+    () => (filter === "all" ? documents : documents.filter((doc) => doc.kind === filter)),
+    [documents, filter],
+  );
+
+  const onUpload = useCallback(
+    async (files: File[], kind: DocumentKind) => {
+      setUploading(true);
+      try {
+        const firstOfKind = !documents.some((doc) => doc.kind === kind);
+        const added = await Promise.all(
+          files.map((file, index) =>
+            uploadDocument(file, kind, firstOfKind && index === 0),
+          ),
+        );
+        setDocuments((current) => [...added, ...current]);
+        toast.show(
+          added.length === 1
+            ? `${added[0].label} added to the vault.`
+            : `${added.length} files added to the vault.`,
+        );
+      } catch {
+        toast.show("Upload failed — the document store rejected the file.");
+      } finally {
+        setUploading(false);
       }
-      setNote("Uploaded.");
-      await reload();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Upload failed");
-    } finally {
-      setBusy(false);
-    }
-  }
+    },
+    [documents, toast],
+  );
 
-  async function onSetActive(doc: DocumentMeta) {
-    setBusy(true);
-    try {
-      if (doc.kind === "cv") await patchDocument(doc.id, { active_cv: true });
-      if (doc.kind === "voice") await patchDocument(doc.id, { active_voice: true });
-      await reload();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Update failed");
-    } finally {
-      setBusy(false);
-    }
-  }
+  const onRename = useCallback(
+    async (target: VaultDocument, label: string) => {
+      setBusyId(target.id);
+      try {
+        const updated = await patchDocument(target.id, { label });
+        setDocuments((current) =>
+          current.map((doc) => (doc.id === target.id ? { ...doc, ...updated } : doc)),
+        );
+        toast.show(`Renamed to ${label}.`);
+      } catch {
+        toast.show("Rename failed — the document store rejected the change.");
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [toast],
+  );
 
-  async function onDelete(doc: DocumentMeta) {
-    if (!window.confirm(`Delete “${doc.label}”?`)) return;
-    setBusy(true);
-    try {
-      await deleteDocument(doc.id);
-      await reload();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Delete failed");
-    } finally {
-      setBusy(false);
-    }
-  }
+  const onSetActive = useCallback(
+    async (target: VaultDocument) => {
+      const flag = activeFlagFor(target.kind);
+      if (!flag) return;
+      setBusyId(target.id);
+      try {
+        await patchDocument(target.id, { [flag]: true });
+        // One active document per kind, so clear the flag on its siblings.
+        setDocuments((current) =>
+          current.map((doc) =>
+            doc.kind === target.kind ? { ...doc, [flag]: doc.id === target.id } : doc,
+          ),
+        );
+        toast.show(
+          `${target.label} is now the active ${target.kind === "cv" ? "CV" : "voice sample"}.`,
+        );
+      } catch {
+        toast.show("Could not change which file is active.");
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [toast],
+  );
+
+  const onDelete = useCallback(
+    async (target: VaultDocument) => {
+      setBusyId(target.id);
+      try {
+        await deleteDocument(target.id);
+        setDocuments((current) => current.filter((doc) => doc.id !== target.id));
+        toast.show(`${target.label} deleted.`);
+      } catch {
+        toast.show("Delete failed — the document store rejected the request.");
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [toast],
+  );
+
+  const firstRun = !loading && live && documents.length === 0;
 
   return (
-    <div className="vault-page">
+    <div className="vault" aria-busy={loading || undefined}>
       {error ? (
-        <p className="vault-page__banner" role="alert">
+        <Banner tone="danger" title="Vault not loaded">
           {error}
-        </p>
+        </Banner>
       ) : null}
-      {note ? (
-        <p className="vault-page__banner" role="status">
-          {note}
-        </p>
+      {!live && !error ? (
+        <Banner tone="warning" title="Document store not serving yet">
+          {STORE_UNAVAILABLE_NOTE}
+        </Banner>
       ) : null}
 
-      <section className="vault-card" aria-labelledby="vault-lib-title">
-        <header className="vault-card__head">
-          <div>
-            <p className="vault-card__kicker">Local library</p>
-            <h2 id="vault-lib-title" className="vault-card__title">
-              Vault
-            </h2>
-            <p className="vault-card__lede">
-              Upload CV, voice samples, certs, and clips. AppFly stores them locally — Obsidian is
-              optional import only.
-            </p>
-          </div>
-          {status ? (
-            <dl className="vault-status">
-              <div>
-                <dt>Backend</dt>
-                <dd>{status.storage_backend}</dd>
-              </div>
-              <div>
-                <dt>Data path</dt>
-                <dd title={status.data_path}>{status.data_path}</dd>
-              </div>
-            </dl>
-          ) : null}
-        </header>
-
-        <div className="vault-upload">
-          <label className="vault-upload__kind">
-            Kind
-            <select value={kind} onChange={(e) => setKind(e.target.value as DocumentKind)} disabled={busy}>
-              {KINDS.map((k) => (
-                <option key={k} value={k}>
-                  {k}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="vault-upload__drop">
-            <input
-              type="file"
-              multiple
-              disabled={busy}
-              onChange={(e) => void onUpload(e.target.files)}
-            />
-            <span>Drop files or click to upload</span>
-          </label>
-          <button type="button" className="vault-btn" disabled={busy} onClick={() => void initWorkspace().then(reload)}>
-            Init workspace
-          </button>
-        </div>
-
-        {docs.length === 0 ? (
-          <p className="vault-empty">No documents yet. Upload a CV to unlock matching and letters.</p>
-        ) : (
-          <table className="vault-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Words</th>
-                <th>Flags</th>
-                <th>Updated</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {docs.map((doc) => (
-                <tr key={doc.id}>
-                  <td>
-                    <span className="vault-table__name">{doc.label}</span>
-                    <span className="vault-table__file">{doc.original_name}</span>
-                  </td>
-                  <td>{doc.kind}</td>
-                  <td>{doc.word_count || "—"}</td>
-                  <td>
-                    {doc.active_cv ? <span className="vault-chip">active CV</span> : null}
-                    {doc.active_voice ? <span className="vault-chip">active voice</span> : null}
-                  </td>
-                  <td>{doc.updated_at || "—"}</td>
-                  <td className="vault-table__actions">
-                    {doc.kind === "cv" && !doc.active_cv ? (
-                      <button type="button" disabled={busy} onClick={() => void onSetActive(doc)}>
-                        Set active CV
-                      </button>
-                    ) : null}
-                    {doc.kind === "voice" && !doc.active_voice ? (
-                      <button type="button" disabled={busy} onClick={() => void onSetActive(doc)}>
-                        Set active voice
-                      </button>
-                    ) : null}
-                    <a href={documentFileUrl(doc.id)} download={doc.original_name}>
-                      Download
-                    </a>
-                    <button type="button" disabled={busy} onClick={() => void onDelete(doc)}>
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
-
-      <section className="vault-card" aria-labelledby="vault-import-title">
-        <p className="vault-card__kicker">Optional</p>
-        <h2 id="vault-import-title" className="vault-card__title">
-          Import Obsidian vault
-        </h2>
-        <p className="vault-card__lede">
-          One-shot copy into the native store. Does not keep two live writers.
-        </p>
-        <form
-          className="vault-import"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void (async () => {
-              setBusy(true);
-              try {
-                await importObsidianVault(importPath.trim());
-                setNote("Import finished.");
-                await reload();
-              } catch (err: unknown) {
-                setError(err instanceof Error ? err.message : "Import failed");
-              } finally {
-                setBusy(false);
-              }
-            })();
-          }}
-        >
-          <input
-            type="text"
-            placeholder="~/Documents/Job Search"
-            value={importPath}
-            onChange={(e) => setImportPath(e.target.value)}
-            disabled={busy}
+      <header className="vault__head">
+        <div className="vault__stats">
+          <Stat label="Files" value={documents.length} />
+          <Stat label="CVs" value={documents.filter((d) => d.kind === "cv").length} />
+          <Stat
+            label="Credentials"
+            value={
+              documents.filter((d) => d.kind === "cert" || d.kind === "portfolio").length
+            }
           />
-          <button type="submit" disabled={busy || !importPath.trim()}>
-            Import
-          </button>
-        </form>
-      </section>
+        </div>
+        <Segmented
+          options={FILTERS}
+          value={filter}
+          onChange={setFilter}
+          ariaLabel="Filter by file type"
+        />
+      </header>
+
+      <p className="vault__location">
+        Stored in <code>{workspace?.data_path ?? "—"}</code> ·{" "}
+        <Link to={ROUTES.settings}>change in Settings</Link>
+      </p>
+
+      <div className="vault__columns">
+        <UploadZone
+          onUpload={(files, kind) => void onUpload(files, kind)}
+          enabled={live}
+          disabledReason={STORE_UNAVAILABLE_NOTE}
+          busy={uploading}
+        />
+
+        <section className="vault__files" aria-labelledby="files-title">
+          <header className="vault__files-head">
+            <div>
+              <p className="vault__kicker">
+                {visible.length} file{visible.length === 1 ? "" : "s"}
+              </p>
+              <h2 id="files-title" className="vault__title">
+                Your files
+              </h2>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void load()}
+              disabled={loading}
+            >
+              Refresh
+            </Button>
+          </header>
+
+          {firstRun ? (
+            <FirstRun />
+          ) : visible.length === 0 ? (
+            <p className="vault__empty">
+              No {filter === "all" ? "" : `${filter} `}files yet.
+            </p>
+          ) : (
+            <DocumentTable
+              documents={visible}
+              enabled={live}
+              disabledReason={STORE_UNAVAILABLE_NOTE}
+              busyId={busyId}
+              onRename={(doc, label) => void onRename(doc, label)}
+              onDelete={(doc) => void onDelete(doc)}
+              onSetActive={(doc) => void onSetActive(doc)}
+            />
+          )}
+
+          <p className="vault__note">
+            The writer reads the active CV and your voice sample. This list shows names and
+            counts only — no document contents are loaded here.
+          </p>
+        </section>
+      </div>
+
+      <Toast message={toast.message} onDismiss={toast.dismiss} />
+    </div>
+  );
+}
+
+/** First-run panel: an empty native store, with the two files that matter. */
+function FirstRun() {
+  return (
+    <div className="vault__firstrun">
+      <p className="vault__firstrun-title">Your vault is empty</p>
+      <p className="vault__firstrun-copy">
+        AppFly keeps your files itself — no Obsidian required. Add a CV to give the writer
+        something to work from, and a voice sample so letters sound like you.
+      </p>
+      <ol className="vault__firstrun-steps">
+        <li>
+          <span className="vault__step-index">1</span>
+          Upload a CV and mark it active
+        </li>
+        <li>
+          <span className="vault__step-index">2</span>
+          Add a voice sample — one or two letters you have already sent
+        </li>
+        <li>
+          <span className="vault__step-index">3</span>
+          Attach them to a profile in <Link to={ROUTES.profiles}>Profiles</Link>
+        </li>
+      </ol>
+      <p className="vault__firstrun-copy">
+        Already have an Obsidian vault? <Link to={ROUTES.settings}>Import it in Settings</Link>.
+      </p>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="vault-stat">
+      <span className="vault-stat__label">{label}</span>
+      <span className="vault-stat__value">{value.toLocaleString()}</span>
     </div>
   );
 }

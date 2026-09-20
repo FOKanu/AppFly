@@ -107,5 +107,5 @@ export const MOCK_TONIGHT: TonightSnapshot = {
   lastRun: MOCK_RUN,
   drafts: MOCK_DRAFTS,
   shortlist: MOCK_SHORTLIST,
-  vaultPath: "~/Obsidian/Jobhunt",
+  vaultPath: "~/Library/Application Support/AppFly",
 };

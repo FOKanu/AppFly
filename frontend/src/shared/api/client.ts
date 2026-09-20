@@ -131,7 +131,12 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
   const headers = new Headers(init?.headers);
   if (!headers.has("Accept")) headers.set("Accept", "application/json");
-  if (init?.body !== undefined && !headers.has("Content-Type")) {
+  /*
+   * A FormData body must set its own `multipart/form-data; boundary=...`.
+   * Forcing JSON here made the server reject uploads with a 422.
+   */
+  const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData;
+  if (init?.body !== undefined && !isFormData && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 

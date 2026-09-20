@@ -4,11 +4,11 @@ import { ROUTES } from "./routes";
 import { ActivityPage } from "./features/activity/ActivityPage";
 import { MemoryPage } from "./features/memory/MemoryPage";
 import { ProfilesPage } from "./features/profiles/ProfilesPage";
+import { VaultPage } from "./features/vault/VaultPage";
 import { PacketPage } from "./features/packet/PacketPage";
 import { QueuePage } from "./features/queue/QueuePage";
 import { SettingsPage } from "./features/settings/SettingsPage";
 import { TonightPage } from "./features/tonight/TonightPage";
-import { VaultPage } from "./features/vault/VaultPage";
 import { WorkflowPage } from "./features/workflow/WorkflowPage";
 
 /**
