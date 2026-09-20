@@ -45,9 +45,8 @@ jobs:
       
       - name: Run tests
         run: pytest
-        env:
-          # Tests use temp paths and in-memory keychains (see conftest.py)
-          # No real API keys needed - tests skip network calls
+        # Tests use temp paths and in-memory keychains (see conftest.py)
+        # No real API keys needed - tests skip network calls
 
   frontend:
     name: Frontend (React/Vite)
