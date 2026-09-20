@@ -227,7 +227,7 @@ export function AppShell() {
 }
 
 /**
- * Purpose: POST /runs (same pipeline as `jobhunt run`); keep chrome live if the API is down.
+ * Purpose: POST /runs (async); poll until complete. Keep chrome live if the API is down.
  * Does not: start Apify actors or scrape deny-listed hosts.
  */
 async function startPipeline(
@@ -235,25 +235,38 @@ async function startPipeline(
   setTelemetry: (next: RunTelemetry) => void,
 ): Promise<void> {
   try {
-    const result = await apiPost<RunResponse>("/runs");
-    setTelemetry({
-      scouted: result.scouted,
-      matched: result.shortlisted,
-      written: result.written,
-      nextNightly: "02:00",
-    });
-    if (result.written > 0) {
-      applyState("waiting-for-you", "Waiting for you — review drafts in the vault");
+    const accepted = await apiPost<RunResponse>("/runs");
+    const runId = accepted.id;
+    if (!runId) {
+      applyState("stopped", "Run accepted without id");
       return;
     }
-    if (result.errors.length > 0) {
-      applyState("stopped", result.errors[0]);
+    applyState("running", "Pipeline running…");
+    for (let i = 0; i < 120; i += 1) {
+      await new Promise((r) => window.setTimeout(r, 500));
+      const status = await apiGet<RunResponse>(`/runs/${runId}`);
+      if (status.status === "running" || status.status === "queued") continue;
+      setTelemetry({
+        scouted: status.scouted ?? 0,
+        matched: status.shortlisted ?? 0,
+        written: status.written ?? 0,
+        nextNightly: "02:00",
+      });
+      if ((status.written ?? 0) > 0) {
+        applyState("waiting-for-you", "Waiting for you — review drafts in Queue");
+        return;
+      }
+      if (status.errors && status.errors.length > 0) {
+        applyState("stopped", status.errors[0]);
+        return;
+      }
+      applyState(
+        "idle",
+        `Run complete. Scouted ${status.scouted ?? 0}, shortlisted ${status.shortlisted ?? 0}.`,
+      );
       return;
     }
-    applyState(
-      "idle",
-      `Run complete. Scouted ${result.scouted}, shortlisted ${result.shortlisted}.`,
-    );
+    applyState("stopped", "Run timed out — check Activity");
   } catch {
     applyState("stopped", "Run failed — API unreachable");
   }

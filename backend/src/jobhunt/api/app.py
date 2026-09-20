@@ -1,6 +1,6 @@
 """FastAPI application factory for the local Jobhunt API.
 
-Purpose: Wire routes, CORS, and config path for a loopback server.
+Purpose: Wire routes, CORS, config path, and AppStore for a loopback server.
 Inputs: Optional ``config_path`` pointing at ``config.yaml``.
 Returns: A FastAPI app bound by the caller to ``127.0.0.1:8787``.
 Does not: Start uvicorn, crawl job boards, or expose API keys.
@@ -15,45 +15,51 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from jobhunt.config import AppConfig, load_config
 from jobhunt.features.secrets.store import SecretStore, get_store
+from jobhunt.store import get_store as get_app_store_for_config
+from jobhunt.store.protocol import AppStore
 from jobhunt.vault import Vault
 
-# Vite / typical local frontend origins. Regex covers other localhost ports.
 _LOCAL_ORIGIN_REGEX = r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
 
 
 def get_config(request: Request) -> AppConfig:
-    """Load AppConfig for this request.
-
-    Purpose: Reuse ``jobhunt.config.load_config`` (no second YAML schema).
-    Inputs: FastAPI request whose app.state may hold ``config_path``.
-    Returns: Validated ``AppConfig``.
-    Does not: Return API key values to the client.
-    """
+    """Load AppConfig for this request."""
 
     path = getattr(request.app.state, "config_path", None)
     return load_config(path)
 
 
-def get_vault(request: Request) -> Vault:
-    """Open the Obsidian vault the same way the CLI does.
+def get_app_store(request: Request) -> AppStore:
+    """Return the workspace AppStore (native or markdown).
 
-    Purpose: Give routes a ``Vault`` rooted at ``AppConfig.vault``.
-    Inputs: FastAPI request (config is loaded from app state).
-    Returns: ``Vault`` instance; directories are not created.
-    Does not: Fetch listing URLs or read secrets from the environment into responses.
+    Purpose: Routes and pipeline share one store per app instance.
+    Inputs: FastAPI request; ``app.state.app_store`` may be cached.
+    Returns: ``AppStore`` from ``get_store(config)``.
+    Does not: Return API keys.
+    """
+
+    cached = getattr(request.app.state, "app_store", None)
+    if cached is not None:
+        return cached
+    store = get_app_store_for_config(get_config(request))
+    request.app.state.app_store = store
+    return store
+
+
+def get_vault(request: Request) -> Vault:
+    """Open the Obsidian vault when using markdown backend.
+
+    Purpose: Backward-compatible helper for routes still using Vault directly.
+    Inputs: FastAPI request.
+    Returns: ``Vault`` at ``AppConfig.vault``.
+    Does not: Prefer this over ``get_app_store`` for new code.
     """
 
     return Vault(get_config(request).vault)
 
 
 def get_secret_store(request: Request) -> SecretStore:
-    """Return the write-only secret store for this app instance.
-
-    Purpose: Routes save/delete keys and read ``is_configured`` flags.
-    Inputs: FastAPI request whose app.state holds ``secret_store``.
-    Returns: ``SecretStore`` (MemoryKeychain in tests).
-    Does not: Copy key material into the request or a GET body.
-    """
+    """Return the write-only secret store for this app instance."""
 
     store = getattr(request.app.state, "secret_store", None)
     if store is None:
@@ -66,27 +72,24 @@ def create_app(
     *,
     store: SecretStore | None = None,
 ) -> FastAPI:
-    """Build the local HTTP API.
+    """Build the local HTTP API."""
 
-    Purpose: Expose health, jobs, runs, settings, and write-only secrets.
-    Inputs: Optional path to ``config.yaml``; tests pass ``store=``.
-    Returns: FastAPI application with CORS for localhost frontends.
-    Does not: Serve the React app, enable Apify, or return API keys.
-    """
-
+    from jobhunt.api.routes.documents import router as documents_router
     from jobhunt.api.routes.health import router as health_router
     from jobhunt.api.routes.jobs import router as jobs_router
     from jobhunt.api.routes.runs import router as runs_router
     from jobhunt.api.routes.secrets import router as secrets_router
     from jobhunt.api.routes.settings import router as settings_router
+    from jobhunt.api.routes.workspace import router as workspace_router
 
     application = FastAPI(
         title="Jobhunt Copilot API",
-        version="0.1.0",
-        description="Local-first API wrapping scout, match, write, and the vault.",
+        version="0.2.0",
+        description="Local-first API with native SQLite store and optional Obsidian import.",
     )
     application.state.config_path = config_path
     application.state.secret_store = store if store is not None else get_store()
+    application.state.app_store = None
     application.add_middleware(
         CORSMiddleware,
         allow_origins=[],
@@ -100,4 +103,6 @@ def create_app(
     application.include_router(runs_router)
     application.include_router(settings_router)
     application.include_router(secrets_router)
+    application.include_router(documents_router)
+    application.include_router(workspace_router)
     return application

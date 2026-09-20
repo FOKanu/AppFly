@@ -35,15 +35,19 @@ def _config(config_path: Optional[Path]) -> AppConfig:
 @app.command()
 def init(
     config: Optional[Path] = typer.Option(None, "--config", "-c", help="Config YAML path"),
-    vault_path: Optional[Path] = typer.Option(None, "--vault", help="Override vault directory"),
+    vault_path: Optional[Path] = typer.Option(None, "--vault", help="Override markdown vault directory"),
+    native: bool = typer.Option(False, "--native", help="Initialize SQLite native store (default backend)"),
+    markdown: bool = typer.Option(False, "--markdown", help="Initialize Obsidian markdown vault"),
 ) -> None:
-    """Create config.yaml and a dedicated Obsidian vault from templates.
+    """Create config.yaml and a native store or Obsidian vault.
 
     Purpose: First-run workspace setup.
-    Inputs: Optional config path and vault directory override.
-    Returns: None; writes config, optional ``.env``, and vault files.
+    Inputs: Optional config path; ``--native`` (default) or ``--markdown``.
+    Returns: None; writes config and workspace files.
     Does not: Fetch jobs or call Gemini.
     """
+
+    from jobhunt.store import init_native_workspace
 
     dest = config or DEFAULT_CONFIG_PATH
     if not dest.exists():
@@ -58,17 +62,27 @@ def init(
         env_path.write_text(env_example.read_text(encoding="utf-8"), encoding="utf-8")
         typer.echo(f"Wrote {env_path} (add GEMINI_API_KEY)")
 
+    raw = yaml.safe_load(dest.read_text(encoding="utf-8")) or {}
+    if markdown:
+        raw["storage_backend"] = "markdown"
+    else:
+        raw["storage_backend"] = "native"
+        native = True
     if vault_path:
-        raw = yaml.safe_load(dest.read_text(encoding="utf-8")) or {}
         raw["vault_path"] = str(vault_path.expanduser())
-        dest.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
         typer.echo(f"Set vault_path to {vault_path}")
+    dest.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
 
     cfg = load_config(dest)
-    vault = init_workspace(cfg)
-    vault.regenerate_home(last_run="init")
-    typer.echo(f"Vault ready at {vault.root}")
-    typer.echo("Open that folder in Obsidian, then fill CV/Master.md and Requirements.md.")
+    if native or cfg.storage_backend == "native":
+        store = init_native_workspace(cfg)
+        typer.echo(f"Native store ready at {store.data_path()}")
+        typer.echo("Open the Vault page in the UI to upload your CV.")
+    else:
+        vault = init_workspace(cfg)
+        vault.regenerate_home(last_run="init")
+        typer.echo(f"Markdown vault ready at {vault.root}")
+        typer.echo("Open that folder in Obsidian, then fill CV/Master.md and Requirements.md.")
 
 
 @app.command()

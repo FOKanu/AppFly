@@ -56,10 +56,13 @@ export interface JobSummary {
 }
 
 export interface RunResponse {
-  scouted: number;
-  shortlisted: number;
-  written: number;
-  errors: string[];
+  id?: string;
+  status?: string;
+  scouted?: number;
+  shortlisted?: number;
+  written?: number;
+  errors?: string[];
+  model?: string;
 }
 
 /**
