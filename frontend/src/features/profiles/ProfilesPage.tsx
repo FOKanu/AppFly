@@ -3,10 +3,12 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ROUTES } from "../../routes";
 import { Banner } from "../../shared/ui/Banner";
 import { Toast, useToast } from "../../shared/ui/Toast";
-import { copyToClipboard } from "../../app/layout/AppShell";
 import { recordProfileSnapshot } from "../memory/versionLedger";
 import { fetchSettings, profileFromSettings, saveProfile, saveSources } from "./api";
-import { ProfileDocuments, documentsFor } from "./ProfileDocuments";
+import { STORE_UNAVAILABLE_NOTE, listDocuments } from "../vault/api";
+import { isActive } from "../vault/types";
+import type { VaultDocument } from "../vault/types";
+import { ProfileDocuments } from "./ProfileDocuments";
 import { ProfileList } from "./ProfileList";
 import { ProfileRequirements } from "./ProfileRequirements";
 import { ProfileSettings, type ProfileSettingsValue } from "./ProfileSettings";
@@ -40,6 +42,13 @@ export function ProfilesPage() {
   const [saving, setSaving] = useState(false);
   const [savingSources, setSavingSources] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [documents, setDocuments] = useState<VaultDocument[]>([]);
+  const [storeLive, setStoreLive] = useState(false);
+  /*
+   * Which vault files this profile uses. There is no attachment endpoint yet,
+   * so the link is held in this browser and seeded from the active CV.
+   */
+  const [attachedIds, setAttachedIds] = useState<string[]>([]);
 
   useEffect(() => {
     document.title = "AppFly · Profiles";
@@ -68,6 +77,26 @@ export function ProfilesPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listDocuments()
+      .then((snapshot) => {
+        if (cancelled) return;
+        setDocuments(snapshot.documents);
+        setStoreLive(snapshot.availability === "live");
+        // Default to whatever the vault already marks active.
+        setAttachedIds((current) =>
+          current.length > 0
+            ? current
+            : snapshot.documents.filter(isActive).map((doc) => doc.id),
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Jump to the section named in the URL hash (#edit, #requirements, #documents).
   useEffect(() => {
@@ -129,15 +158,6 @@ export function ProfilesPage() {
     [toast],
   );
 
-  const onCopyPath = useCallback(
-    (path: string) => {
-      void copyToClipboard(path).then((copied) =>
-        toast.show(copied ? `Copied — ${path}` : path),
-      );
-    },
-    [toast],
-  );
-
   return (
     <div className="profiles" aria-busy={loading || undefined}>
       {error ? (
@@ -171,13 +191,20 @@ export function ProfilesPage() {
             onSave={() => void onSave()}
             onRevert={() => setForm(saved)}
           />
-          {active ? (
-            <ProfileDocuments
-              documents={documentsFor(active.health)}
-              vaultPath={active.vaultPath}
-              onCopyPath={onCopyPath}
-            />
-          ) : null}
+          <ProfileDocuments
+            available={documents}
+            attachedIds={attachedIds}
+            enabled={storeLive}
+            disabledReason={STORE_UNAVAILABLE_NOTE}
+            onAttach={(id) => {
+              setAttachedIds((current) => [...current, id]);
+              toast.show("Attached to this profile.");
+            }}
+            onDetach={(id) => {
+              setAttachedIds((current) => current.filter((item) => item !== id));
+              toast.show("Detached from this profile.");
+            }}
+          />
           <p className="profiles__crosslink">
             Looking for what the copilot has already done?{" "}
             <Link to={`${ROUTES.memory}#applications`}>Open the application ledger</Link>.

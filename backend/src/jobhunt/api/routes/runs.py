@@ -1,88 +1,123 @@
-"""Pipeline run routes.
+"""Pipeline run routes — async start + list.
 
-Purpose: Start scout → match → write and list vault run notes.
-Inputs: AppConfig from the request; vault ``Runs/*.md`` for GET.
-Returns: A run summary with errors, or a list of log previews.
-Does not: Reimplement matching/scraping or return API keys.
+Purpose: Start scout → match → write without blocking the browser.
+Inputs: AppConfig; background runner.
+Returns: Run id immediately; poll ``GET /runs/{id}``.
+Does not: Auto-submit applications or hide crawl denials.
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel, ConfigDict
 
-from jobhunt.api.app import get_config, get_vault
+from jobhunt.api.app import get_app_store, get_config
+from jobhunt.api.runner import get_run, list_async_runs, request_cancel, start_async_run
 from jobhunt.api.schemas.runs import RunLogSummary, RunResponse
-from jobhunt.features.pipeline.run_all import run_all
-from jobhunt.vault import Vault
+from jobhunt.store.types import RunRecord
 
 router = APIRouter(tags=["runs"])
 
 _PREVIEW_CHARS = 500
 
 
-@router.post("/runs", response_model=RunResponse)
-def start_run(request: Request) -> RunResponse:
-    """Run the same pipeline as ``jobhunt run``.
+class AsyncRunAccepted(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
-    Purpose: Let the frontend trigger scout → match → write locally.
-    Inputs: Config/vault from app state (no request body).
-    Returns: Counts, vault paths, and per-step error strings.
-    Does not: Auto-submit applications or crawl deny-listed hosts (policy still applies).
-    """
+    id: str
+    status: str
+    started: str = ""
+    model: str = ""
+
+
+class AsyncRunStatus(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    status: str
+    started: str = ""
+    finished: str = ""
+    scouted: int = 0
+    shortlisted: int = 0
+    skipped: int = 0
+    written: int = 0
+    write_skipped: int = 0
+    errors: list[str] = []
+    model: str = ""
+    preview: str = ""
+
+
+def _status_out(rec: RunRecord) -> AsyncRunStatus:
+    return AsyncRunStatus(
+        id=rec.id,
+        status=rec.status,
+        started=rec.started,
+        finished=rec.finished,
+        scouted=rec.scouted,
+        shortlisted=rec.shortlisted,
+        skipped=rec.skipped,
+        written=rec.written,
+        write_skipped=rec.write_skipped,
+        errors=list(rec.errors),
+        model=rec.model,
+        preview=rec.preview,
+    )
+
+
+@router.post("/runs", response_model=AsyncRunAccepted)
+def start_run(request: Request) -> AsyncRunAccepted:
+    """Accept a pipeline run and execute it in the background."""
 
     config = get_config(request)
-    result = run_all(config)
-    return RunResponse(
-        started=result.started.isoformat(timespec="seconds"),
-        scouted=result.scouted,
-        shortlisted=result.shortlisted,
-        skipped=result.skipped,
-        written=result.written,
-        write_skipped=result.write_skipped,
-        errors=result.errors,
-        run_path=str(result.run_path),
-        home_path=str(result.home_path),
-        model=result.model,
-    )
+    store = get_app_store(request)
+
+    def persist(rec: RunRecord) -> None:
+        upsert = getattr(store, "upsert_run_status", None)
+        if callable(upsert):
+            upsert(rec)
+
+    record = start_async_run(config, on_done=persist)
+    return AsyncRunAccepted(id=record.id, status=record.status, started=record.started, model=record.model)
+
+
+@router.get("/runs/{run_id}", response_model=AsyncRunStatus)
+def get_run_status(run_id: str) -> AsyncRunStatus:
+    rec = get_run(run_id)
+    if rec is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return _status_out(rec)
+
+
+@router.post("/runs/{run_id}/cancel")
+def cancel_run(run_id: str) -> dict[str, bool]:
+    ok = request_cancel(run_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return {"cancelled": True}
 
 
 @router.get("/runs", response_model=list[RunLogSummary])
 def list_runs(request: Request) -> list[RunLogSummary]:
-    """List run-log summaries from the vault.
+    """List run-log summaries from the store (plus in-flight async runs)."""
 
-    Purpose: Show recent pipeline history in the UI.
-    Inputs: ``Runs/*.md`` notes written by the pipeline.
-    Returns: Newest-first summaries with a short preview.
-    Does not: Return API keys or full job descriptions.
-    """
-
-    vault = get_vault(request)
-    return _run_summaries(vault)
-
-
-def _run_summaries(vault: Vault) -> list[RunLogSummary]:
-    """Parse ``Runs/`` into API summaries.
-
-    Purpose: Turn daily markdown logs into list rows.
-    Inputs: Vault whose ``runs_dir`` may be missing.
-    Returns: Summaries sorted by filename descending.
-    Does not: Execute the pipeline.
-    """
-
-    if not vault.runs_dir.exists():
-        return []
+    store = get_app_store(request)
     rows: list[RunLogSummary] = []
-    for path in sorted(vault.runs_dir.glob("*.md"), reverse=True):
-        if path.name.startswith("."):
-            continue
-        text = path.read_text(encoding="utf-8")
-        body = text.strip()
+    for rec in list_async_runs():
         rows.append(
             RunLogSummary(
-                date=path.stem,
-                path=str(path),
-                preview=body[:_PREVIEW_CHARS],
-                has_errors="### Errors" in text,
+                date=rec.id,
+                path=f"async:{rec.id}",
+                preview=rec.preview[:_PREVIEW_CHARS] or rec.status,
+                has_errors=bool(rec.errors),
+            )
+        )
+    for rec in store.list_run_notes():
+        rows.append(
+            RunLogSummary(
+                date=rec.id,
+                path=str(store.data_path()),
+                preview=(rec.preview or "")[:_PREVIEW_CHARS],
+                has_errors=bool(rec.errors),
             )
         )
     return rows

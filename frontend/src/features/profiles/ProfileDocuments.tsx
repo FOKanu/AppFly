@@ -1,24 +1,43 @@
+import { Link } from "react-router-dom";
 import { Button } from "../../shared/ui/Button";
-import { NOT_PERSISTED_NOTE } from "./api";
-import type { ProfileDocument } from "./types";
+import { Chip } from "../../shared/ui/Chip";
+import { Tag } from "../../shared/ui/Tag";
+import { ROUTES } from "../../routes";
+import { DOCUMENT_KINDS, isActive, type DocumentKind, type VaultDocument } from "../vault/types";
 
 interface ProfileDocumentsProps {
-  documents: ProfileDocument[];
-  vaultPath: string;
-  onCopyPath: (path: string) => void;
+  /** Everything in the Vault, so the picker can offer real files. */
+  available: VaultDocument[];
+  /** Ids currently attached to this profile. */
+  attachedIds: string[];
+  onAttach: (id: string) => void;
+  onDetach: (id: string) => void;
+  /** False while the document store is unreachable. */
+  enabled: boolean;
+  disabledReason: string;
 }
 
+/** Kinds a profile can attach. Inbox clips belong to the Queue, not a profile. */
+const ATTACHABLE: DocumentKind[] = ["cv", "voice", "cert", "portfolio"];
+
 /**
- * Purpose: The documents the writer may be given — CV, voice sample, and the
- *          credential slots the vault does not model yet.
- * Does not: render any document body. Paths, presence and counts only, so the
- *           CV never reaches the DOM.
+ * Purpose: Attach files from the Vault to this profile — the CV and voice
+ *          sample the writer is given, plus any credentials.
+ * Does not: render a document body, and does not send you to Obsidian. Files
+ *           live in AppFly's own storage and are managed in the Vault.
  */
 export function ProfileDocuments({
-  documents,
-  vaultPath,
-  onCopyPath,
+  available,
+  attachedIds,
+  onAttach,
+  onDetach,
+  enabled,
+  disabledReason,
 }: ProfileDocumentsProps) {
+  const attachable = available.filter((doc) => ATTACHABLE.includes(doc.kind));
+  const attached = attachable.filter((doc) => attachedIds.includes(doc.id));
+  const unattached = attachable.filter((doc) => !attachedIds.includes(doc.id));
+
   return (
     <section className="profile-card" id="documents" aria-labelledby="documents-title">
       <header className="profile-card__head">
@@ -28,80 +47,79 @@ export function ProfileDocuments({
             What the writer is given
           </h2>
         </div>
-        <span className="profile-card__saved">paths only</span>
+        <Link className="link-action" to={ROUTES.vault}>
+          Manage in Vault →
+        </Link>
       </header>
 
-      <ul className="doc-list">
-        {documents.map((doc) => (
-          <li className="doc-row" key={doc.id} data-present={doc.present}>
-            <span className="doc-row__dot" aria-hidden="true" />
-            <span className="doc-row__col">
-              <span className="doc-row__label">{doc.label}</span>
-              <span className="doc-row__path">{doc.path}</span>
-            </span>
-            <span className="doc-row__state">
-              {doc.present ? (doc.detail ?? "present") : "missing"}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onCopyPath(`${vaultPath}/${doc.path}`)}
-            >
-              Copy path
-            </Button>
-          </li>
-        ))}
-      </ul>
+      {attached.length === 0 ? (
+        <p className="profile-card__empty">
+          Nothing attached yet. Pick a CV and a voice sample below, or{" "}
+          <Link to={ROUTES.vault}>upload one to the Vault</Link> first.
+        </p>
+      ) : (
+        <ul className="attached-list">
+          {attached.map((doc) => (
+            <li className="attached-row" key={doc.id}>
+              <span className="attached-row__dot" data-kind={doc.kind} aria-hidden="true" />
+              <span className="attached-row__col">
+                <span className="attached-row__label">{doc.label}</span>
+                <span className="attached-row__meta">
+                  {kindLabel(doc.kind)}
+                  {doc.word_count !== undefined
+                    ? ` · ${doc.word_count.toLocaleString()} words`
+                    : ""}
+                </span>
+              </span>
+              {isActive(doc) ? (
+                <Chip tone="accent">{doc.active_cv ? "active CV" : "active voice"}</Chip>
+              ) : null}
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={!enabled}
+                title={enabled ? undefined : disabledReason}
+                onClick={() => onDetach(doc.id)}
+              >
+                Detach
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
 
-      <div className="doc-actions">
-        <Button variant="quiet" disabled title={NOT_PERSISTED_NOTE}>
-          Add certification / license
-        </Button>
-        <Button variant="quiet" disabled title={NOT_PERSISTED_NOTE}>
-          Add portfolio / case study
-        </Button>
-      </div>
+      {unattached.length > 0 ? (
+        <>
+          <p className="profile-label">Available in your vault</p>
+          <div className="attach-picker">
+            {unattached.map((doc) => (
+              <button
+                key={doc.id}
+                type="button"
+                className="attach-chip"
+                disabled={!enabled}
+                title={enabled ? `Attach ${doc.label}` : disabledReason}
+                onClick={() => onAttach(doc.id)}
+              >
+                <span className="attach-chip__plus" aria-hidden="true">
+                  +
+                </span>
+                {doc.label}
+                <Tag>{kindLabel(doc.kind)}</Tag>
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
+
       <p className="profile-card__note">
-        The copilot reads these straight from the vault on this machine. Edit them in Obsidian;
-        this screen never loads their contents.
+        AppFly stores these itself — no Obsidian needed. This screen shows names and word
+        counts only; document contents are never loaded here.
       </p>
     </section>
   );
 }
 
-/**
- * Purpose: Describe the documents the vault is expected to hold.
- * Inputs: Health flags from GET /settings — the API reports presence, not size.
- * Does not: read the files.
- */
-export function documentsFor(health: {
-  cvPresent: boolean;
-  requirementsPresent: boolean;
-}): ProfileDocument[] {
-  return [
-    {
-      id: "cv",
-      kind: "cv",
-      label: "CV master",
-      path: "CV/Master.md",
-      present: health.cvPresent,
-      detail: "read by the writer",
-    },
-    {
-      id: "requirements",
-      kind: "cv",
-      label: "Requirements & guardrails",
-      path: "Requirements.md",
-      present: health.requirementsPresent,
-      detail: "read by the matcher",
-    },
-    {
-      id: "voice",
-      kind: "voice",
-      label: "Voice samples",
-      path: "CV/Voice-samples.md",
-      present: false,
-      detail: "steers letter tone",
-    },
-  ];
+function kindLabel(kind: DocumentKind): string {
+  return DOCUMENT_KINDS.find((entry) => entry.value === kind)?.label ?? kind;
 }

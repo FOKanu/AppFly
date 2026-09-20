@@ -18,6 +18,7 @@ import { useBreakpoint } from "../../shared/useBreakpoint";
 import { profileFromSettings } from "../../features/profiles/api";
 import type { HuntProfile, SettingsPayload } from "../../features/profiles/types";
 import { recordProfileSnapshot } from "../../features/memory/versionLedger";
+import { listDocuments } from "../../features/vault/api";
 import { ControlHeader } from "./ControlHeader";
 import { RunningBar, type RunTelemetry } from "./RunningBar";
 import { Sidebar } from "./Sidebar";
@@ -59,6 +60,7 @@ export function AppShell() {
   const [apiReachable, setApiReachable] = useState(false);
   const [telemetry, setTelemetry] = useState<RunTelemetry>({ nextNightly: "02:00" });
   const [profiles, setProfiles] = useState<HuntProfile[]>([]);
+  const [documentCount, setDocumentCount] = useState(0);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
 
   const activeProfile =
@@ -69,6 +71,7 @@ export function AppShell() {
     profileName: activeProfile?.name ?? "No profile",
     profileCount: profiles.length,
     today: formatToday(),
+    documentCount,
   });
   const title = headerTitle(location.pathname);
 
@@ -102,6 +105,11 @@ export function AppShell() {
         setApiReachable(health.ok);
         // Seed the local version ledger so Memory has a baseline to diff against.
         recordProfileSnapshot(profile, "loaded");
+        // The Vault breadcrumb needs a count; a missing store just reads zero.
+        const vault = await listDocuments().catch(() => null);
+        if (!cancelled && vault?.availability === "live") {
+          setDocumentCount(vault.documents.length);
+        }
       } catch {
         if (!cancelled) setApiReachable(false);
       }
@@ -227,7 +235,7 @@ export function AppShell() {
 }
 
 /**
- * Purpose: POST /runs (same pipeline as `jobhunt run`); keep chrome live if the API is down.
+ * Purpose: POST /runs (async); poll until complete. Keep chrome live if the API is down.
  * Does not: start Apify actors or scrape deny-listed hosts.
  */
 async function startPipeline(
@@ -235,25 +243,38 @@ async function startPipeline(
   setTelemetry: (next: RunTelemetry) => void,
 ): Promise<void> {
   try {
-    const result = await apiPost<RunResponse>("/runs");
-    setTelemetry({
-      scouted: result.scouted,
-      matched: result.shortlisted,
-      written: result.written,
-      nextNightly: "02:00",
-    });
-    if (result.written > 0) {
-      applyState("waiting-for-you", "Waiting for you — review drafts in the vault");
+    const accepted = await apiPost<RunResponse>("/runs");
+    const runId = accepted.id;
+    if (!runId) {
+      applyState("stopped", "Run accepted without id");
       return;
     }
-    if (result.errors.length > 0) {
-      applyState("stopped", result.errors[0]);
+    applyState("running", "Pipeline running…");
+    for (let i = 0; i < 120; i += 1) {
+      await new Promise((r) => window.setTimeout(r, 500));
+      const status = await apiGet<RunResponse>(`/runs/${runId}`);
+      if (status.status === "running" || status.status === "queued") continue;
+      setTelemetry({
+        scouted: status.scouted ?? 0,
+        matched: status.shortlisted ?? 0,
+        written: status.written ?? 0,
+        nextNightly: "02:00",
+      });
+      if ((status.written ?? 0) > 0) {
+        applyState("waiting-for-you", "Waiting for you — review drafts in Queue");
+        return;
+      }
+      if (status.errors && status.errors.length > 0) {
+        applyState("stopped", status.errors[0]);
+        return;
+      }
+      applyState(
+        "idle",
+        `Run complete. Scouted ${status.scouted ?? 0}, shortlisted ${status.shortlisted ?? 0}.`,
+      );
       return;
     }
-    applyState(
-      "idle",
-      `Run complete. Scouted ${result.scouted}, shortlisted ${result.shortlisted}.`,
-    );
+    applyState("stopped", "Run timed out — check Activity");
   } catch {
     applyState("stopped", "Run failed — API unreachable");
   }

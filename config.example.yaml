@@ -1,4 +1,7 @@
 # Copy to config.yaml (jobhunt init does this) or pass --config.
+# storage_backend: native (SQLite, default) | markdown (Obsidian vault)
+storage_backend: native
+# native_data_dir: null  # default: ~/Library/Application Support/AppFly (macOS)
 vault_path: ~/Documents/Job Search
 
 keywords:

@@ -41,6 +41,7 @@ def api_config(tmp_path: Path) -> Path:
         yaml.safe_dump(
             {
                 "vault_path": str(vault),
+                "storage_backend": "markdown",
                 "keywords": ["Python"],
                 "location": "Berlin",
                 "sources": {

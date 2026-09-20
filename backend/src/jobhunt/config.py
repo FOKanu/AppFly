@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from dotenv import load_dotenv
@@ -63,6 +63,8 @@ class AppConfig(BaseModel):
     Does not: Persist secrets into the YAML file.
     """
     vault_path: Path = Path("~/Documents/Job Search")
+    storage_backend: Literal["native", "markdown"] = "native"
+    native_data_dir: Path | None = None
     keywords: list[str] = Field(default_factory=lambda: ["Software Engineer"])
     location: str = "Berlin"
     radius_km: int = 50
@@ -77,6 +79,19 @@ class AppConfig(BaseModel):
     @property
     def vault(self) -> Path:
         return self.vault_path.expanduser().resolve()
+
+    @property
+    def native_data_path(self) -> Path:
+        """App data directory for SQLite + files.
+
+        Purpose: Native store root (override via ``native_data_dir`` or APPFLY_DATA_DIR).
+        """
+
+        if self.native_data_dir is not None:
+            return Path(self.native_data_dir).expanduser().resolve()
+        from jobhunt.store.paths import default_data_root
+
+        return default_data_root()
 
     @property
     def cache_dir(self) -> Path:
