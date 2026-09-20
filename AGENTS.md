@@ -15,7 +15,7 @@ Cursor rule: `.cursor/rules/branch-strategy.mdc` (always apply).
 | Branch | Purpose |
 |---|---|
 | `main` | Shippable. No direct commits. Hotfixes that cannot wait for an epic. |
-| `integrate/<epic>` | Inbox for that epic (all stacks). **Current storage epic: `integrate/storage-v1`.** UI-v1 landed on `main`. |
+| `integrate/<epic>` | Inbox for that epic (all stacks). **No epic is open** — `ui-v1` and `storage-v1` have both landed on `main`. |
 | `feat/<area>-<slug>` | One concern, one PR. Examples: `feat/backend-api`, `feat/ui-queue-packet`, `feat/docs-api`. |
 | `fix/<slug>` | Bugfix against shipped `main`. |
 | `chore/<slug>` | Tooling, docs, layout. |
@@ -28,19 +28,19 @@ Names: lowercase, hyphens, no author names. Retarget `cursor/…` Cloud Agent de
 2. No epic: branch from `main`; PR into `main`.
 3. Do not start parallel agents from stale `main` while an epic is open.
 
-While **storage-v1** is open, every Cloud Agent prompt includes:
+No epic is currently open. Branch from `main` and PR into `main`.
 
-> Base: `integrate/storage-v1`. Branch: `feat/<area>-<slug>`. Touch only owned paths. Do not recreate `backend/pyproject.toml` or `frontend/package.json`. PR into `integrate/storage-v1`. Rebase before merge.
+When an epic opens, name it here and every Cloud Agent prompt includes:
 
-### Owned paths (storage-v1)
+> Base: `integrate/<epic>`. Branch: `feat/<area>-<slug>`. Touch only owned paths. Do not recreate `backend/pyproject.toml` or `frontend/package.json`. PR into `integrate/<epic>`. Rebase before merge.
 
-- Store: `backend/src/jobhunt/store/`, `docs/STORAGE.md`
-- API: `backend/src/jobhunt/api/` (documents, workspace, letter writeback, async runs)
-- Vault UI: `frontend/src/features/vault/`
-- Settings copy for native path / Obsidian import: `frontend/src/features/settings/`
+### Closed epics
+
+- **ui-v1** — app chrome, Tonight/Workflow, Queue/Packet, Memory/Activity, Settings, mobile reflow. Landed on `main`.
+- **storage-v1** — native SQLite store, Documents/Workspace APIs, Vault UI, Obsidian demoted to one-shot import. Landed on `main`.
 
 ### Cursor Cloud specific instructions
 
-- Clone from **`integrate/storage-v1`**, not `main`, for this epic.
-- PR against `integrate/storage-v1`. Backend work goes under `backend/`; UI under `frontend/`. Do not add a second `src/jobhunt` tree.
+- Clone from **`main`** — no epic is open. When one is, clone from `integrate/<epic>` instead.
+- PR against `main` (or the open `integrate/<epic>`). Backend work goes under `backend/`; UI under `frontend/`. Do not add a second `src/jobhunt` tree.
 - Do not force-push `main` or `integrate/*`. Do not commit `.env`, vault notes, or API keys.
