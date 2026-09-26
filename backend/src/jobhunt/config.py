@@ -87,15 +87,15 @@ class AppConfig(BaseModel):
 
         Purpose: Point the letter writer at a remote gateway.
         Inputs: YAML value `gemini_api_base` or env var `GEMINI_API_BASE`.
-        Returns: Stripped base URL if non-empty, otherwise None.
+        Returns: First non-blank stripped value of ``gemini_api_base``, then env
+            ``GEMINI_API_BASE``; else None.
         Does not: Return the key material or any secrets.
         """
 
-        if self.gemini_api_base:
-            stripped = self.gemini_api_base.strip()
-            return stripped if stripped else None
-        base_url = os.environ.get("GEMINI_API_BASE", "").strip()
-        return base_url if base_url else None
+        for candidate in (self.gemini_api_base, os.environ.get("GEMINI_API_BASE")):
+            if candidate and candidate.strip():
+                return candidate.strip()
+        return None
 
     @property
     def native_data_path(self) -> Path:

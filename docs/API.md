@@ -34,8 +34,8 @@ See also [STORAGE.md](STORAGE.md).
 
 ### Pointing write at a remote gateway
 
-Set `gemini_api_base` in config.yaml (or env `GEMINI_API_BASE`; YAML wins). 
-Unset = Google default endpoint. Key still comes from Keychain `gemini` then `GEMINI_API_KEY`. 
+Set `gemini_api_base` in config.yaml (or env `GEMINI_API_BASE`; YAML wins).
+Unset = Google default endpoint. Key still comes from Keychain `gemini` then `GEMINI_API_KEY`.
 The gateway must speak the Gemini REST API (`google-genai` sends `/{api_version}/models/{model}:generateContent` under the base URL).
 `GET /settings` never returns the key material.
 

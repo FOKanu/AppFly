@@ -1,7 +1,8 @@
 """Gemini cover-letter writer from a sealed one-job packet.
 
 Purpose: Draft letters for shortlisted jobs using only packet text.
-Inputs: Vault notes, CV slice, voice samples, Gemini key from the Keychain (`gemini`) or `GEMINI_API_KEY`; optional `gemini_api_base`.
+Inputs: Vault notes, CV slice, voice samples, Gemini key from the Keychain
+(``gemini``) or ``GEMINI_API_KEY``; optional ``gemini_api_base``.
 Returns: Write stats; letters land in ``Letters/``.
 Does not: Submit applications, include a second job, or crawl listing URLs.
 """
@@ -20,6 +21,11 @@ Match the language of the job posting when possible (German or English).
 Follow the tone instructions. Keep the letter under 350 words.
 Return Markdown with a Subject line, then the letter body. No preamble."""
 
+MISSING_KEY_MESSAGE = (
+    "Gemini API key is not set. Save it in Settings "
+    "(Keychain entry 'gemini') or set GEMINI_API_KEY."
+)
+
 
 def write_letters(config: AppConfig, vault: Vault) -> dict[str, int]:
     """Write up to ``letter_cap`` letters for shortlisted jobs.
@@ -31,7 +37,7 @@ def write_letters(config: AppConfig, vault: Vault) -> dict[str, int]:
     """
 
     if not config.gemini_api_key:
-        raise RuntimeError("Gemini API key is not set. Save it in Settings (Keychain entry 'gemini') or set GEMINI_API_KEY.")
+        raise RuntimeError(MISSING_KEY_MESSAGE)
 
     requirements = vault.load_requirements()
     cv_text = _cv_slice(vault.read_cv())
@@ -83,7 +89,7 @@ def regenerate_letter_for_job(config: AppConfig, vault: Any, job: Job) -> str:
     """
 
     if not config.gemini_api_key:
-        raise RuntimeError("Gemini API key is not set. Save it in Settings (Keychain entry 'gemini') or set GEMINI_API_KEY.")
+        raise RuntimeError(MISSING_KEY_MESSAGE)
     requirements = vault.load_requirements()
     cv_text = _cv_slice(vault.read_cv())
     samples = vault.read_voice_samples()
