@@ -1,4 +1,4 @@
-import { useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import { DOCUMENT_KINDS, type DocumentKind } from "./types";
 
 interface UploadZoneProps {
@@ -7,6 +7,8 @@ interface UploadZoneProps {
   enabled: boolean;
   disabledReason: string;
   busy: boolean;
+  /** Prefill the kind select (e.g. from `?kind=cert` deep links). */
+  initialKind?: DocumentKind;
 }
 
 /**
@@ -14,10 +16,20 @@ interface UploadZoneProps {
  * Does not: read file contents in the browser — the File objects go straight
  *           to the upload request as multipart.
  */
-export function UploadZone({ onUpload, enabled, disabledReason, busy }: UploadZoneProps) {
-  const [kind, setKind] = useState<DocumentKind>("cv");
+export function UploadZone({
+  onUpload,
+  enabled,
+  disabledReason,
+  busy,
+  initialKind = "cv",
+}: UploadZoneProps) {
+  const [kind, setKind] = useState<DocumentKind>(initialKind);
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setKind(initialKind);
+  }, [initialKind]);
 
   function accept(files: FileList | null) {
     if (!enabled || !files || files.length === 0) return;
@@ -33,7 +45,7 @@ export function UploadZone({ onUpload, enabled, disabledReason, busy }: UploadZo
   const hint = DOCUMENT_KINDS.find((entry) => entry.value === kind)?.hint ?? "";
 
   return (
-    <section className="upload" aria-labelledby="upload-title">
+    <section id="upload" className="upload" aria-labelledby="upload-title">
       <div className="upload__head">
         <div>
           <p className="upload__kicker">Add to vault</p>

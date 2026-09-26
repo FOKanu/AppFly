@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { ApiHealthPanel } from "./ApiHealthPanel";
 import { ApiKeysPanel } from "./ApiKeysPanel";
 import { ConnectivityPanel } from "./ConnectivityPanel";
@@ -23,6 +24,7 @@ const INITIAL = parseSettings(null, false);
  */
 export function SettingsPage() {
   const toast = useToast();
+  const { hash } = useLocation();
   const [settings, setSettings] = useState<SettingsView>(INITIAL);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -45,6 +47,13 @@ export function SettingsPage() {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  useEffect(() => {
+    if (hash !== "#import-obsidian") return;
+    document
+      .getElementById("import-obsidian")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [hash, settings]);
 
   async function handleSaveSecret(name: SecretName, value: string) {
     setSaving(true);
