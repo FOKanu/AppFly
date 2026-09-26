@@ -68,7 +68,10 @@ export function ImportObsidianPanel({
   }
 
   return (
-    <article className="settings-card settings-card--secondary">
+    <article
+      id="import-obsidian"
+      className="settings-card settings-card--secondary"
+    >
       <p className="settings-card__kicker settings-card__kicker--muted">Optional</p>
       <h2 className="settings-card__title">Obsidian vault</h2>
 

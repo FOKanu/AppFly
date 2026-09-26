@@ -10,7 +10,7 @@ GitHub Flow. No Git Flow `develop`/`release`. Full convention: `AGENTS.md` (Bran
 ## Branches
 
 - `main` — shippable. Never commit directly. PR only. Hotfixes that cannot wait for an epic.
-- `integrate/<epic>` — inbox for **that epic**: Python, HTTP API, UI, docs, CI — from humans or Cloud Agents. **Current: `integrate/storage-v1`.** (ui-v1 landed on `main`.)
+- `integrate/<epic>` — inbox for **that epic**: Python, HTTP API, UI, docs, CI — from humans or Cloud Agents. **None open right now** — `ui-v1` and `storage-v1` both landed on `main`.
 - `feat/<area>-<slug>`, `fix/<slug>`, `chore/<slug>` — one concern, one PR, delete after merge. Area may be `backend-`, `ui-`, `secrets-`, `docs-`, etc.
 
 Do not keep `cursor/…` names. Open PRs as `feat/…`. Ignore `cursor/backend-frontend-split-6388`.
@@ -23,7 +23,7 @@ Do not keep `cursor/…` names. Open PRs as `feat/…`. Ignore `cursor/backend-f
 
 ```bash
 git fetch origin
-git checkout integrate/storage-v1 && git pull
+git checkout main && git pull   # or integrate/<epic> when one is open
 git checkout -b feat/backend-documents   # or feat/ui-vault-files, feat/docs-…
 ```
 
@@ -36,6 +36,10 @@ git checkout -b feat/backend-documents   # or feat/ui-vault-files, feat/docs-…
 - Shared magnets (`App.tsx`, `cli.py`, `docs/FEATURES.md`): sequential PRs, or append-only docs rows.
 - No force-push to `main` or `integrate/*`. No secrets in git.
 
-## Current epic (`storage-v1`)
+## Current epic
 
-`integrate/storage-v1` — native SQLite store, Documents/Workspace APIs, Vault UI, Obsidian optional import. Close with PR `integrate/storage-v1` → `main`.
+**None.** Branch from `main`, PR into `main`.
+
+Closed: `ui-v1` (app shell and screens), `storage-v1` (native SQLite store, Documents/Workspace APIs, Vault UI, Obsidian import). Both on `main`.
+
+An epic closes with a PR `integrate/<epic>` → `main`.
