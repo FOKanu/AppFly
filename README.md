@@ -96,6 +96,8 @@ GitHub Flow: protect `main`. While an epic is open, **all** related changes (bac
 
 Cut new epic work from `integrate/prototype-v1`, not from `main`, until that branch is merged.
 
+Agent roles: Grok plans and opens epics, an RTX 5090 local coder implements, Composer runs CI/smoke and merges, Claude is on call for UI design. See [docs/agents/](docs/agents/README.md) and [docs/workflow/MULTI_AGENT.md](docs/workflow/MULTI_AGENT.md).
+
 ## Nightly schedule
 
 A launchd template lives at [launchd/com.jobhunt.nightly.plist](launchd/com.jobhunt.nightly.plist) (weekdays 21:00, wrapped in `caffeinate`). After the venv exists:

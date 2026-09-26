@@ -36,6 +36,8 @@ No parallel forks of `main` while this epic is open.
 
 When an epic opens, name it here and every Cloud Agent prompt includes the Base/Branch/PR block above (generic form uses `integrate/<epic>`).
 
+**Who does what:** Grok opens and closes epics (`integrate/<epic>`), plans tasks, and writes PR text. The RTX 5090 local coder implements. Composer (Cursor) is the merge and CI gate: it runs CI and smoke, then merges. See [docs/workflow/MULTI_AGENT.md](docs/workflow/MULTI_AGENT.md).
+
 ### Closed epics
 
 - **ui-v1** — app chrome, Tonight/Workflow, Queue/Packet, Memory/Activity, Settings, mobile reflow. Landed on `main`.
@@ -47,13 +49,14 @@ When an epic opens, name it here and every Cloud Agent prompt includes the Base/
 - PR against `integrate/prototype-v1`. Backend work goes under `backend/`; UI under `frontend/`. Do not add a second `src/jobhunt` tree.
 - Do not force-push `main` or `integrate/*`. Do not commit `.env`, vault notes, or API keys.
 
-## Sibling agent playbooks
+## Agent roles and playbooks
 
-Role ownership for product work (paths, phases, no-touch lists):
+Operating model (2026-09-26): one cloud planner (Grok) + local-first coding on the RTX 5090.
 
-- [docs/agents/COMPOSER.md](docs/agents/COMPOSER.md) — orchestration
-- [docs/agents/CLAUDE.md](docs/agents/CLAUDE.md) — product UI
-- [docs/agents/GROK.md](docs/agents/GROK.md) — Iyeke (GrokBot), backend engine
+- [docs/agents/GROK.md](docs/agents/GROK.md) — Grok (Grokbot / Iyeke): single planner and orchestrator for backend and frontend; opens epics; briefs, review, PR text; backend engine owner
+- [docs/agents/LOCAL_CODER.md](docs/agents/LOCAL_CODER.md) — RTX 5090 local coder: all mechanical work from Grok's briefs
+- [docs/agents/COMPOSER.md](docs/agents/COMPOSER.md) — Composer (Cursor): merge and CI gate, smoke, desktop packaging (M5), privacy pass (M8)
+- [docs/agents/CLAUDE.md](docs/agents/CLAUDE.md) — Claude: on call for UI/UX design decisions and UI review
 - Index: [docs/agents/README.md](docs/agents/README.md)
 
-Optional maintainer-only multi-agent + local GPU coding flow (not required to ship): [docs/workflow/](docs/workflow/README.md).
+Loop, escalation rules, prompts, and token log: [docs/workflow/](docs/workflow/README.md). Product contributors don't need that folder to open a normal PR.
