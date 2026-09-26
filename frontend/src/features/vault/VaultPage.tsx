@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { ROUTES } from "../../routes";
 import { Banner } from "../../shared/ui/Banner";
 import { Button } from "../../shared/ui/Button";
@@ -32,6 +32,13 @@ const FILTERS = [
 
 type Filter = "all" | DocumentKind;
 
+const KIND_VALUES = new Set(DOCUMENT_KINDS.map((entry) => entry.value));
+
+function filterFromParam(raw: string | null): Filter {
+  if (raw && KIND_VALUES.has(raw as DocumentKind)) return raw as DocumentKind;
+  return "all";
+}
+
 /**
  * Purpose: Vault — the files AppFly owns, without Obsidian. Upload, rename,
  *          set the active CV, download and delete.
@@ -40,18 +47,40 @@ type Filter = "all" | DocumentKind;
  */
 export function VaultPage() {
   const toast = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { hash } = useLocation();
   const [documents, setDocuments] = useState<VaultDocument[]>([]);
   const [workspace, setWorkspace] = useState<WorkspaceStatus | null>(null);
   const [live, setLive] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>(() =>
+    filterFromParam(searchParams.get("kind")),
+  );
   const [busyId, setBusyId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     document.title = "AppFly · Vault";
   }, []);
+
+  // Keep the kind filter in sync with deep links from the profile menu.
+  useEffect(() => {
+    setFilter(filterFromParam(searchParams.get("kind")));
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (hash !== "#upload" || loading) return;
+    document.getElementById("upload")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [hash, loading]);
+
+  function onFilterChange(next: Filter) {
+    setFilter(next);
+    const params = new URLSearchParams(searchParams);
+    if (next === "all") params.delete("kind");
+    else params.set("kind", next);
+    setSearchParams(params, { replace: true });
+  }
 
   const load = useCallback(async () => {
     try {
@@ -190,7 +219,7 @@ export function VaultPage() {
         <Segmented
           options={FILTERS}
           value={filter}
-          onChange={setFilter}
+          onChange={onFilterChange}
           ariaLabel="Filter by file type"
         />
       </header>
@@ -206,6 +235,7 @@ export function VaultPage() {
           enabled={live}
           disabledReason={STORE_UNAVAILABLE_NOTE}
           busy={uploading}
+          initialKind={filter === "all" ? "cv" : filter}
         />
 
         <section className="vault__files" aria-labelledby="files-title">

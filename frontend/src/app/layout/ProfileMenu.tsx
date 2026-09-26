@@ -3,7 +3,6 @@ import { Menu, type MenuSectionSpec } from "../../shared/ui/Menu";
 import { useMenu } from "../../shared/ui/useMenu";
 import { ROUTES } from "../../routes";
 import type { HuntProfile } from "../../features/profiles/types";
-import { NOT_PERSISTED_NOTE } from "../../features/profiles/api";
 
 interface ProfileMenuProps {
   /** Every preset the API knows about. One, today. */
@@ -99,34 +98,35 @@ export function ProfileMenu({
       id: "documents",
       label: "Documents & credentials",
       items: [
-        { id: "manage-cvs", label: "Manage CVs", icon: "doc", to: `${profileHref}#documents` },
+        {
+          id: "manage-cvs",
+          label: "Manage CVs",
+          icon: "doc",
+          to: `${ROUTES.vault}?kind=cv`,
+        },
         {
           id: "voice-samples",
           label: "Voice samples",
           icon: "mic",
-          to: `${profileHref}#documents`,
+          to: `${ROUTES.vault}?kind=voice`,
         },
         {
           id: "add-certification",
           label: "Add certification / license",
           icon: "badge",
-          disabled: true,
-          reason: NOT_PERSISTED_NOTE,
+          to: `${ROUTES.vault}?kind=cert#upload`,
         },
         {
           id: "add-portfolio",
           label: "Add portfolio / case study",
           icon: "folder",
-          disabled: true,
-          reason: NOT_PERSISTED_NOTE,
+          to: `${ROUTES.vault}?kind=portfolio#upload`,
         },
         {
           id: "import-vault",
-          label: "Import from vault",
+          label: "Import from Obsidian",
           icon: "import",
-          disabled: true,
-          reason:
-            "The copilot reads the vault directly; there is no import step. Point Settings at the right folder instead.",
+          to: `${ROUTES.settings}#import-obsidian`,
         },
       ],
     },
