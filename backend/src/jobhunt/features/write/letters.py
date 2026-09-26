@@ -1,7 +1,7 @@
 """Gemini cover-letter writer from a sealed one-job packet.
 
 Purpose: Draft letters for shortlisted jobs using only packet text.
-Inputs: Vault notes, CV slice, voice samples, Gemini key from env.
+Inputs: Vault notes, CV slice, voice samples, Gemini key from the Keychain (`gemini`) or `GEMINI_API_KEY`; optional `gemini_api_base`.
 Returns: Write stats; letters land in ``Letters/``.
 Does not: Submit applications, include a second job, or crawl listing URLs.
 """
@@ -31,7 +31,7 @@ def write_letters(config: AppConfig, vault: Vault) -> dict[str, int]:
     """
 
     if not config.gemini_api_key:
-        raise RuntimeError("GEMINI_API_KEY is not set. Add it to .env.")
+        raise RuntimeError("Gemini API key is not set. Save it in Settings (Keychain entry 'gemini') or set GEMINI_API_KEY.")
 
     requirements = vault.load_requirements()
     cv_text = _cv_slice(vault.read_cv())
@@ -83,7 +83,7 @@ def regenerate_letter_for_job(config: AppConfig, vault: Any, job: Job) -> str:
     """
 
     if not config.gemini_api_key:
-        raise RuntimeError("GEMINI_API_KEY is not set. Add it in Settings or .env.")
+        raise RuntimeError("Gemini API key is not set. Save it in Settings (Keychain entry 'gemini') or set GEMINI_API_KEY.")
     requirements = vault.load_requirements()
     cv_text = _cv_slice(vault.read_cv())
     samples = vault.read_voice_samples()
@@ -162,8 +162,16 @@ def _cv_slice(cv_text: str, limit: int = 3500) -> str:
 
 def _call_gemini(config: AppConfig, packet: str) -> tuple[str, int, int]:
     from google import genai
+    from google.genai import types
 
-    client = genai.Client(api_key=config.gemini_api_key)
+    base_url = config.gemini_base_url
+    if base_url:
+        client = genai.Client(
+            api_key=config.gemini_api_key,
+            http_options=types.HttpOptions(base_url=base_url),
+        )
+    else:
+        client = genai.Client(api_key=config.gemini_api_key)
     response = client.models.generate_content(
         model=config.gemini_model,
         contents=f"{WRITER_SYSTEM}\n\n{packet}",

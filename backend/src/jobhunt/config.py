@@ -72,6 +72,7 @@ class AppConfig(BaseModel):
     letter_cap: int = 5
     shortlist_size: int = 8
     gemini_model: str = "gemini-2.5-flash"
+    gemini_api_base: str | None = None
     jd_excerpt_chars: int = 1200
     sources: SourcesConfig = Field(default_factory=SourcesConfig)
     config_path: Path = DEFAULT_CONFIG_PATH
@@ -79,6 +80,22 @@ class AppConfig(BaseModel):
     @property
     def vault(self) -> Path:
         return self.vault_path.expanduser().resolve()
+
+    @property
+    def gemini_base_url(self) -> str | None:
+        """Base URL for the Gemini API endpoint.
+
+        Purpose: Point the letter writer at a remote gateway.
+        Inputs: YAML value `gemini_api_base` or env var `GEMINI_API_BASE`.
+        Returns: Stripped base URL if non-empty, otherwise None.
+        Does not: Return the key material or any secrets.
+        """
+
+        if self.gemini_api_base:
+            stripped = self.gemini_api_base.strip()
+            return stripped if stripped else None
+        base_url = os.environ.get("GEMINI_API_BASE", "").strip()
+        return base_url if base_url else None
 
     @property
     def native_data_path(self) -> Path:
