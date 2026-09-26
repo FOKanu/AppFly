@@ -4,11 +4,11 @@ Local-first job copilot. Scout and matching stay on your machine. Gemini writes 
 
 This repo does **not** automate LinkedIn, Indeed, Stepstone, ZipRecruiter, Xing, or Glassdoor. It does **not** scrape those sites, including via Apify. The deny-list is enforced in `jobhunt.policy`.
 
-Python lives in `backend/`. The UI scaffold lives in `frontend/`.
+Python lives in `backend/`. The UI lives in `frontend/`.
 
 ## Setup
 
-Python 3.12+ and Node.js 20+ (for the UI scaffold). 16 GB is enough. The embedding model is ~470 MB on first `match`.
+Python 3.12+ and Node.js 20+ (for the UI). 16 GB is enough. The embedding model is ~470 MB on first `match`.
 
 ```bash
 python3.12 -m venv .venv
@@ -30,7 +30,7 @@ Then:
 
 Get a Gemini key at [Google AI Studio](https://aistudio.google.com/apikey). The Arbeitsagentur key defaults to the public client id `jobboerse-jobsuche`.
 
-Frontend scaffold (no feature screens yet):
+Frontend:
 
 ```bash
 cd frontend
@@ -85,16 +85,16 @@ Allowed automated ingest: Arbeitsagentur API, RSS on other hosts, public company
 
 ## Layout
 
-- `backend/` — Python package, CLI, tests, health-only API
-- `frontend/` — Vite + React + TypeScript instrument-panel scaffold
-- `docs/` — architecture, API contract, feature ownership
-- `vault-templates/` — Obsidian templates copied by `jobhunt init`
+- `backend/` — Python package, CLI, tests, local HTTP API
+- `frontend/` — Vite + React + TypeScript instrument-panel UI
+- `docs/` — architecture, API contract, feature ownership, agent playbooks
+- `vault-templates/` — templates copied by `jobhunt init` (markdown mode / import)
 
 ## Branching
 
-GitHub Flow: protect `main`. While an epic is open, **all** related changes (backend, frontend, docs) land on `integrate/<epic>` — from agents or collaborators. Current epic: **`integrate/ui-v1`**. Full rules: [AGENTS.md](AGENTS.md) and `.cursor/rules/branch-strategy.mdc`.
+GitHub Flow: protect `main`. While an epic is open, **all** related changes (backend, frontend, docs) land on `integrate/<epic>` — from agents or collaborators. Current epic: **`integrate/prototype-v1`**. Full rules: [AGENTS.md](AGENTS.md) and `.cursor/rules/branch-strategy.mdc`.
 
-Cut new epic work from `integrate/ui-v1`, not from `main`, until that branch is merged.
+Cut new epic work from `integrate/prototype-v1`, not from `main`, until that branch is merged.
 
 ## Nightly schedule
 

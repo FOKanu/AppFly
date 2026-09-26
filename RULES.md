@@ -13,13 +13,12 @@ Applies equally to humans, Cloud Agents, and CLI agents. No exceptions for
 
 | | |
 |---|---|
-| **Open epic** | **none.** `ui-v1` and `storage-v1` have both landed on `main`. |
-| **Where to branch from** | `main` (no epic is open) |
-| **Where to PR** | `main` |
+| **Open epic** | **`integrate/prototype-v1`.** `ui-v1` and `storage-v1` have landed on `main`. |
+| **Where to branch from** | `integrate/prototype-v1` |
+| **Where to PR** | `integrate/prototype-v1` |
 
-When an epic *is* open, `AGENTS.md` names it. Branch from
-`integrate/<epic>` and PR into that branch instead — never fork `main` in
-parallel while an epic is open, because it duplicates `frontend/`,
+When no epic is open, branch from `main` and PR into `main`. Never fork `main`
+in parallel while an epic is open, because it duplicates `frontend/`,
 `src/jobhunt`, and lockfiles.
 
 ## 2. Branching

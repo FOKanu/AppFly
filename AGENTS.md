@@ -15,7 +15,7 @@ Cursor rule: `.cursor/rules/branch-strategy.mdc` (always apply).
 | Branch | Purpose |
 |---|---|
 | `main` | Shippable. No direct commits. Hotfixes that cannot wait for an epic. |
-| `integrate/<epic>` | Inbox for that epic (all stacks). **No epic is open** — `ui-v1` and `storage-v1` have both landed on `main`. |
+| `integrate/<epic>` | Inbox for that epic (all stacks). **Current prototype epic: `integrate/prototype-v1`.** `ui-v1` and `storage-v1` landed on `main`. |
 | `feat/<area>-<slug>` | One concern, one PR. Examples: `feat/backend-api`, `feat/ui-queue-packet`, `feat/docs-api`. |
 | `fix/<slug>` | Bug fix against shipped `main`. |
 | `chore/<slug>` | Tooling, docs, layout. |
@@ -28,11 +28,13 @@ Names: lowercase, hyphens, no author names. Retarget `cursor/…` Cloud Agent de
 2. No epic: branch from `main`; PR into `main`.
 3. Do not start parallel agents from stale `main` while an epic is open.
 
-No epic is currently open. Branch from `main` and PR into `main`.
+While **prototype-v1** is open, every Cloud Agent prompt includes:
 
-When an epic opens, name it here and every Cloud Agent prompt includes:
+> Base: `integrate/prototype-v1`. Branch: `feat/<area>-<slug>`. Touch only owned paths. Do not recreate `backend/pyproject.toml` or `frontend/package.json`. PR into `integrate/prototype-v1`. Rebase before merge.
 
-> Base: `integrate/<epic>`. Branch: `feat/<area>-<slug>`. Touch only owned paths. Do not recreate `backend/pyproject.toml` or `frontend/package.json`. PR into `integrate/<epic>`. Rebase before merge.
+No parallel forks of `main` while this epic is open.
+
+When an epic opens, name it here and every Cloud Agent prompt includes the Base/Branch/PR block above (generic form uses `integrate/<epic>`).
 
 ### Closed epics
 
@@ -41,8 +43,8 @@ When an epic opens, name it here and every Cloud Agent prompt includes:
 
 ### Cursor Cloud specific instructions
 
-- Clone from **`main`** — no epic is open. When one is, clone from `integrate/<epic>` instead.
-- PR against `main` (or the open `integrate/<epic>`). Backend work goes under `backend/`; UI under `frontend/`. Do not add a second `src/jobhunt` tree.
+- Clone from **`integrate/prototype-v1`**, not `main`, for this epic.
+- PR against `integrate/prototype-v1`. Backend work goes under `backend/`; UI under `frontend/`. Do not add a second `src/jobhunt` tree.
 - Do not force-push `main` or `integrate/*`. Do not commit `.env`, vault notes, or API keys.
 
 ## Sibling agent playbooks
