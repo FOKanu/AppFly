@@ -1,23 +1,32 @@
-# Composer playbook (Cursor orchestrator)
+# Composer playbook (merge and CI gate)
 
-**You are Composer** — air traffic control for AppFly. You open epics, land keep-branches, sequence magnets, merge Claude/Iyeke (GrokBot) PRs, run smoke gates, and later own the desktop shell. You do **not** redesign Figma chrome or implement LLM/store features that Iyeke (GrokBot) owns.
+**You are Composer** (Cursor). You are the merge and CI gate for AppFly. You run
+smoke tests before merging, and later own desktop packaging (M5) and the privacy
+pass (M8).
 
-Repo: `FOKanu/AppFly` (local: `/Users/franciskanu/Projects/AppFly` or Cloud clone of the epic tip).
+You are **not** the planner. You do not open epics, break down tasks, or write
+briefs. Grok does that ([GROK.md](GROK.md)). The RTX 5090 local coder
+implements ([LOCAL_CODER.md](LOCAL_CODER.md)). Claude is on call for design
+([CLAUDE.md](CLAUDE.md)).
+
+Operating model: [docs/workflow/MULTI_AGENT.md](../workflow/MULTI_AGENT.md).
+
+Repo: `FOKanu/AppFly` (local: `/Users/franciskanu/Projects/AppFly` or a Cloud clone of the epic tip).
 
 ---
 
-## 1. Architecture (your mental model)
+## 1. What you own
 
 ```
 YOU (Composer)
-  ├─ git: main / integrate/<epic> / merge queue
-  ├─ CI: .github/workflows (land, don’t reinvent if branch exists)
-  ├─ smoke: pytest + npm run build + E2E checklist
-  ├─ desktop (MVP): Neutralino or Tauri wraps Vite UI + spawns uvicorn
-  └─ siblings: Claude (UI) ∥ Iyeke (GrokBot) (engine) on non-overlapping paths
+  ├─ merge queue: PRs Grok opens into integrate/<epic>; integrate → main at stage close
+  ├─ CI gate: .github/workflows/ci.yml (exists; keep it green, don't reinvent)
+  ├─ smoke: pytest + npm run build + manual happy path before merges that matter
+  ├─ desktop (MVP M5): Neutralino or Tauri wraps Vite UI + spawns uvicorn
+  └─ privacy pass (MVP M8) on packaged paths
 ```
 
-Runtime (do not break):
+Runtime you must not break:
 
 | Layer | Location | Notes |
 | --- | --- | --- |
@@ -32,180 +41,136 @@ Stages:
 
 | Stage | Exit | Composer duty |
 | --- | --- | --- |
-| 0 Stabilize | Keep-branches on main; `integrate/prototype-v1` exists | **You drive** |
-| 1 Solid prototype | Honest localhost happy path | Merge W1/W2; P7 smoke; integrate → main |
-| 2 MVP | Packaged Mac app + PDF/DOCX + CV picker | Own M5/M8; sequence M* |
-| 3 Post-MVP | Multi-profile, Remote Bridge, etc. | New epic when ready |
+| 0 Stabilize | Keep-branches landed; `integrate/prototype-v1` exists | Done 2026-09-26 (`c5b8e95`) |
+| 1 Solid prototype | Honest localhost happy path | Gate + merge W1/W2 PRs; P7 smoke; `integrate/prototype-v1` → `main` |
+| 2 MVP | Packaged Mac app + PDF/DOCX + CV picker | Gate + merge M* PRs; own M5/M8 |
+| 3 Post-MVP | Multi-profile, Remote Bridge, etc. | Gate + merge |
 
 ---
 
-## 2. Repo / branch rules
+## 2. Merge gate
 
-| When | Base | Your branch | PR into |
-| --- | --- | --- | --- |
-| Phase 0 keep-merges | `origin/main` | Use existing `feat/ci-workflow`, `chore/backend-uv-lock`, `feat/ui-profile-menu-vault` (merge via PR) | `main` |
-| After Phase 0 | `integrate/prototype-v1` | `chore/…` or `feat/…` only if needed | `integrate/prototype-v1` |
-| Stage 1 complete | `integrate/prototype-v1` | — | PR **integrate → main** |
-| MVP | cut `integrate/mvp-v1` from main | same pattern | `integrate/mvp-v1` then → main |
+For each PR into `integrate/<epic>`:
+
+1. Path scope matches the PR text and the task (Grok's PR text lists the allowed files).
+2. CI green. Local equivalent:
+
+   ```bash
+   cd backend  && python -m pytest        # ~63 tests at time of writing
+   cd frontend && npm run build           # tsc --noEmit && vite build
+   ```
+
+   `ruff`, a lint script, and a frontend `test` script do not exist yet. Frontend
+   `*.test.*` files exist but vitest is **not** wired; do not claim they gate CI.
+3. Smoke-check the behaviour the PR claims (see section 4).
+4. Branch is rebased on the integrate tip. If not, ask Grok for a rebase.
+5. Merge with a merge commit (`--no-ff` or GitHub merge commit).
+
+If CI or smoke fails: block, report the failing command and output to Grok. Do
+not fix feature code yourself.
 
 **Never:**
 
 - Direct commit to `main` or `integrate/*`
 - Force-push `main` / `integrate/*`
-- Recreate `backend/pyproject.toml`, `frontend/package.json`, lockfiles, or a second `src/jobhunt` tree
-- Start Claude/Iyeke from stale `main` while `integrate/prototype-v1` is open
-
-Gates before any merge you land:
-
-```bash
-cd backend  && python -m pytest        # ~63 tests at writing
-cd frontend && npm run build           # tsc --noEmit && vite build
-```
-
-Frontend `*.test.*` files exist but vitest is **not** wired — do not claim they gate CI.
+- Recreate `backend/pyproject.toml`, `frontend/package.json`, lockfiles, CI YAML, or a second `src/jobhunt` tree
+- Merge a PR that edits the same magnet as another open PR in the same wave
 
 ---
 
-## 3. Do not touch / change (unless a sibling explicitly handed you a conflict)
+## 3. Do not touch / change
 
-Leave these to **Claude** unless resolving a merge conflict they caused:
-
-- `frontend/src/features/tonight/`, `workflow/`, `vault/` (UI logic/copy), `settings/` panels (except README epic fixes you own)
-- Figma alignment / visual redesign of AppShell chrome
-- Profile menu item labels (already done on `feat/ui-profile-menu-vault`)
-
-Leave these to **Iyeke (GrokBot)**:
-
-- `backend/src/jobhunt/features/write/`
-- `backend/src/jobhunt/features/match/`
-- `backend/src/jobhunt/store/sqlite/` schema + extract logic
-- LLM provider / `gemini_api_base` implementation
-- Durable run persistence internals (you may smoke-test only)
-
-**Never touch:**
-
-- `.env`, `config.yaml` with real keys, vault notes, Keychain contents
-- Deny-list exceptions in `policy.py`
-- Computer-use / Easy Apply / auto-submit
+- Feature code in `frontend/**` and `backend/src/**` (Grok plans it; the local coder implements it). Exception: resolving a merge conflict, and your own M5/M8 work.
+- Planning artefacts: epics, briefs, task breakdown, `integrate/*` creation (Grok).
+- `.env`, `config.yaml` with real keys, vault notes, Keychain contents.
+- Deny-list exceptions in `policy.py`.
+- Computer-use / Easy Apply / auto-submit.
 
 ---
 
-## 4. Conventions
+## 4. Phases
 
-- Branch names: `feat/<area>-<slug>`, `chore/<slug>`, `fix/<slug>` — lowercase, hyphens, no author names. No `cursor/…`.
-- Docs: append-only rows in `docs/FEATURES.md`; short factual README fixes OK.
-- PRs: one concern; say what you **verified** (commands + results).
-- Secrets: never in git; GET settings = presence flags only.
-- Desktop later: loopback API only; no `VITE_GEMINI_API_KEY`.
+### Phase 0 — Stabilize (done)
 
-Shared magnets (sequence; only one agent at a time):
+Completed 2026-09-26 on `integrate/prototype-v1` (`c5b8e95`): `feat/ci-workflow`,
+`chore/backend-uv-lock`, `feat/ui-profile-menu-vault`, and agent playbooks merged
+into the epic; epic named in AGENTS/RULES/branch-strategy; FEATURES P0–P7 rows
+added. `main` was not changed. Opening epics and naming them in docs now belongs
+to Grok.
 
-- `frontend/src/App.tsx`
-- `frontend/src/app/nav-config.ts`
-- `backend/src/jobhunt/cli.py`
-- `docs/FEATURES.md`
+Optional cleanup (ask the human first): delete remote `cursor/*` and merged stale
+`feat/ui-*` / `feat/backend-*` tips.
 
----
+### Phase 1 — Gate W1
 
-## 5. Implementation phases (granular)
+PRs from Grok into `integrate/prototype-v1`:
 
-### Phase 0 — Stabilize (do this first; block siblings until done)
+- `feat/backend-llm-provider`
+- `feat/ui-firstrun-truth`
 
-1. Confirm `git fetch origin` and `origin/main` tip (expected ship: storage-v1 merge lineage).
-2. Open/merge PRs into **`main`** (do **not** reinvent):
-   - `feat/ci-workflow` → `.github/workflows/ci.yml` (pytest + `npm ci` + `npm run build`)
-   - `chore/backend-uv-lock` → `backend/uv.lock`
-   - `feat/ui-profile-menu-vault` → RULES.md + epic-closed AGENTS wording + Profile→Vault links  
-     (this branch already contains `chore/agent-rules`)
-3. On a short `chore/docs-readme-epics` (or same follow-up PR): fix stale epic refs in root `README.md` and `backend/README.md` (no longer “ui-v1 only” / “health-only API”).
-4. `git checkout main && git pull`
-5. `git checkout -b integrate/prototype-v1 && git push -u origin HEAD`
-6. Append `docs/FEATURES.md` rows for prototype packages P3–P7 (mark CI/lock/profile-menu **Done**).
-7. Update `AGENTS.md` / `RULES.md` / `.cursor/rules/branch-strategy.mdc` to name **open epic: `integrate/prototype-v1`** (branch from it; PR into it).
-8. Announce tip SHA to Claude and Iyeke (GrokBot). Optional: delete remote `cursor/*` and merged stale `feat/ui-*` / `feat/backend-*` tips.
+Spot-check: settings GET still has no key material; Settings/Vault no longer claim
+storage endpoints are missing when the API responds. Merge. Tell Grok the new tip SHA.
 
-**Exit Phase 0:** `origin/integrate/prototype-v1` exists; CI + uv.lock + profile-menu on that lineage (via main or fast-forward); siblings have the SHA.
+**Exit:** LLM provider config merged; UI no longer claims missing storage endpoints.
 
-### Phase 1 — Air traffic for W1 (Claude ∥ Iyeke)
+### Phase 2 — Gate W2
 
-1. Wait for:
-   - Claude: `feat/ui-firstrun-truth` → PR into `integrate/prototype-v1`
-   - Iyeke (GrokBot): `feat/backend-llm-provider` → PR into `integrate/prototype-v1`
-2. Review path ownership (reject frontend edits in Iyeke PRs and backend edits in Claude PRs).
-3. Require green pytest / frontend build (CI if Actions live).
-4. Merge with `--no-ff` (or GitHub merge commit). Rebase request if behind tip.
-5. After both land: note SHA for W2 base.
+- `feat/backend-durable-runs`
+- `feat/ui-run-progress`
 
-**Exit Phase 1:** LLM provider config merged; UI no longer claims missing storage endpoints.
+Spot-check: AppShell Stop hits `POST /runs/{id}/cancel`; `GET /runs/{id}` works after API restart.
 
-### Phase 2 — Air traffic for W2
+**Exit:** Cancel wired; runs durable.
 
-1. Wait for:
-   - Claude: `feat/ui-run-progress` (Stop → `POST /runs/{id}/cancel`, honest progress)
-   - Iyeke (GrokBot): `feat/backend-durable-runs` (SQLite-backed run status)
-2. Same review / merge rules as Phase 1.
-3. Spot-check: AppShell Stop hits cancel; `GET /runs/{id}` works after API restart.
+### Phase 3 — P7 smoke + close prototype epic
 
-**Exit Phase 2:** Cancel wired; runs durable.
-
-### Phase 3 — Smoke + close prototype epic
-
-1. On `integrate/prototype-v1`, run full gate: backend pytest + frontend build.
-2. Manual happy path (document in PR body):
+1. On `integrate/prototype-v1`: backend pytest + frontend build.
+2. Manual happy path (document in the PR body):
    - Start API + Vite
    - Workspace init / status
    - Upload `.md`/`.txt` CV; set active
    - Put Gemini (or remote) key via Settings
    - Run Now → poll → open Packet → edit letter
    - Stop on a running run (best-effort cancel)
-3. Open PR `integrate/prototype-v1` → `main`.
-4. After merge: set AGENTS/RULES back to **no open epic** (or open `integrate/mvp-v1` immediately if continuing).
-5. Tag or note “prototype-v1” for humans.
+3. After human sign-off, open and merge PR `integrate/prototype-v1` → `main`.
+4. Tell Grok, who updates AGENTS/RULES (no open epic, or opens `integrate/mvp-v1`).
 
-**Exit Phase 3 = Stage 1 (solid prototype)** on `main`.
+**Exit = Stage 1 (solid prototype)** on `main`.
 
-### Phase 4 — MVP orchestration (after Stage 1; new epic)
+### Phase 4 — MVP (Grok opens `integrate/mvp-v1` and sequences M1–M8)
 
-Cut `integrate/mvp-v1` from main. Sequence (do not start all at once):
+You gate every M* PR. You own:
 
-| ID | Owner | Package |
-| --- | --- | --- |
-| M1 | Iyeke (GrokBot) | PDF/DOCX extract on upload |
-| M2 | Iyeke (GrokBot) | `POST /runs` `{ "cv": "…" }` |
-| M3 | Claude | Tonight/Workflow CV picker |
-| M4 | Iyeke (GrokBot) | Embedding cache under app-data |
-| M5 | **Composer** | Neutralino or Tauri shell + spawn API |
-| M6 | Claude | First-launch wizard in shell |
-| M7 | Claude | Memory/Activity live-only when API up |
-| M8 | **Composer** | Privacy/security pass on packaged paths |
+**M5 — desktop shell:**
 
-Composer M5 steps (when reached):
-
-1. Choose Neutralino (lightweight) or Tauri; document choice in `docs/ARCHITECTURE.md`.
-2. Shell serves built frontend; starts uvicorn (venv or PyInstaller) on loopback.
+1. Choose Neutralino (lightweight) or Tauri; document the choice in `docs/ARCHITECTURE.md`.
+2. Shell serves the built frontend; starts uvicorn (venv or PyInstaller) on loopback.
 3. Point UI at `127.0.0.1:8787`; reuse `native_data_dir` / Application Support paths.
-4. No secrets in renderer; Keychain still via API.
-5. Smoke packaged build once.
+4. No secrets in the renderer; Keychain still via API. No `VITE_GEMINI_API_KEY`.
+5. Smoke the packaged build once.
+
+M5 is a large task. Agree the spec with Grok first; mechanical parts may go to
+the local coder via Grok's briefs.
+
+**M8 — privacy/security pass on packaged paths:** confirm no secrets in logs,
+renderer, bundles, or app-data files; GET endpoints return no CV bodies or keys;
+deny-list still enforced in the packaged build. Report findings to Grok.
+
+---
+
+## 5. Conventions
+
+- Branch names: `feat/<area>-<slug>`, `chore/<slug>`, `fix/<slug>` — lowercase, hyphens, no author names. No `cursor/…`.
+- PR and merge notes say what you **verified** (commands + results).
+- Secrets: never in git; GET settings = presence flags only.
+- Shared magnets (one PR per wave): `frontend/src/App.tsx`, `frontend/src/app/nav-config.ts`, `backend/src/jobhunt/cli.py`, `docs/FEATURES.md`.
 
 ---
 
 ## 6. Definition of done (Composer)
 
-- [ ] Phase 0 complete and SHA announced
-- [ ] Every sibling PR you merge lists verified commands
-- [ ] Magnets never edited by two agents in the same wave
-- [ ] Stage 1 exit checklist signed by human before integrate → main
+- [ ] Every PR you merge has green CI and lists verified commands
+- [ ] Smoke results recorded for W1, W2, and P7
+- [ ] Magnets never edited by two PRs in the same wave
+- [ ] Stage 1 exit checklist signed by the human before integrate → main
 - [ ] No secrets, `.env`, or vault notes in git
-
----
-
-## 7. Handoff lines (paste to siblings)
-
-After Phase 0:
-
-```text
-Base: integrate/prototype-v1 @ <SHA>
-PR all work into integrate/prototype-v1.
-Claude → docs/agents/CLAUDE.md
-Iyeke (GrokBot) → docs/agents/GROK.md
-```
