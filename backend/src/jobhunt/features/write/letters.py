@@ -27,13 +27,16 @@ MISSING_KEY_MESSAGE = (
 )
 
 
-def write_letters(config: AppConfig, vault: Vault) -> dict[str, int]:
+def write_letters(config: AppConfig, vault: Vault) -> dict[str, Any]:
     """Write up to ``letter_cap`` letters for shortlisted jobs.
 
     Purpose: CLI ``jobhunt write`` pipeline step.
-    Inputs: Config (model, cap, excerpt length) and vault; needs ``GEMINI_API_KEY``.
-    Returns: ``written`` / ``skipped`` / ``capped`` counts.
-    Does not: Overwrite jobs that already have a letter or ``gemini: false``.
+    Inputs: Config (model, cap, excerpt length) and vault; key from the Keychain
+    (``gemini``) or ``GEMINI_API_KEY``.
+    Returns: ``written`` / ``skipped`` / ``capped`` / ``failed`` counts and ``errors``
+    (one string per failed job).
+    Does not: Overwrite jobs that already have a letter or ``gemini: false``; stop the
+    batch when one Gemini call fails (the missing-key case still raises).
     """
 
     if not config.gemini_api_key:
@@ -44,6 +47,8 @@ def write_letters(config: AppConfig, vault: Vault) -> dict[str, int]:
     samples = vault.read_voice_samples()
     written = 0
     skipped = 0
+    failed = 0
+    errors: list[str] = []
 
     candidates: list[Job] = []
     for post in vault.iter_job_notes():
@@ -67,7 +72,12 @@ def write_letters(config: AppConfig, vault: Vault) -> dict[str, int]:
             requirements=requirements,
             excerpt_chars=config.jd_excerpt_chars,
         )
-        letter, tokens_in, tokens_out = _call_gemini(config, packet)
+        try:
+            letter, tokens_in, tokens_out = _call_gemini(config, packet)
+        except Exception as exc:  # noqa: BLE001 - one failed letter must not stop the batch
+            failed += 1
+            errors.append(f"{job.company} - {job.title}: {type(exc).__name__}: {exc}")
+            continue
         vault.write_letter(
             job,
             letter,
@@ -76,7 +86,13 @@ def write_letters(config: AppConfig, vault: Vault) -> dict[str, int]:
             tokens_out=tokens_out,
         )
         written += 1
-    return {"written": written, "skipped": skipped, "capped": max(0, len(candidates) - config.letter_cap)}
+    return {
+        "written": written,
+        "skipped": skipped,
+        "capped": max(0, len(candidates) - config.letter_cap),
+        "failed": failed,
+        "errors": errors,
+    }
 
 
 def regenerate_letter_for_job(config: AppConfig, vault: Any, job: Job) -> str:

@@ -15,6 +15,7 @@ from jobhunt.features.write.letters import (
     MISSING_KEY_MESSAGE,
     _call_gemini,
     regenerate_letter_for_job,
+    write_letters,
 )
 from jobhunt.models import Job, Requirements
 
@@ -31,6 +32,44 @@ class FakeGenaiClient:
             text="Subject: Hi\n\nDear team",
             usage_metadata=SimpleNamespace(prompt_token_count=10, candidates_token_count=5)
         )
+
+
+class FakeVault:
+    def __init__(self, companies: list[str]):
+        self.posts = [
+            SimpleNamespace(metadata={"status": "shortlist", "company": c})
+            for c in companies
+        ]
+        self.letters: list[str] = []
+
+    def load_requirements(self):
+        return Requirements(tone="plain", languages=["en"])
+
+    def read_cv(self):
+        return "I build APIs."
+
+    def read_voice_samples(self):
+        return ""
+
+    def read_company_body(self, company):
+        return ""
+
+    def iter_job_notes(self):
+        return self.posts
+
+    def job_from_note(self, post):
+        return Job(
+            source_id=post.metadata["company"],
+            source="agentur",
+            title="Backend Engineer",
+            company=post.metadata["company"],
+            url="https://example.com/job",
+            location="Berlin",
+            description="Work on APIs.",
+        )
+
+    def write_letter(self, job, body, *, model, tokens_in, tokens_out):
+        self.letters.append(job.company)
 
 
 @pytest.fixture(autouse=True)
@@ -152,3 +191,57 @@ def test_missing_key_raises_clear_error(secret_store, fake_genai) -> None:
     assert "Keychain" in exc_info.value.args[0]
     assert "GEMINI_API_KEY" in exc_info.value.args[0]
     assert fake_genai == []
+
+
+def test_write_letters_continues_after_one_failure(secret_store, monkeypatch) -> None:
+    """Test that write_letters continues after one failed job."""
+    secret_store.save(SecretName.gemini, "test-key")
+
+    vault = FakeVault(["Alpha", "Beta", "Gamma"])
+
+    call_log = []
+
+    def fake_call_gemini(config, packet):
+        call_log.append(packet)
+        if "Company: Beta" in packet:
+            raise RuntimeError("429 RESOURCE_EXHAUSTED")
+        return ("Subject: Hi\n\nDear team", 10, 5)
+
+    monkeypatch.setattr("jobhunt.features.write.letters._call_gemini", fake_call_gemini)
+
+    stats = write_letters(AppConfig(letter_cap=5), vault)
+
+    assert stats["written"] == 2
+    assert stats["failed"] == 1
+    assert vault.letters == ["Alpha", "Gamma"]
+    assert len(stats["errors"]) == 1
+    assert "Beta" in stats["errors"][0]
+    assert "429" in stats["errors"][0]
+    # Check that old keys are still present
+    assert "skipped" in stats
+    assert "capped" in stats
+
+
+def test_write_letters_missing_key_raises_before_loop(secret_store, monkeypatch) -> None:
+    """Test that write_letters raises before the loop when no key is available."""
+    call_log = []
+
+    def fake_call_gemini(config, packet):
+        call_log.append(packet)
+        return ("Subject: Hi\n\nDear team", 10, 5)
+
+    monkeypatch.setattr("jobhunt.features.write.letters._call_gemini", fake_call_gemini)
+
+    vault = FakeVault(["Alpha"])
+    with pytest.raises(RuntimeError, match="Keychain"):
+        write_letters(AppConfig(), vault)
+
+    # Assert that the call was never made
+    assert len(call_log) == 0
+    # Assert that no letters were written
+    assert vault.letters == []
+
+
+def test_missing_key_message_has_no_env_file_hint() -> None:
+    """Test that MISSING_KEY_MESSAGE doesn't mention .env files."""
+    assert ".env" not in MISSING_KEY_MESSAGE
