@@ -41,16 +41,19 @@ Deferred outside MVP waves: **F1** fetch listing (policy review first).
 
 ## When to call Claude
 
-Call Claude **only** with a focused question + screen/route + privacy check ask.
-Paste Claude’s copy/states/acceptance into the 5090 brief.
+Call Claude **only** with a focused question + a rich pack when useful (screens,
+API rows, privacy). Prefer the Mac Claude pack template under `docs/workflow/briefs/`
+(e.g. [M3-claude-ask.md](briefs/M3-claude-ask.md)). Paste Claude’s copy/states/acceptance
+into **sliced** 5090 briefs after a cloud check-in.
 
 | Gate | Call Claude when |
 | --- | --- |
-| **M3** | After M1+M2 are on `integrate/mvp-v1`. Ask for picker placement, empty/offline/error copy, and “metadata only / never CV body” acceptance. |
+| **M3** | After M1+M2 are on `integrate/mvp-v1`. Ask for picker placement, empty/offline/error copy, and “metadata only / never CV body” acceptance. Mac Claude only. |
 | **M6** | After M5 shell can launch the UI. Ask for wizard step order and first-run honesty. |
 | **M7** | Before mock-stripping briefs if banner/empty-state copy is unclear. |
 
 Do **not** call Claude for M1/M2/M4 backend mechanics, M5 packaging choice (Composer + Grok), or M8 audit.
+Do **not** use the Cursor IDE Claude agent for these calls (`.cursor/rules/claude-handoff.mdc`).
 
 ---
 
