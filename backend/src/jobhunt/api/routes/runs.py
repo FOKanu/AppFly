@@ -24,7 +24,7 @@ from jobhunt.api.runner import (
     request_cancel,
     start_async_run,
 )
-from jobhunt.api.schemas.runs import RunLogSummary
+from jobhunt.api.schemas.runs import RunLogSummary, RunStartRequest
 from jobhunt.store.types import RunRecord
 
 router = APIRouter(tags=["runs"])
@@ -152,16 +152,39 @@ def _summary(rec: RunRecord, *, path: str) -> RunLogSummary:
     )
 
 
+def _resolve_run_cv_text(store: Any, cv_id: str | None) -> str:
+    """Resolve CV text for a run: explicit document id or active CV.
+
+    Purpose: M2 — optional ``cv`` on ``POST /runs`` selects one document for the whole run.
+    Inputs: App store; optional document id (must be kind ``cv`` when set).
+    Returns: Extracted CV text (may be empty).
+    Does not: Return CV text on list/GET document routes; mix two CVs.
+    """
+
+    if cv_id:
+        meta = store.get_document(cv_id)
+        if meta is None:
+            raise HTTPException(status_code=404, detail=f"CV document not found: {cv_id}")
+        if meta.kind != "cv":
+            raise HTTPException(status_code=404, detail=f"Document is not a CV: {cv_id}")
+        return store.document_text(cv_id) or ""
+    return store.read_cv()
+
+
 @router.post(
     "/runs",
     response_model=AsyncRunAccepted,
-    responses={409: {"description": "Another run is queued or running"}},
+    responses={
+        409: {"description": "Another run is queued or running"},
+        404: {"description": "CV document missing or not kind cv"},
+    },
 )
-def start_run(request: Request) -> AsyncRunAccepted:
-    """Start a pipeline run in the background (no request body); 409 while one is active."""
+def start_run(request: Request, body: RunStartRequest | None = None) -> AsyncRunAccepted:
+    """Start a pipeline run in the background; optional ``{cv}``; 409 while one is active."""
 
     config = get_config(request)
     store = get_app_store(request)
+    cv_text = _resolve_run_cv_text(store, body.cv if body else None)
 
     def persist(rec: RunRecord) -> None:
         upsert = getattr(store, "upsert_run_status", None)
@@ -169,7 +192,9 @@ def start_run(request: Request) -> AsyncRunAccepted:
             upsert(rec)
 
     try:
-        record = start_async_run(config, store=store, on_update=persist, trigger="api")
+        record = start_async_run(
+            config, store=store, on_update=persist, trigger="api", cv_text=cv_text
+        )
     except RunConflictError as exc:
         raise HTTPException(
             status_code=409,
