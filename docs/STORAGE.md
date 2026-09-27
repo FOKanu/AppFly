@@ -22,7 +22,15 @@ AppFly/
     letters/{source_id}.md
     inbox/{id}.md
   imports/          # Obsidian import reports
+  cache/
+    embeddings/     # local sentence-transformer vectors (*.json); not secrets
 ```
+
+**Embeddings cache (M4):** Under native storage, match writes vectors to
+`{native_data_path}/cache/embeddings/`. First `ensure_native_layout` may one-shot
+copy from the legacy repo-root `.cache/embeddings/` (does not overwrite or delete
+the legacy tree). Markdown backend still uses `<repo>/.cache`. No size quota is
+enforced yet; wipe `cache/embeddings/` to rebuild.
 
 Secrets stay in the OS Keychain (see `features/secrets/`). Never in SQLite or document bodies returned by list APIs.
 
