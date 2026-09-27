@@ -57,7 +57,7 @@ export function describeApiError(error: unknown, action: string, notFound?: stri
     );
   }
   if (status === 0) {
-    let message = `Can't reach the local API at ${apiBaseUrl()}. Start it with: python -m jobhunt.api`;
+    let message = `Can't reach the local API at ${apiBaseUrl()}. Start it with: python -m jobhunt.api.`;
     if (!LOCAL_UI_ORIGINS.includes(origin)) {
       message += ` If the API is already running, this page's address (${origin}) may not be on its allow-list: open AppFly at http://localhost:5173, or add the address to APPFLY_ALLOWED_ORIGINS and restart the API.`;
     }

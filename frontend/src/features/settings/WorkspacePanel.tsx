@@ -156,7 +156,12 @@ export function WorkspacePanel({ onToast }: WorkspacePanelProps) {
 
       <div className="workspace-foot">
         <span>
-          {workspace?.job_count ?? 0} job note{workspace?.job_count === 1 ? "" : "s"} ·{" "}
+          {workspace ? (
+            <>
+              {workspace.job_count} job note{workspace.job_count === 1 ? "" : "s"}
+              {" \u00b7 "}
+            </>
+          ) : null}
           <Link to={ROUTES.vault}>open the Vault</Link>
         </span>
         <Button

@@ -122,13 +122,14 @@ export function VaultPage() {
             ? `${added[0].label} added to the vault.`
             : `${added.length} files added to the vault.`,
         );
+        if (failure !== null) void load();
       } catch (error) {
         toast.show(describeApiError(error, "Upload").message);
       } finally {
         setUploading(false);
       }
     },
-    [documents, toast],
+    [documents, toast, failure, load],
   );
 
   const onRename = useCallback(
@@ -207,12 +208,17 @@ export function VaultPage() {
 
       <header className="vault__head">
         <div className="vault__stats">
-          <Stat label="Files" value={documents.length} />
-          <Stat label="CVs" value={documents.filter((d) => d.kind === "cv").length} />
+          <Stat label="Files" value={failure ? null : documents.length} />
+          <Stat
+            label="CVs"
+            value={failure ? null : documents.filter((d) => d.kind === "cv").length}
+          />
           <Stat
             label="Credentials"
             value={
-              documents.filter((d) => d.kind === "cert" || d.kind === "portfolio").length
+              failure
+                ? null
+                : documents.filter((d) => d.kind === "cert" || d.kind === "portfolio").length
             }
           />
         </div>
@@ -242,7 +248,9 @@ export function VaultPage() {
           <header className="vault__files-head">
             <div>
               <p className="vault__kicker">
-                {visible.length} file{visible.length === 1 ? "" : "s"}
+                {failure
+                  ? "\u2014 files"
+                  : `${visible.length} file${visible.length === 1 ? "" : "s"}`}
               </p>
               <h2 id="files-title" className="vault__title">
                 Your files
@@ -258,9 +266,13 @@ export function VaultPage() {
             </Button>
           </header>
 
-          {unreachable ? (
+          {failure?.kind === "timeout" ? (
+            <p className="vault__empty">No files to show until the API answers.</p>
+          ) : unreachable ? (
             <p className="vault__empty">No files to show while the API is offline.</p>
-          ) : failure ? null : firstRun ? (
+          ) : failure ? (
+            <p className="vault__empty">Your files couldn't be listed. Use Refresh to try again.</p>
+          ) : firstRun ? (
             <FirstRun />
           ) : visible.length === 0 ? (
             <p className="vault__empty">
@@ -320,11 +332,11 @@ function FirstRun() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value }: { label: string; value: number | null }) {
   return (
     <div className="vault-stat">
       <span className="vault-stat__label">{label}</span>
-      <span className="vault-stat__value">{value.toLocaleString()}</span>
+      <span className="vault-stat__value">{value === null ? "\u2014" : value.toLocaleString()}</span>
     </div>
   );
 }

@@ -186,10 +186,6 @@
   color: var(--status-approved);
 }
 
-.packet-spec__fetch {
-  margin-top: 18px;
-}
-
 .packet-spec__policy {
   margin-top: 18px;
   padding: 12px;
