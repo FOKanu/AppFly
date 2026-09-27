@@ -20,7 +20,7 @@ const LANGUAGES = [
 interface LetterWorkbenchProps {
   /** Letter the writer produced. */
   aiDraft: string;
-  /** Model that produced it, e.g. "gemini-2.5-flash". */
+  /** Model that produced it, e.g. "gemini-3.8-flash". */
   writer?: string;
   /** Your edited version, when one has been saved. */
   yourEdit?: string;

@@ -13,7 +13,7 @@ published_days: 7
 
 letter_cap: 5
 shortlist_size: 8
-gemini_model: gemini-2.5-flash
+gemini_model: gemini-3.8-flash
 # Optional: send letter requests to a Gemini-compatible gateway instead of Google's default endpoint.
 # gemini_api_base: https://llm-gateway.example.com
 jd_excerpt_chars: 1200

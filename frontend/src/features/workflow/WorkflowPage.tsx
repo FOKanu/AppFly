@@ -189,7 +189,7 @@ export function WorkflowPage() {
             mode={writerMode}
             readOnlyReason={SCHEDULE_NOTE}
             tokenHistory={[]}
-            cloudLabel="gemini-2.5-flash"
+            cloudLabel="gemini-3.8-flash"
             localLabel="llama3.1:8b (fallback)"
             fallbackNote={lastRun?.errors[0]}
           />
