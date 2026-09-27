@@ -32,6 +32,16 @@ Local FastAPI app (`jobhunt.api.app:app`), default bind `http://127.0.0.1:8787`.
 
 See also [STORAGE.md](STORAGE.md).
 
+### Security
+
+The API binds to loopback only and guards against cross-site requests and DNS rebinding:
+
+- **Required header:** every `POST`, `PUT`, `PATCH` and `DELETE` must send `X-AppFly: 1`; otherwise `403`. `GET`, `HEAD` and `OPTIONS` (CORS preflight) need no header, and `GET /health` stays open.
+- **Origin check:** if a mutating request carries an `Origin` header, it must be on the allow-list; otherwise `403`.
+- **Allowed origins (CORS):** `http://localhost:5173` and `http://127.0.0.1:5173` (Vite dev), plus any comma-separated origins in the env var `APPFLY_ALLOWED_ORIGINS` (read at app start, e.g. a packaged-app origin). CORS allows the `Accept`, `Content-Type` and `X-AppFly` headers; no credentials.
+- **Allowed hosts:** the `Host` header must be `127.0.0.1` or `localhost` (any port); otherwise `400`.
+- Tests use `TestClient(..., base_url="http://127.0.0.1", headers={"X-AppFly": "1"})`.
+
 ### Pointing write at a remote gateway
 
 Set `gemini_api_base` in config.yaml (or env `GEMINI_API_BASE`; YAML wins).
