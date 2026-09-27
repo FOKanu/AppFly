@@ -16,11 +16,12 @@ PR. Product contributors only need:
 | [PROMPTS.md](PROMPTS.md) | Kickoff prompts (Grok, local coder, Composer, Claude) + brief template (CHECK-IN AFTER) |
 | [TOKEN_LOG.md](TOKEN_LOG.md) | Per-task log of local vs cloud usage (note `default` / `optimized` mode) |
 | [ORCHESTRATOR_HANDOFF.md](ORCHESTRATOR_HANDOFF.md) | Live tip / next task when the planner seat changes |
-| [briefs/](briefs/) | Ready briefs for the 5090 local coder |
-| [MVP_SEQUENCE.md](MVP_SEQUENCE.md) | M1–M8 order, deps, and when to call Claude (after prototype → main) |
+| [briefs/](briefs/) | Ready briefs for the 5090 local coder + Mac Claude packs |
+| [briefs/M3-claude-ask.md](briefs/M3-claude-ask.md) | Rich Mac Claude pack for M3 CV picker (check-in before 5090) |
+| [MVP_SEQUENCE.md](MVP_SEQUENCE.md) | M1–M8 order, deps, and when to call Claude |
 
-**Local bulk:** Cursor always-apply rule [`.cursor/rules/local-coder-bulk.mdc`](../../.cursor/rules/local-coder-bulk.mdc).
-Do not one-shot large multi-file Aider packages under default split; check in with cloud between slices.
+**Local bulk:** [`.cursor/rules/local-coder-bulk.mdc`](../../.cursor/rules/local-coder-bulk.mdc).
+**Claude handoffs:** [`.cursor/rules/claude-handoff.mdc`](../../.cursor/rules/claude-handoff.mdc) — Mac Claude only; richer context OK; check-in before coding.
 
 **Compute modes:** **Default** = current mixed split (cloud may implement). **Optimized**
 (~75% local implementation) = optional user choice, and the fallback when cloud

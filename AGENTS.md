@@ -40,10 +40,11 @@ When an epic opens, name it here and every Cloud Agent prompt includes the Base/
 
 ### Live tip (avoid double work)
 
-- **Base every MVP PR on** `origin/integrate/mvp-v1` (tip as of 2026-09-27: `7d23e2c`, M1 doc extract / #50). `git fetch origin` before cutting a branch.
+- **Base every MVP PR on** `origin/integrate/mvp-v1` (tip as of 2026-09-27: `e7843e6`, M2 run-cv / #52). `git fetch origin` before cutting a branch.
 - **Do not** reopen closed `cursor/*` or continue `integrate/prototype-v1` feature PRs; prototype closed on `main` via #48.
-- **Next:** M2 `feat/backend-run-cv` (#52) → **then** call Claude for M3 CV picker. Sequence: [docs/workflow/MVP_SEQUENCE.md](docs/workflow/MVP_SEQUENCE.md).
-- **5090 briefs:** slice large features; mandatory cloud check-in between slices (never one 9-file Aider package). Rule: [`.cursor/rules/local-coder-bulk.mdc`](.cursor/rules/local-coder-bulk.mdc). Lessons: [docs/workflow/LOCAL_BULK_LESSONS.md](docs/workflow/LOCAL_BULK_LESSONS.md).
+- **Next:** M3 `feat/ui-cv-picker` — Mac Claude design first ([briefs/M3-claude-ask.md](docs/workflow/briefs/M3-claude-ask.md)), then sliced 5090 UI. Sequence: [docs/workflow/MVP_SEQUENCE.md](docs/workflow/MVP_SEQUENCE.md).
+- **5090 briefs:** slice large features; mandatory cloud check-in between slices. Rule: [`.cursor/rules/local-coder-bulk.mdc`](.cursor/rules/local-coder-bulk.mdc).
+- **Claude:** Mac install only (not Cursor Claude agent); richer context OK; check-in before coding. Rule: [`.cursor/rules/claude-handoff.mdc`](.cursor/rules/claude-handoff.mdc).
 - Prefer integrate while the epic is open; `main` lags until Composer merges `integrate/mvp-v1` → `main`.
 
 ### Closed epics

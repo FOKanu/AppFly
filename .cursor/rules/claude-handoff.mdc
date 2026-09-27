@@ -1,0 +1,38 @@
+---
+description: Claude on-call handoffs — same check-in discipline as local LLMs, but larger context packs are OK. Use Mac Claude, not Cursor Claude agent.
+alwaysApply: true
+---
+
+# Claude handoffs (Mac Claude, on call)
+
+Same **handover / check-in** idea as local 5090 work ([local-coder-bulk.mdc](local-coder-bulk.mdc)), but Claude can take **more context** and stronger multi-screen judgment in one call.
+
+## Where Claude runs
+
+- Use **Claude installed and logged in on this Mac** (Claude Code CLI or Claude Desktop).
+- Do **not** use the Cursor IDE Claude agent / Bugbot-style Claude subagent for AppFly design calls.
+
+## Package size (vs 5090)
+
+| | Local (5090) | Claude (Mac) |
+| --- | --- | --- |
+| Context | Condensed summaries; ≤~4–6 files per code pass | Richer pack OK: screens + API rows + privacy rules + existing patterns |
+| Judgment | Mechanical only | Placement, copy, states, acceptance in one focused ask |
+| Output | Code edits | Decision + copy + acceptance for a 5090 brief — not a giant patch unless asked |
+
+Still one **concern** per call (e.g. M3 CV picker). Do not ask Claude to plan the epic or implement the feature.
+
+## Mandatory check-in (Claude → cloud admin)
+
+After Claude returns, **stop** before writing the 5090 brief or coding:
+
+1. Decision clear? Open flags / method choices answered?
+2. Privacy check explicit (no CV bodies in lists, no secrets, no browser job-board fetches)?
+3. Acceptance criteria pasteable into a sliced 5090 brief?
+
+Cloud admin (Grok / Cursor orchestrator) may ask one follow-up, then brief the local coder in **slices** as usual.
+
+## Kill / escalate
+
+- Claude auth expired / CLI unavailable → stop; ask human to re-login on Mac; do not invent M3/M6 design in cloud as a substitute without saying so.
+- Vague or out-of-scope Claude reply → one re-ask with tighter output format; then escalate to human.
