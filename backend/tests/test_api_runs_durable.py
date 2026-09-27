@@ -196,6 +196,67 @@ def test_write_letters_stops_between_letters(monkeypatch: pytest.MonkeyPatch) ->
     assert len(written) == 1
 
 
+def test_run_all_reports_stage_and_counts_in_order(
+    native_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fake_write(*_args: Any, on_letter: Any = None, **_kwargs: Any) -> dict[str, int]:
+        on_letter(1, 0)
+        on_letter(2, 0)
+        return {"written": 2, "skipped": 0, "capped": 0}
+
+    monkeypatch.setattr(pipeline, "collect_jobs", lambda *_a, **_k: [])
+    monkeypatch.setattr(
+        pipeline, "match_jobs", lambda *_a, **_k: {"shortlisted": 2, "skipped": 1, "unchanged": 0}
+    )
+    monkeypatch.setattr(pipeline, "write_letters", fake_write)
+    calls: list[dict[str, Any]] = []
+    result = run_all(load_config(native_config), on_progress=lambda **changes: calls.append(changes))
+    # B1: the stage is announced before each stage, counts right after they change.
+    assert calls == [
+        {"stage": "scout"},
+        {"scouted": 0},
+        {"stage": "match"},
+        {"shortlisted": 2, "skipped": 1},
+        {"stage": "write"},
+        {"written": 1, "write_skipped": 0},
+        {"written": 2, "write_skipped": 0},
+    ]
+    assert result.written == 2
+
+
+def test_write_letters_reports_each_letter(monkeypatch: pytest.MonkeyPatch) -> None:
+    attempts: list[int] = []
+
+    def flaky_gemini(config: Any, packet: Any) -> tuple[str, int, int]:
+        attempts.append(1)
+        if len(attempts) == 2:
+            raise RuntimeError("429")
+        return ("letter body", 1, 1)
+
+    monkeypatch.setattr(letters, "_call_gemini", flaky_gemini)
+    monkeypatch.setattr(letters, "build_packet", lambda job, **_kwargs: job)
+    posts = [SimpleNamespace(metadata={"status": "shortlist"}) for _ in range(3)]
+    posts.append(SimpleNamespace(metadata={"status": "shortlist", "gemini": False}))
+    vault = SimpleNamespace(
+        load_requirements=lambda: None,
+        read_cv=lambda: "cv text",
+        read_voice_samples=list,
+        iter_job_notes=lambda: posts,
+        job_from_note=lambda post: SimpleNamespace(company="Acme", title="Dev"),
+        read_company_body=lambda company: "",
+        write_letter=lambda job, letter, **_kwargs: None,
+    )
+    config = SimpleNamespace(
+        gemini_api_key="test-key", letter_cap=5, jd_excerpt_chars=100, gemini_model="m"
+    )
+    seen: list[tuple[int, int]] = []
+    stats = letters.write_letters(config, vault, on_letter=lambda w, s: seen.append((w, s)))
+    # B1: one report per letter attempt; a failed letter leaves written unchanged.
+    assert seen == [(1, 1), (1, 1), (2, 1)]
+    assert stats["written"] == 2
+    assert stats["failed"] == 1
+
+
 def test_list_runs_has_one_row_per_run_with_status(
     native_config: Path,
     secret_store: SecretStore,
@@ -252,6 +313,8 @@ def test_stale_stored_run_is_reported_as_failed(
     assert data["status"] == "failed"
     assert data["interrupted"] is True
     assert any(err.startswith("interrupted:") for err in data["errors"])
+    assert data["stage"] is None
+    assert data["write_cap"] is None
     rows = [row for row in client.get("/runs").json() if row["id"] == "stalerun0001"]
     assert len(rows) == 1
     assert rows[0]["status"] == "failed"
@@ -342,3 +405,97 @@ def test_run_all_closes_only_the_store_it_opened(
         assert injected.journal_mode() == "wal"
     finally:
         injected.close()
+
+
+def test_stage_and_counts_are_live_and_persisted(
+    native_config: Path, secret_store: SecretStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    names = ("scout", "match", "write")
+    gates = {name: threading.Event() for name in names}
+    reached = {name: threading.Event() for name in names}
+
+    def staged(
+        config: Any, vault: Any = None, *, on_progress: Any = None, **_kwargs: Any
+    ) -> PipelineResult:
+        on_progress(stage="scout")
+        on_progress(scouted=3)
+        reached["scout"].set()
+        gates["scout"].wait(5)
+        on_progress(stage="match")
+        on_progress(shortlisted=2, skipped=1)
+        reached["match"].set()
+        gates["match"].wait(5)
+        on_progress(stage="write")
+        on_progress(written=1, write_skipped=0)
+        reached["write"].set()
+        gates["write"].wait(5)
+        return _result(scouted=3, shortlisted=2, skipped=1, written=1)
+
+    monkeypatch.setattr("jobhunt.api.runner.run_all", staged)
+    client = _client(native_config, secret_store)
+    run_id = client.post("/runs").json()["id"]
+    cap = load_config(native_config).letter_cap
+
+    # B1: stage and counts are visible while the run is going.
+    assert reached["scout"].wait(5)
+    data = client.get(f"/runs/{run_id}").json()
+    assert data["status"] == "running"
+    assert data["stage"] == "scout"
+    assert data["scouted"] == 3
+    assert data["write_cap"] == cap
+    gates["scout"].set()
+
+    assert reached["match"].wait(5)
+    data = client.get(f"/runs/{run_id}").json()
+    assert data["stage"] == "match"
+    assert (data["shortlisted"], data["skipped"]) == (2, 1)
+    gates["match"].set()
+
+    assert reached["write"].wait(5)
+    data = client.get(f"/runs/{run_id}").json()
+    assert data["stage"] == "write"
+    assert data["written"] == 1
+    row = next(r for r in client.get("/runs").json() if r["id"] == run_id)
+    assert row["stage"] == "write"
+    assert row["counts"] == {"scouted": 3, "matched": 2, "written": 1}
+    # Persisted mid-run: a second store handle already sees the counts reached so far.
+    reader = SqliteStore(tmp_path / "data")
+    try:
+        stored = next(r for r in reader.list_run_notes() if r.id == run_id)
+    finally:
+        reader.close()
+    assert stored.status == "running"
+    assert (stored.scouted, stored.shortlisted, stored.written) == (3, 2, 1)
+    gates["write"].set()
+
+    data = _wait(client, run_id)
+    assert data["status"] == "completed"
+    assert data["stage"] is None
+    assert data["write_cap"] == cap
+
+
+def test_counts_reached_before_a_crash_survive_restart(
+    native_config: Path, secret_store: SecretStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def crash(
+        config: Any, vault: Any = None, *, on_progress: Any = None, **_kwargs: Any
+    ) -> PipelineResult:
+        on_progress(stage="scout")
+        on_progress(scouted=4)
+        on_progress(stage="match")
+        on_progress(shortlisted=2, skipped=2)
+        raise RuntimeError("match exploded")
+
+    monkeypatch.setattr("jobhunt.api.runner.run_all", crash)
+    client = _client(native_config, secret_store)
+    run_id = client.post("/runs").json()["id"]
+    data = _wait(client, run_id)
+    assert data["status"] == "failed"
+    assert data["stage"] is None
+    assert (data["scouted"], data["shortlisted"], data["skipped"]) == (4, 2, 2)
+
+    restarted = _restart(native_config, secret_store)
+    after = restarted.get(f"/runs/{run_id}").json()
+    assert (after["scouted"], after["shortlisted"], after["skipped"]) == (4, 2, 2)
+    assert after["stage"] is None
+    assert after["write_cap"] is None

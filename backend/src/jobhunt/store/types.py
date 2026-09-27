@@ -80,6 +80,11 @@ class RunRecord:
     # B3: true when a stored queued/running run was settled as stale on read (status is then "failed").
     # Computed at read time, not stored in the runs table.
     interrupted: bool = False
+    # B1: current stage while running ("scout" | "match" | "write"); None when queued or finished.
+    # Kept in memory only, not stored in the runs table.
+    stage: str | None = None
+    # B1: letter cap for this run (config letter_cap); None when unknown (for example read back from the store).
+    write_cap: int | None = None
 
 
 @dataclass
