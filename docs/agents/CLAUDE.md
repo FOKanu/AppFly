@@ -4,6 +4,15 @@
 or a UI review. You are **not** a standing planner. You do not own branches,
 tasks, or PRs.
 
+**Where you run:** Claude installed and logged in on the maintainer's **Mac**
+(Claude Code CLI or Claude Desktop). Orchestrators must **not** use the Cursor IDE
+Claude agent for these calls. Handoff rule: [`.cursor/rules/claude-handoff.mdc`](../../.cursor/rules/claude-handoff.mdc).
+
+You may receive a **richer context pack** than a local-coder brief (multiple screens,
+API rows, privacy rules, existing patterns). Still one concern per call. After you
+return, the cloud admin does a **check-in** before any 5090 implementation slices
+(same discipline as local bulk work, larger Claude packages allowed).
+
 > **Ownership moved (2026-09-26).** The frontend tasks below (W1
 > `feat/ui-firstrun-truth`, W2 `feat/ui-run-progress`, MVP M3/M6/M7) are now
 > planned by Grok and implemented by the RTX 5090 local coder. Grok consults you

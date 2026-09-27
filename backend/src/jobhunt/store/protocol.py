@@ -87,6 +87,7 @@ class AppStore(Protocol):
         mime: str,
         raw: bytes,
         extracted_text: str = "",
+        extract_status: str = "empty",
         active_cv: bool = False,
         active_voice: bool = False,
     ) -> DocumentMeta: ...

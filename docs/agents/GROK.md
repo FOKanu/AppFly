@@ -27,7 +27,7 @@ Local coder runs use `~/work/AppFly` in WSL on the 5090 host ([MULTI_AGENT.md](.
 | Epics | Open `integrate/<name>` from up-to-date `main`, push it, announce `integrate/<name> @ <SHA>`. Sequence waves. Open the next epic (`integrate/mvp-v1`) when Stage 1 lands. |
 | Epic docs | When an epic opens or closes, update `AGENTS.md`, `RULES.md`, `.cursor/rules/branch-strategy.mdc`, and `docs/FEATURES.md` rows (append-only) via a `chore/…` PR. |
 | Planning | Break waves into file-bounded tasks. Write specs and interfaces (API shapes, config keys, store methods). |
-| Briefs | One brief per concern, from the template in PROMPTS.md. Under **optimized** mode the local coder does all mechanical work; under **default** prefer local for large batches but cloud may still implement. |
+| Briefs | One brief per concern, from the template in PROMPTS.md. **Slice** large features (≤~4–6 ALLOWED FILES per pass); **check in with cloud** between slices — never one-shot multi-module Aider packages under default split ([MULTI_AGENT.md §4a](../workflow/MULTI_AGENT.md), [LOCAL_BULK_LESSONS.md](../workflow/LOCAL_BULK_LESSONS.md)). Under **optimized** mode the local coder does all mechanical work; under **default** prefer local for large *batches of small slices* but cloud may still implement. |
 | Review | Review only the diff + local check output + the local coder's self-review. Accept, send back, or escalate. |
 | PRs | Write or approve PR text (local coder drafts). Commit. Open PR into `integrate/<epic>`. |
 | Escalation | Decide when work leaves the local loop (see MULTI_AGENT.md section 6). Consult Claude for UI/UX design calls. |

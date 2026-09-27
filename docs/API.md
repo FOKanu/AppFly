@@ -12,7 +12,7 @@ Local FastAPI app (`jobhunt.api.app:app`), default bind `http://127.0.0.1:8787`.
 | GET | `/jobs` | List job notes | query `status=` (optional; `inbox`, `shortlist`, `draft`, `approved`, `applied`, `skipped`) | Job summaries (source_id, title, company, status, score, url, crawl_allowed, …) | Fetch listing URLs; return API keys |
 | GET | `/jobs/{source_id}` | One job | path `source_id` | Job note payload (frontmatter + body excerpt) | HTTP-GET the job's `url` |
 | PATCH | `/jobs/{source_id}` | Update job metadata | JSON patch: `status`, `gemini`, `applied`, … | Updated job | Submit the application |
-| POST | `/runs` | Start a full pipeline run (scout → match → write) in the background | none (no request body) | `{ id, status: "queued", started, model }`; `409` while another run is queued/running | Crawl deny-listed hosts; hide `CrawlDeniedError` |
+| POST | `/runs` | Start a full pipeline run (scout → match → write) in the background | optional JSON `{ "cv": "<document_id>" }` (omit body or `cv` → active CV) | `{ id, status: "queued", started, model }`; `409` while another run is queued/running; `404` if `cv` missing or not kind `cv` | Crawl deny-listed hosts; hide `CrawlDeniedError`; return CV body |
 | GET | `/runs` | List runs | none | One row per run id plus legacy day notes (see Runs below) | Include env secrets |
 | GET | `/settings` | Read non-secret settings | none | Keywords, location, source flags, plus `secrets: { gemini: bool, apify: bool, jobsuche: bool }` | Return key material or `.env` contents |
 | PUT | `/settings` | Replace non-secret settings | JSON subset of `config.yaml` | Updated settings (same shape as GET, still no raw secrets) | Write `GEMINI_API_KEY` / Apify tokens into YAML |
@@ -23,9 +23,9 @@ Local FastAPI app (`jobhunt.api.app:app`), default bind `http://127.0.0.1:8787`.
 | POST | `/jobs/{id}/letter/regenerate` | Force Gemini rewrite | none | New letter body | Include other jobs |
 | GET | `/runs/{id}` | Run status (memory, then store; survives restart) | path | counts (live while running), errors, status, `interrupted`, `stage`, `write_cap` | Secrets |
 | POST | `/runs/{id}/cancel` | Cooperative cancel (checked between stages and letters) | path | `{ cancelled }`; `404` if the run is not in this process | Kill Gemini mid-call |
-| GET/POST | `/documents` | List / upload Vault docs | multipart on POST | metadata only | CV body in list |
+| GET/POST | `/documents` | List / upload Vault docs | multipart on POST | metadata only (incl. `extract_status`) | CV body / file bytes in list |
 | GET/PATCH/DELETE | `/documents/{id}` | Meta / update / delete | patch fields | metadata | Echo originals in PATCH |
-| GET | `/documents/{id}/text` | Extracted text | path | plain text | Meant for engine; UI must not show CV in Memory |
+| GET | `/documents/{id}/text` | Extracted text | path | plain text; `404` when extract empty/unsupported | Meant for engine; UI must not show CV in Memory |
 | GET | `/documents/{id}/file` | Download original | path | file bytes | Crawl URLs inside file |
 | GET/POST | `/workspace/status` `/workspace/init` | Readiness / ensure native store | none | checklist + data_path | Create Obsidian sync |
 | POST | `/workspace/import/obsidian` | One-shot Obsidian import | `{ vault_path }` | import report | Dual-write / live sync |
@@ -38,7 +38,7 @@ The API binds to loopback only and guards against cross-site requests and DNS re
 
 - **Required header:** every `POST`, `PUT`, `PATCH` and `DELETE` must send `X-AppFly: 1`; otherwise `403`. `GET`, `HEAD` and `OPTIONS` (CORS preflight) need no header, and `GET /health` stays open.
 - **Origin check:** if a mutating request carries an `Origin` header, it must be on the allow-list; otherwise `403`.
-- **Allowed origins (CORS):** `http://localhost:5173` and `http://127.0.0.1:5173` (Vite dev), plus any comma-separated origins in the env var `APPFLY_ALLOWED_ORIGINS` (read at app start, e.g. a packaged-app origin). CORS allows the `Accept`, `Content-Type` and `X-AppFly` headers; no credentials.
+- **Allowed origins (CORS):** `http://localhost:5173` and `http://127.0.0.1:5173` (Vite dev), `http://localhost:5174` and `http://127.0.0.1:5174` (Neutralino desktop shell), plus any comma-separated origins in the env var `APPFLY_ALLOWED_ORIGINS` (read at app start). CORS allows the `Accept`, `Content-Type` and `X-AppFly` headers; no credentials.
 - **Allowed hosts:** the `Host` header must be `127.0.0.1` or `localhost` (any port); otherwise `400`.
 - Tests use `TestClient(..., base_url="http://127.0.0.1", headers={"X-AppFly": "1"})`.
 
@@ -57,7 +57,7 @@ The gateway must speak the Gemini REST API (`google-genai` sends `/{api_version}
 
 `POST /runs` is asynchronous from the UI's point of view: it must not block the browser on embedding-model download without returning a run id. Errors from scout (including crawl denial) are recorded on the run, not swallowed.
 
-- **No body.** `POST /runs` always runs scout → match → write. Only one run may be `queued` or `running` across the API and CLI on the **native** SQLite store: a second `POST /runs` returns `409` with the active run id in `detail`. `jobhunt run` / `scout` / `match` / `write` exit **75** when busy. Liveness is a store heartbeat (updated at least every 10 s); a run is stale after **60 s** without a heartbeat (→ `failed` + `interrupted`). Under `storage_backend: markdown`, the cross-process lock is not available (legacy behaviour).
+- **Optional body (M2).** `POST /runs` may send `{ "cv": "<document_id>" }` to use that CV document's extracted text for match and write for the whole run. Omit the body (or omit `cv`) to keep the active CV. Unknown id or non-`cv` kind → `404`. Empty body remains valid. Sealed writer packets still carry one CV slice. Only one run may be `queued` or `running` across the API and CLI on the **native** SQLite store: a second `POST /runs` returns `409` with the active run id in `detail`. `jobhunt run` / `scout` / `match` / `write` exit **75** when busy. Liveness is a store heartbeat (updated at least every 10 s); a run is stale after **60 s** without a heartbeat (→ `failed` + `interrupted`). Under `storage_backend: markdown`, the cross-process lock is not available (legacy behaviour).
 - **Statuses:** `queued` → `running` → `completed` | `completed_with_errors` | `failed` | `cancelled`. `completed`: the pipeline returned with no errors. `completed_with_errors`: it returned normally but recorded errors (a failing letter, a scout source error, a crawl denial). `failed`: the pipeline raised (recorded with `"<ExceptionType>: <message>"` in `errors`) or the run was interrupted. Every transition is written to the store (`runs` table, native backend). Rows stored before this change are not migrated. The CLI still exits 1 when a run has errors (and 75 when another run is active).
 - **Interrupted:** a stored run left `queued`/`running` with a missing or >60 s-old heartbeat is reported as `failed` with `interrupted: true` and the legacy `interrupted: …` string in `errors` (kept for older clients). `interrupted` is on `GET /runs/{id}` and every `GET /runs` row (`false` otherwise).
 - **Trigger (B4):** `trigger` is `api`, `cli`, or `nightly` on `GET /runs/{id}` and list rows. `jobhunt run --trigger nightly` sets `nightly`; default is `cli`. Stage commands are always `cli`.

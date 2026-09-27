@@ -119,6 +119,21 @@ def test_preflight_from_dev_origin_is_allowed(raw_client: TestClient) -> None:
     assert "x-appfly" in response.headers["access-control-allow-headers"].lower()
 
 
+def test_preflight_from_desktop_origin_is_allowed(raw_client: TestClient) -> None:
+    """OPTIONS from Neutralino shell origin (port 5174) must be allowed."""
+    desktop_origin = "http://127.0.0.1:5174"
+    response = raw_client.options(
+        "/runs",
+        headers={
+            "Origin": desktop_origin,
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "x-appfly",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == desktop_origin
+
+
 def test_get_routes_work_without_header(raw_client: TestClient) -> None:
     """GET routes must work without CSRF header."""
     response1 = raw_client.get("/health")

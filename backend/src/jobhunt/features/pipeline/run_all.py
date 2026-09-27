@@ -56,6 +56,7 @@ def _run_pipeline(
     store: Any,
     cancel: threading.Event | None,
     on_progress: ProgressFn | None = None,
+    cv_text: str | None = None,
 ) -> PipelineResult:
     """Run the stages on an already-open store; report stage and counts through ``on_progress``."""
 
@@ -97,7 +98,7 @@ def _run_pipeline(
             cancelled = True
         else:
             _emit(stage="match")
-            stats = match_jobs(config, store)
+            stats = match_jobs(config, store, cv_text=cv_text)
             shortlisted = stats["shortlisted"]
             skipped = stats["skipped"]
             _emit(shortlisted=shortlisted, skipped=skipped)
@@ -114,6 +115,7 @@ def _run_pipeline(
                 store,
                 should_stop=_stop,
                 on_letter=lambda done, skip: _emit(written=done, write_skipped=skip),
+                cv_text=cv_text,
             )
             written = write_stats["written"]
             write_skipped = write_stats["skipped"]
@@ -159,22 +161,24 @@ def run_all(
     *,
     cancel: threading.Event | None = None,
     on_progress: ProgressFn | None = None,
+    cv_text: str | None = None,
 ) -> PipelineResult:
     """Scout, match, write, refresh Home.md, and append today's run note.
 
     Purpose: One local pass over the store, identical to ``jobhunt run``.
     Inputs: Loaded ``AppConfig``; optional injected store (reused, not closed); optional
     ``cancel`` event checked before scout, match, write and before each letter; optional
-    ``on_progress(**changes)`` told the stage as it starts and the counts as they change (B1).
+    ``on_progress(**changes)`` told the stage as it starts and the counts as they change (B1);
+    optional ``cv_text`` for M2 (when set, match/write use it instead of ``read_cv``).
     Returns: ``PipelineResult`` with step counts, error strings, note paths, ``cancelled``.
     Does not: Crawl deny-listed job boards, unseal other jobs' packets, or auto-submit.
     """
 
     if vault is not None:
-        return _run_pipeline(config, vault, cancel, on_progress)
+        return _run_pipeline(config, vault, cancel, on_progress, cv_text=cv_text)
     store = get_store(config)
     try:
-        return _run_pipeline(config, store, cancel, on_progress)
+        return _run_pipeline(config, store, cancel, on_progress, cv_text=cv_text)
     finally:
         close = getattr(store, "close", None)
         if callable(close):

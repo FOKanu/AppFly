@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ROUTES } from "../../routes";
+import { Banner } from "../../shared/ui/Banner";
+import { SampleDataBanner } from "../../shared/ui/SampleDataBanner";
 import { Toast, useToast } from "../../shared/ui/Toast";
 import {
   fetchSettings,
@@ -60,7 +62,7 @@ const DEFAULT_GUARDRAILS: Guardrails = {
  *           save for real; schedule, caps, writer and guardrails are read-only.
  */
 export function WorkflowPage() {
-  const { snapshot, reload } = useWorkflow();
+  const { snapshot, source, failure, reload } = useWorkflow();
   const toast = useToast();
 
   const [profile, setProfile] = useState<HuntProfile | null>(null);
@@ -148,6 +150,12 @@ export function WorkflowPage() {
 
   return (
     <div className="workflow">
+      {source === "mock" ? <SampleDataBanner noun="runs" /> : null}
+      {source === "error" && failure ? (
+        <Banner tone="danger" title="Couldn't load Workflow" role="alert">
+          {failure.message}
+        </Banner>
+      ) : null}
       {snapshot?.rateLimited ? (
         <GeminiRateLimitBanner
           onRunAgain={run.start}
@@ -170,6 +178,7 @@ export function WorkflowPage() {
         stopDisabled={run.stopDisabled}
         stopTitle={run.stopTitle}
         stopping={run.ui === "cancelling"}
+        cvUsingLabel={run.cvLabel}
       />
 
       <div className="workflow__columns">

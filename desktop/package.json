@@ -1,0 +1,17 @@
+{
+  "name": "appfly-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Neutralino desktop shell for AppFly (M5)",
+  "type": "module",
+  "scripts": {
+    "prepare-resources": "node scripts/prepare.mjs",
+    "update": "neu update",
+    "dev": "node scripts/prepare.mjs && neu run",
+    "build": "node scripts/prepare.mjs && neu build",
+    "smoke": "node scripts/smoke-api-spawn.mjs"
+  },
+  "devDependencies": {
+    "@neutralinojs/neu": "^11.6.0"
+  }
+}

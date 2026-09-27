@@ -85,6 +85,12 @@
   flex: 0 0 auto;
 }
 
+.heartbeat-panel__using {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
 .nightly-toggle {
   display: inline-flex;
   align-items: center;

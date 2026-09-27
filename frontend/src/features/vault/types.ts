@@ -47,6 +47,8 @@ export interface VaultDocument {
    */
   active_cv?: boolean;
   active_voice?: boolean;
+  /** Status of text extraction from the document. */
+  extract_status?: "ok" | "empty" | "unsupported" | "error";
 }
 
 /** Which active flag a kind uses, or null when the kind has none. */

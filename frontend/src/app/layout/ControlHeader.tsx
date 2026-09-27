@@ -1,5 +1,6 @@
 import type { FormEvent, RefObject } from "react";
 import type { HeartbeatState } from "../../shared/api/client";
+import { CvPicker } from "../../shared/run/CvPicker";
 import { Button } from "../../shared/ui/Button";
 import { Input } from "../../shared/ui/Input";
 import { Heartbeat } from "./Heartbeat";
@@ -81,6 +82,7 @@ export function ControlHeader({
       <Heartbeat state={heartbeat} message={heartbeatMessage} />
 
       <div className="control-header__runs">
+        <CvPicker />
         <Button
           variant="primary"
           icon="▶"

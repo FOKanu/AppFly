@@ -112,6 +112,15 @@ class AppConfig(BaseModel):
 
     @property
     def cache_dir(self) -> Path:
+        """App data directory for local caches like embeddings.
+
+        Purpose: Return the cache root based on storage backend.
+        Inputs: AppConfig with storage_backend field.
+        Returns: Path under native_data_path / "cache" when native, else REPO_ROOT / ".cache".
+        Does not: Return secrets or modify files.
+        """
+        if self.storage_backend == "native":
+            return self.native_data_path / "cache"
         return REPO_ROOT / ".cache"
 
     @property

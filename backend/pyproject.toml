@@ -24,6 +24,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+extract = ["pypdf>=5.0", "python-docx>=1.1"]
 
 [project.scripts]
 jobhunt = "jobhunt.cli:app"

@@ -1,7 +1,6 @@
 # MVP epic sequence (`integrate/mvp-v1`)
 
-Status: **Ready to open after** Composer merges `integrate/prototype-v1` → `main`
-(P7 smoke + human sign-off). Do not cut `mvp-v1` from `main` until that lands.
+Status: **Open** — `integrate/mvp-v1` @ `fffed5b` (2026-09-27, M7 #59). Stage 1 is on `main` (#48). M8 privacy pass in flight.
 
 Owner: Grok (or Cursor as temp planner). Implementer: 5090 local coder under briefs.
 Composer: gate every M* PR; owns M5 and M8. Claude: on call only where noted.
@@ -13,13 +12,12 @@ Compute mode: **default** (current mixed split) unless the human opts into
 
 ## Open the epic
 
+Done 2026-09-27: `integrate/mvp-v1` pushed @ `ff61b86`. AGENTS / RULES / branch-strategy / FEATURES updated via `chore/docs-open-mvp-v1`.
+
 ```bash
 git fetch origin
-git checkout main && git pull --ff-only   # tip must include prototype Stage 1
-git checkout -b integrate/mvp-v1
-git push -u origin integrate/mvp-v1
-# announce: integrate/mvp-v1 @ <SHA>
-# chore PR: AGENTS.md / RULES / branch-strategy / FEATURES MVP rows
+git checkout integrate/mvp-v1 && git pull --ff-only
+git checkout -b feat/backend-doc-extract   # M1 first
 ```
 
 ---
@@ -43,16 +41,19 @@ Deferred outside MVP waves: **F1** fetch listing (policy review first).
 
 ## When to call Claude
 
-Call Claude **only** with a focused question + screen/route + privacy check ask.
-Paste Claude’s copy/states/acceptance into the 5090 brief.
+Call Claude **only** with a focused question + a rich pack when useful (screens,
+API rows, privacy). Prefer the Mac Claude pack template under `docs/workflow/briefs/`
+(e.g. [M3-claude-ask.md](briefs/M3-claude-ask.md)). Paste Claude’s copy/states/acceptance
+into **sliced** 5090 briefs after a cloud check-in.
 
 | Gate | Call Claude when |
 | --- | --- |
-| **M3** | After M1+M2 are on `integrate/mvp-v1`. Ask for picker placement, empty/offline/error copy, and “metadata only / never CV body” acceptance. |
+| **M3** | After M1+M2 are on `integrate/mvp-v1`. Ask for picker placement, empty/offline/error copy, and “metadata only / never CV body” acceptance. Mac Claude only. |
 | **M6** | After M5 shell can launch the UI. Ask for wizard step order and first-run honesty. |
 | **M7** | Before mock-stripping briefs if banner/empty-state copy is unclear. |
 
 Do **not** call Claude for M1/M2/M4 backend mechanics, M5 packaging choice (Composer + Grok), or M8 audit.
+Do **not** use the Cursor IDE Claude agent for these calls (`.cursor/rules/claude-handoff.mdc`).
 
 ---
 

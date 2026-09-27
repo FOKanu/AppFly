@@ -1,20 +1,7 @@
 import { apiBaseUrl, APPFLY_HEADERS } from "../../shared/api/client";
+import { resolveMockPolicy, tryApiGet, type MockPolicyLoad } from "../../shared/api/mockPolicy";
 import { MOCK_QUEUED, MOCK_RUN, MOCK_WORKFLOW } from "./mock";
-import type { DataSource, Health, Job, Run, Stage, StageStatus, WorkflowSnapshot } from "./types";
-
-async function getJson<T>(path: string, fallback: T): Promise<{ data: T; source: DataSource }> {
-  try {
-    const response = await fetch(`${apiBaseUrl()}${path}`, {
-      headers: { Accept: "application/json" },
-    });
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    return { data: (await response.json()) as T, source: "api" };
-  } catch {
-    return { data: fallback, source: "mock" };
-  }
-}
+import type { Health, Job, Run, Stage, StageStatus, WorkflowSnapshot } from "./types";
 
 function asList<T>(payload: unknown, key: "jobs" | "runs"): T[] {
   if (Array.isArray(payload)) return payload as T[];
@@ -125,57 +112,64 @@ function stageFromRun(run: Run): Stage[] {
 
 /**
  * Load Workflow snapshot: health, latest run, draft/shortlist/inbox jobs.
+ * Samples only when the API is offline/timeout (M7 / F2).
  */
-export async function fetchWorkflow(): Promise<{ data: WorkflowSnapshot; source: DataSource }> {
-  const health = await getJson<Health>("/health", MOCK_WORKFLOW.health);
-  const runs = await getJson<unknown>("/runs", { runs: [MOCK_RUN] });
-  const shortlist = await getJson<unknown>("/jobs?status=shortlist", { jobs: [] });
-  const drafts = await getJson<unknown>("/jobs?status=draft", { jobs: [] });
-  const inbox = await getJson<unknown>("/jobs?status=inbox", { jobs: MOCK_QUEUED });
+export async function fetchWorkflow(): Promise<MockPolicyLoad<WorkflowSnapshot>> {
+  const [health, runs, shortlist, drafts, inbox] = await Promise.all([
+    tryApiGet<Health>("/health", "Loading Workflow"),
+    tryApiGet<unknown>("/runs", "Loading Workflow"),
+    tryApiGet<unknown>("/jobs?status=shortlist", "Loading Workflow"),
+    tryApiGet<unknown>("/jobs?status=draft", "Loading Workflow"),
+    tryApiGet<unknown>("/jobs?status=inbox", "Loading Workflow"),
+  ]);
 
-  const runList = asList<unknown>(runs.data, "runs")
-    .map(runFromLog)
-    .filter((row): row is Run => row !== null);
-  // H1/H2: the heartbeat reads the latest pipeline run, never a day note.
-  const lastRun = runList.find((row) => row.kind !== "day_note") ?? null;
-  const draftJobs = asList<Job>(drafts.data, "jobs");
-  const queued = [
-    ...asList<Job>(inbox.data, "jobs"),
-    ...asList<Job>(shortlist.data, "jobs").filter((job) => job.status === "inbox"),
-  ];
-  const source: DataSource =
-    health.source === "api" && runs.source === "api" ? "api" : "mock";
-
-  if (!lastRun) {
-    return {
-      source,
-      data: {
-        health: asHealth(health.data),
-        lastRun: null,
-        stages: MOCK_WORKFLOW.stages.map((stage) => ({ ...stage, status: "idle", count: 0 })),
-        queued,
-        rateLimited: false,
-      },
-    };
-  }
-
-  const rateLimited =
-    lastRun.gemini === "rate_limited" || health.data.gemini === "rate_limited";
-  const stages = stageFromRun(lastRun);
-  if (!lastRun.written && draftJobs.length) {
-    stages[2] = { ...stages[2], count: draftJobs.length };
-  }
-
-  return {
-    source,
-    data: {
-      health: asHealth(health.data),
-      lastRun,
-      stages,
-      queued,
-      rateLimited,
-    },
+  const mock: WorkflowSnapshot = {
+    ...MOCK_WORKFLOW,
+    lastRun: MOCK_RUN,
+    queued: MOCK_QUEUED,
   };
+
+  return resolveMockPolicy(
+    [health, runs, shortlist, drafts, inbox],
+    () => {
+      const runList = asList<unknown>(runs.ok ? runs.data : { runs: [] }, "runs")
+        .map(runFromLog)
+        .filter((row): row is Run => row !== null);
+      const lastRun = runList.find((row) => row.kind !== "day_note") ?? null;
+      const draftJobs = asList<Job>(drafts.ok ? drafts.data : { jobs: [] }, "jobs");
+      const queued = [
+        ...asList<Job>(inbox.ok ? inbox.data : { jobs: [] }, "jobs"),
+        ...asList<Job>(shortlist.ok ? shortlist.data : { jobs: [] }, "jobs").filter(
+          (job) => job.status === "inbox",
+        ),
+      ];
+      const healthData = asHealth(health.ok ? health.data : { ok: false });
+      if (!lastRun) {
+        return {
+          health: healthData,
+          lastRun: null,
+          stages: MOCK_WORKFLOW.stages.map((stage) => ({ ...stage, status: "idle", count: 0 })),
+          queued,
+          rateLimited: false,
+        };
+      }
+      const rateLimited =
+        lastRun.gemini === "rate_limited" ||
+        (health.ok && health.data.gemini === "rate_limited");
+      const stages = stageFromRun(lastRun);
+      if (!lastRun.written && draftJobs.length) {
+        stages[2] = { ...stages[2], count: draftJobs.length };
+      }
+      return {
+        health: healthData,
+        lastRun,
+        stages,
+        queued,
+        rateLimited: Boolean(rateLimited),
+      };
+    },
+    mock,
+  );
 }
 
 export interface RetryResult {

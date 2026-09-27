@@ -1,0 +1,34 @@
+---
+description: Slice local-model (5090) work; mandatory cloud check-ins between slices. Never one-shot bulk multi-file Aider packages.
+alwaysApply: true
+---
+
+# Local coder bulk work (5090 / Aider)
+
+Default compute mode is the **mixed split** ([MULTI_AGENT.md](../../docs/workflow/MULTI_AGENT.md) §1a). Local models are strong at small mechanical edits and weak at large multi-file packages. Do not paper over that with one giant brief.
+
+## Package size
+
+- **One Aider pass ≈ one concern, ≤ ~4–6 ALLOWED FILES** (prefer fewer). Prefer `diff` edit format; never `--edit-format whole` across many large files in one shot.
+- Split cross-layer work (schema → route → runner → pipeline → match/write → tests → docs) into **sequential slices** with a cloud review between slices.
+- If the brief would touch >6 files or rewrite several large modules, **stop and slice** before launching Aider.
+
+## Mandatory check-in (local → cloud)
+
+After each local slice (or sooner if Aider misbehaves), the cloud admin (Grok / Cursor orchestrator / Composer when driving) must review before the next slice:
+
+1. `git status` / `git diff --stat` — did edits **apply**? (`Applied edit` count > 0)
+2. Local questions, open flags, tech-stack doubts, and method choices from the RETURN block
+3. Invariant self-review + check output (or why checks were not run yet)
+
+Do **not** chain try2/try3 with a bigger package after a failed apply. Escalate or re-brief smaller.
+
+## Kill / escalate signals
+
+- **0 Applied edits** with SEARCH/REPLACE dumped in the log → re-brief 1–2 files; do not switch to whole-repo `whole`
+- **Runaway generation** (`n_gen` tens of thousands, log stuck, no file writes) → kill the process; escalate to cloud with a slice plan
+- **Architecture / interface ambiguity** in local RETURN → cloud answers before more local code
+
+## Evidence
+
+M2 (`feat/backend-run-cv`, 2026-09-27): one 9-file brief + `diff` → 0 applies; retry with `whole` → 50k+ token runaway. Cloud finished the feature. Lessons: [docs/workflow/LOCAL_BULK_LESSONS.md](../../docs/workflow/LOCAL_BULK_LESSONS.md).
