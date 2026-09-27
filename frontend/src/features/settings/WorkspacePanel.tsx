@@ -4,6 +4,7 @@ import { Button } from "../../shared/ui/Button";
 import { ROUTES } from "../../routes";
 import { getWorkspace, initWorkspace } from "../vault/api";
 import type { WorkspaceStatus } from "../vault/types";
+import { describeApiError, isUnreachable, type ApiFailure } from "../../shared/api/errors";
 
 interface WorkspacePanelProps {
   onToast: (message: string) => void;
@@ -29,13 +30,18 @@ interface ReadinessItem {
 export function WorkspacePanel({ onToast }: WorkspacePanelProps) {
   const [workspace, setWorkspace] = useState<WorkspaceStatus | null>(null);
   const [busy, setBusy] = useState(false);
-  const [canInit, setCanInit] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [failure, setFailure] = useState<ApiFailure | null>(null);
 
   const load = useCallback(async () => {
     try {
       setWorkspace(await getWorkspace());
-    } catch {
-      setCanInit(false);
+      setFailure(null);
+    } catch (error) {
+      setWorkspace(null);
+      setFailure(describeApiError(error, "Loading setup status"));
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -46,11 +52,12 @@ export function WorkspacePanel({ onToast }: WorkspacePanelProps) {
   const onInit = useCallback(async () => {
     setBusy(true);
     try {
-      setWorkspace(await initWorkspace());
-      onToast("App data folder created.");
-    } catch {
-      setCanInit(false);
-      onToast("Could not create the folder — POST /workspace/init is not serving yet.");
+      const status = await initWorkspace();
+      setWorkspace(status);
+      setFailure(null);
+      onToast(`App data folder ready at ${status.data_path}.`);
+    } catch (error) {
+      onToast(describeApiError(error, "Creating the app data folder").message);
     } finally {
       setBusy(false);
     }
@@ -58,6 +65,10 @@ export function WorkspacePanel({ onToast }: WorkspacePanelProps) {
 
   // Under "markdown" the Obsidian vault is the live store, not the app-data dir.
   const markdown = workspace?.storage_backend === "markdown";
+
+  const unreachable = failure !== null && isUnreachable(failure.kind);
+  // Real flags only: while loading or after a failure, nothing is marked done or linked.
+  const known = workspace !== null;
 
   const checklist: ReadinessItem[] = [
     {
@@ -101,7 +112,7 @@ export function WorkspacePanel({ onToast }: WorkspacePanelProps) {
       </h2>
 
       <div className="workspace-path">
-        <code>{workspace?.data_path ?? "—"}</code>
+        <code>{loading ? "\u2026" : unreachable ? "\u2014" : (workspace?.data_path ?? "\u2014")}</code>
         <span className="workspace-path__state" data-ready={Boolean(workspace)}>
           {workspace ? workspace.storage_backend : "unknown"}
         </span>
@@ -114,8 +125,17 @@ export function WorkspacePanel({ onToast }: WorkspacePanelProps) {
       </p>
 
       <p className="workspace-checklist__head">
-        Setup · {ready} of {checklist.length} done
+        {loading
+          ? "Setup \u00b7 checking\u2026"
+          : unreachable
+            ? "Setup \u00b7 status unknown (API not reachable)"
+            : failure
+              ? "Setup \u00b7 status unknown"
+              : `Setup \u00b7 ${ready} of ${checklist.length} done`}
       </p>
+      {failure && !unreachable ? (
+        <p className="settings-card__copy settings-card__copy--muted">{failure.message}</p>
+      ) : null}
       <ul className="workspace-checklist">
         {checklist.map((item) => (
           <li className="workspace-check" key={item.id} data-done={item.done}>
@@ -123,7 +143,7 @@ export function WorkspacePanel({ onToast }: WorkspacePanelProps) {
               {item.done ? "✓" : ""}
             </span>
             <span className="workspace-check__label">{item.label}</span>
-            {item.done ? null : item.to ? (
+            {item.done || !known ? null : item.to ? (
               <Link className="link-action" to={item.to}>
                 {item.action} →
               </Link>
@@ -142,8 +162,8 @@ export function WorkspacePanel({ onToast }: WorkspacePanelProps) {
         <Button
           variant="quiet"
           size="sm"
-          disabled={busy || !canInit}
-          title={canInit ? undefined : "POST /workspace/init is not serving yet."}
+          disabled={busy || unreachable}
+          title={unreachable ? "Start the local API first (python -m jobhunt.api)." : undefined}
           onClick={() => void onInit()}
         >
           {busy ? "Working…" : "Re-create folders"}
