@@ -15,8 +15,8 @@ Cursor rule: `.cursor/rules/branch-strategy.mdc` (always apply).
 | Branch | Purpose |
 |---|---|
 | `main` | Shippable. No direct commits. Hotfixes that cannot wait for an epic. |
-| `integrate/<epic>` | Inbox for that epic (all stacks). **Current prototype epic: `integrate/prototype-v1`.** `ui-v1` and `storage-v1` landed on `main`. |
-| `feat/<area>-<slug>` | One concern, one PR. Examples: `feat/backend-api`, `feat/ui-queue-packet`, `feat/docs-api`. |
+| `integrate/<epic>` | Inbox for that epic (all stacks). **Current MVP epic: `integrate/mvp-v1`.** Closed: `prototype-v1`, `ui-v1`, `storage-v1` (all on `main`). |
+| `feat/<area>-<slug>` | One concern, one PR. Examples: `feat/backend-doc-extract`, `feat/ui-cv-picker`. |
 | `fix/<slug>` | Bug fix against shipped `main`. |
 | `chore/<slug>` | Tooling, docs, layout. |
 
@@ -28,9 +28,9 @@ Names: lowercase, hyphens, no author names. Retarget `cursor/…` Cloud Agent de
 2. No epic: branch from `main`; PR into `main`.
 3. Do not start parallel agents from stale `main` while an epic is open.
 
-While **prototype-v1** is open, every Cloud Agent prompt includes:
+While **mvp-v1** is open, every Cloud Agent prompt includes:
 
-> Base: `integrate/prototype-v1`. Branch: `feat/<area>-<slug>`. Touch only owned paths. Do not recreate `backend/pyproject.toml` or `frontend/package.json`. PR into `integrate/prototype-v1`. Rebase before merge.
+> Base: `integrate/mvp-v1`. Branch: `feat/<area>-<slug>`. Touch only owned paths. Do not recreate `backend/pyproject.toml` or `frontend/package.json`. PR into `integrate/mvp-v1`. Rebase before merge.
 
 No parallel forks of `main` while this epic is open.
 
@@ -40,20 +40,21 @@ When an epic opens, name it here and every Cloud Agent prompt includes the Base/
 
 ### Live tip (avoid double work)
 
-- **Base every prototype PR on** `origin/integrate/prototype-v1` (tip as of 2026-09-27: `75de379`, Agentur v6 parse / #45). `git fetch origin` before cutting a branch.
-- **Do not** reopen or continue closed `cursor/*` PRs (#1–#10 era); that UI already landed via `feat/ui-*`.
-- **B1–B4 + UI waves landed.** **Next:** P7 smoke (manual happy path) → human sign-off → Composer opens `integrate/prototype-v1` → `main`. Then Grok opens `integrate/mvp-v1` (or Cursor while Grok credits are out).
-- `main` may lag the epic until Composer merges `integrate/prototype-v1` → `main`. Prefer integrate while the epic is open.
+- **Base every MVP PR on** `origin/integrate/mvp-v1` (opened 2026-09-27 @ `ff61b86`, same as Stage 1 `main`). `git fetch origin` before cutting a branch.
+- **Do not** reopen closed `cursor/*` or continue `integrate/prototype-v1` feature PRs; prototype closed on `main` via #48.
+- **Next:** M1 `feat/backend-doc-extract` → M2 `feat/backend-run-cv` → **then** call Claude for M3 CV picker. Sequence: [docs/workflow/MVP_SEQUENCE.md](docs/workflow/MVP_SEQUENCE.md).
+- Prefer integrate while the epic is open; `main` lags until Composer merges `integrate/mvp-v1` → `main`.
 
 ### Closed epics
 
+- **prototype-v1** — Stage 1 solid prototype (runs, UI waves, Agentur, Gemini 3.8). Landed on `main` 2026-09-27 (#48).
 - **ui-v1** — app chrome, Tonight/Workflow, Queue/Packet, Memory/Activity, Settings, mobile reflow. Landed on `main`.
 - **storage-v1** — native SQLite store, Documents/Workspace APIs, Vault UI, Obsidian demoted to one-shot import. Landed on `main`.
 
 ### Cursor Cloud specific instructions
 
-- Clone from **`integrate/prototype-v1`**, not `main`, for this epic.
-- PR against `integrate/prototype-v1`. Backend work goes under `backend/`; UI under `frontend/`. Do not add a second `src/jobhunt` tree.
+- Clone from **`integrate/mvp-v1`**, not `main`, for this epic.
+- PR against `integrate/mvp-v1`. Backend work goes under `backend/`; UI under `frontend/`. Do not add a second `src/jobhunt` tree.
 - Do not force-push `main` or `integrate/*`. Do not commit `.env`, vault notes, or API keys.
 
 ## Agent roles and playbooks

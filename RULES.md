@@ -13,9 +13,9 @@ Applies equally to humans, Cloud Agents, and CLI agents. No exceptions for
 
 | | |
 |---|---|
-| **Open epic** | **`integrate/prototype-v1`.** `ui-v1` and `storage-v1` have landed on `main`. |
-| **Where to branch from** | `integrate/prototype-v1` |
-| **Where to PR** | `integrate/prototype-v1` |
+| **Open epic** | **`integrate/mvp-v1`.** `prototype-v1`, `ui-v1`, and `storage-v1` have landed on `main`. |
+| **Where to branch from** | `integrate/mvp-v1` |
+| **Where to PR** | `integrate/mvp-v1` |
 | **Who opens epics** | Grok (planner/orchestrator) |
 | **Who merges** | Composer (Cursor), after CI + smoke |
 

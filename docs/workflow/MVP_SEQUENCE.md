@@ -1,7 +1,6 @@
 # MVP epic sequence (`integrate/mvp-v1`)
 
-Status: **Ready to open after** Composer merges `integrate/prototype-v1` → `main`
-(P7 smoke + human sign-off). Do not cut `mvp-v1` from `main` until that lands.
+Status: **Open** — `integrate/mvp-v1` @ `ff61b86` (2026-09-27). Stage 1 is on `main` (#48).
 
 Owner: Grok (or Cursor as temp planner). Implementer: 5090 local coder under briefs.
 Composer: gate every M* PR; owns M5 and M8. Claude: on call only where noted.
@@ -13,13 +12,12 @@ Compute mode: **default** (current mixed split) unless the human opts into
 
 ## Open the epic
 
+Done 2026-09-27: `integrate/mvp-v1` pushed @ `ff61b86`. AGENTS / RULES / branch-strategy / FEATURES updated via `chore/docs-open-mvp-v1`.
+
 ```bash
 git fetch origin
-git checkout main && git pull --ff-only   # tip must include prototype Stage 1
-git checkout -b integrate/mvp-v1
-git push -u origin integrate/mvp-v1
-# announce: integrate/mvp-v1 @ <SHA>
-# chore PR: AGENTS.md / RULES / branch-strategy / FEATURES MVP rows
+git checkout integrate/mvp-v1 && git pull --ff-only
+git checkout -b feat/backend-doc-extract   # M1 first
 ```
 
 ---
