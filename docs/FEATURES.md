@@ -29,7 +29,7 @@ One row per Cloud Agent package. Sibling agents add folders on parallel branches
 | B1 | Run progress | `stage` + live counts on `GET /runs/{id}` and `GET /runs` rows, `write_cap` on `GET /runs/{id}` | **This tree (backend)** | `feat/backend-b1`. `stage` is `scout` / `match` / `write` while running, `null` otherwise; counts update live; `write_cap` = config `letter_cap` for in-process runs. |
 | B4 | Run visibility | CLI/nightly run records, `trigger`, SQLite cross-process lock, 60s heartbeat, cancel flag, exit 75 when busy; F4 nightly plist | **This tree (backend)** | `feat/backend-run-visibility` (#40). Native store only; markdown keeps legacy behaviour. |
 | Post-B4 UI | Run chrome re-attach + Stop | `shared/run/useRunController.ts` | **This tree** | #41: re-attach any active run; Stop cancels cli/nightly via cross-process cancel. |
-| M1 | Doc extract | PDF/DOCX → `extracted.txt` on upload | **Planned** | Optional `pypdf` / `python-docx`. Empty/unsupported extract contract on Documents API. Never return file bytes in list. |
+| M1 | Doc extract | PDF/DOCX → `extracted.txt` on upload | **This tree** | #50. Optional `pip install 'jobhunt[extract]'` (`pypdf`, `python-docx`). `extract_status`: `ok` \| `empty` \| `unsupported` \| `error`. List/GET meta never returns file bytes or CV body. |
 | M2 | Run CV override | `POST /runs` `{ "cv": "<id>" }` | **Planned** | After M1. Sealed packet still one CV. |
 | M3 | CV picker UI | Tonight/Workflow metadata picker | **Planned** | After M1+M2. **Call Claude** before the UI brief. |
 | M4 | Embeddings app-data cache | `cache/embeddings` under native data dir | **Planned** | Parallel with M1 OK. |
