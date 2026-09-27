@@ -561,7 +561,7 @@ mock fallback rule stays untouched (M7).
 | C3 | `has_errors` + `preview` becomes a fake error line (`api.ts:141-147`); for a run row the preview is `scouted=… written=…` or the status. | For `kind: "run"` rows, never turn `preview` into an error. Show error strings only when the payload has them (mock). Otherwise, when `errorCount > 0`, one muted line: `{n} error(s)`. |
 | C4 | `trigger` isn't shown. | After the id: ` · nightly run` or ` · CLI run` for `trigger` `nightly` / `cli`; nothing for `api` or no trigger. |
 | C5 | The id and path are noise for run rows: a 12-hex id, and a `path` that is the data dir or `async:<id>`. | Run rows show `#{id5}`, with the full id in `title`, and no path line. Day notes keep the date id and path. |
-| C6 | Activity loads once, so a run that finishes while the page is open stays `running`. The run-field link (section 5) lands here mid-run. | ActivityPage re-loads once each time `useRun().ui` moves from an active state to any other state (same trigger as H7). |
+| C6 | Activity loads once, so a run that finishes while the page is open stays `running`. The run-field link (section 5) lands here mid-run. | ActivityPage re-loads once each time `useRun().ui` moves from an active state (`starting`, `queued`, `running`, `cancelling`, `lost-contact`) to any other state. Kept in W2-C by Grok's ruling, because the run link sends the user here mid-run. |
 
 Metrics line for a run row: `scout {s} · match {m} · write {w}`, each `—` when unknown; the
 `/{cap}` and `(n fallback)` parts appear only when `write_skipped` is known.
@@ -591,9 +591,9 @@ Root causes found:
 | # | Rule |
 | --- | --- |
 | D1 | **Active run** (`ui` is `starting`, `queued`, `running`, `cancelling` or `lost-contact`): Tonight takes the run from `useRun()`, not from the loader. Hero kicker `Tonight · run #{id5} in flight`, or `Tonight · run #{id5} · lost contact`. Lead `{s} scouted · {m} shortlisted · {w} letters written so far.` from `useRun().counts`, each `—` when unknown; no refusal clause while active. The title (drafts waiting) is unchanged; it comes from the jobs list. |
-| D2 | **Stage pills while active.** Before B1 (no `stage`): Scout, Match and Write read `in flight` (accent, pulsing), Vault reads `queued`. After B1: the current stage reads `running` and later stages read `queued`. Earlier stages may read `done` only once B1 says they're finished. That refines "never `done`" for known stages; **Grok to confirm**. Never `done` from a guess. |
+| D2 | **Stage pills while active.** Before B1 (no `stage`): Scout, Match and Write read `in flight` (accent, pulsing), Vault reads `queued`. After B1: the current reported stage reads `running`, stages strictly before it read `done`, and later stages read `queued` (ruled by Grok). Before B1, no stage reads `done` during a run. The same rule applies to any Workflow stage display. |
 | D3 | **Card rows while active:** every count is `—` unless `useRun().counts` has it (B1). The Scout and Write notes (first error, skipped count) are hidden. |
-| D4 | **After the run:** Tonight re-loads its snapshot once when `useRun().ui` leaves the active states (same trigger as H7), so the finished run and the new drafts appear. |
+| D4 | **After the run:** the snapshot refresh is **deferred to the post-B1 pass** (ruled by Grok, to match Workflow). Until then, once the run ends, Tonight falls back to its loaded snapshot; a reload shows the finished run. |
 | D5 | **Idle and finished runs** (loader fix, as H6): `kind: "run"` rows parse as runs, with `id`, `status` and `counts` from the row; unknown counts are `—`, not 0. Stage pills from `status`: `completed` / `completed_with_errors` → `done` on all three stages; `cancelled` → `stopped` (neutral); `failed` / `interrupted` → `failed` on all three (the API doesn't say which stage failed). The Vault pill reads `done` when `written > 0`, else `idle`. Only `kind: "day_note"` rows use the day-note branch. |
 | D6 | **Crawl refusals are counted only from real refusals.** Today every run error counts as a crawl-policy refusal (`TonightPage.tsx:38`), which produces `N start URL(s) refused by crawl policy`. Count only error strings that match the backend's refusal text (`refused {host}: this host forbids scraping`, `policy.py:91-93`). When the row carries no error strings (every `GET /runs` row), the count is unknown: omit the refusal clause, show `—` in the Scout `refused` row, and show `— refusals` on the Crawl policy card. |
 | D7 | **Pipeline cards:** delete `.kv::before` (`index.css:1113-1115`). Each row is then `label · leader · value`, with the value at the right end of its own row, at 1440 px and at 1023 px. |
@@ -607,7 +607,7 @@ Acceptance:
 
 - [ ] Manual, 1440 and 1023: in every stage card, each value sits at the right end of its own label's row. Screenshot both widths.
 - [ ] Manual, API up, during a run: the Tonight kicker reads `Tonight · run #… in flight`, the lead shows `—` counts, the Scout / Match / Write pills read `in flight`, and nothing reads `done` or `0`. Screenshot.
-- [ ] Manual: after the run, without a reload, the kicker reads `Tonight · run #… finished HH:MM` and the counts match Activity.
+- [ ] Manual: after the run and a reload, the kicker reads `Tonight · run #… finished HH:MM` and the counts match Activity.
 - [ ] Manual: a finished run with errors but no crawl denial shows no `refused by crawl policy` text.
 
 ---
@@ -618,7 +618,8 @@ Added 2026-09-27 (W2-A review, ruled by Grok). They join the first fallback-remo
 (compatibility rule, top of this doc).
 
 - **Poll HTTP errors** (`useRunController.ts`, `tick`). A `404` on `GET /runs/{id}` means the run is unknown to the API: go to `idle`, toast `That run is no longer known to the API.` A `5xx` keeps polling at the current interval, and doesn't count toward `lost contact`. Other 4xx: treat like a 404.
-- **Workflow snapshot refresh** (deferred from W2-B H7 by Grok). `useWorkflow` exposes `reload()`; WorkflowPage calls it once each time `useRun().ui` moves from an active state to any other state, so `last run #…`, drafts and the queued list update without a reload. Same trigger as W2-C C6 and W2-D D4.
+- **Workflow snapshot refresh** (deferred from W2-B H7 by Grok). `useWorkflow` exposes `reload()`; WorkflowPage calls it once each time `useRun().ui` moves from an active state to any other state, so `last run #…`, drafts and the queued list update without a reload. Same trigger as W2-C C6.
+- **Tonight snapshot refresh** (deferred from W2-D D4 by Grok). `useTonight` exposes `reload()`; TonightPage calls it on the same trigger, so the finished run and the new drafts appear without a reload.
 - **Re-hydrate on reconnect** (`AppShell.tsx`, `hydrate`). When connectivity moves from `disconnected` to `connected`, re-run `hydrate` once, so the profile, the Gemini status, the queue badge and the Vault count load without a reload.
 
 ---
