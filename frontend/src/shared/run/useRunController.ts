@@ -7,7 +7,7 @@ import { ApiError, apiGet, apiPost } from "../api/client";
 import { describeApiError, isUnreachable } from "../api/errors";
 import { ACTIVE_UI, countsFor, formatElapsed, id5, ledFor, runMessage, uiFromStatus } from "./format";
 import type { RunController } from "./RunContext";
-import type { RunAccepted, RunRow, RunStatus, RunUiState } from "./types";
+import type { RunAccepted, RunRow, RunStage, RunStatus, RunUiState } from "./types";
 
 export interface RunControllerOptions {
   /** Show a toast. */
@@ -18,6 +18,13 @@ export interface RunControllerOptions {
 
 /** States that keep polling `GET /runs/{id}`. */
 const POLLABLE: ReadonlySet<RunUiState> = new Set<RunUiState>(["queued", "running", "cancelling", "lost-contact"]);
+
+/** Purpose: useRun().stage: the last poll's B1 stage while that poll said running and the UI is still active. */
+function stageOf(ui: RunUiState, status: RunStatus | null): RunStage | null {
+  if (!ACTIVE_UI.has(ui) || status?.status !== "running") return null;
+  const stage = status.stage;
+  return stage === "scout" || stage === "match" || stage === "write" ? stage : null;
+}
 
 /**
  * Purpose: Find a live run to attach to (section 5). Until B4, only rows served from this process.
@@ -236,6 +243,21 @@ export function useRunController({ notify, onTick }: RunControllerOptions): RunC
         applyStatus(next);
       } catch (error) {
         if (stopped) return;
+        const httpStatus = error instanceof ApiError ? error.status : 0;
+        if (httpStatus >= 400 && httpStatus < 500) {
+          // Post-B1 pass item 3: the API doesn't know this run (404 or another 4xx), so go back to idle.
+          notifyRef.current("That run is no longer known to the API.");
+          failuresRef.current = 0;
+          setRunId(null);
+          setStatus(null);
+          setModel("");
+          setStarted(null);
+          setCancelSince(null);
+          setStopRequested(false);
+          moveTo("idle");
+          return;
+        }
+        // A 5xx is not "unreachable": it keeps polling at the current interval and never counts toward lost contact.
         if (isUnreachable(describeApiError(error, "Checking the run").kind)) {
           failuresRef.current += 1;
           if (failuresRef.current >= 3) moveTo("lost-contact");
@@ -251,7 +273,7 @@ export function useRunController({ notify, onTick }: RunControllerOptions): RunC
       stopped = true;
       window.clearTimeout(timer);
     };
-  }, [applyStatus, moveTo, polling, runId]);
+  }, [applyStatus, moveTo, polling, runId, setStarted]);
 
   // The elapsed time ticks every second while a run is active.
   const active = ACTIVE_UI.has(ui);
@@ -277,10 +299,11 @@ export function useRunController({ notify, onTick }: RunControllerOptions): RunC
   return {
     ui,
     runId,
+    stage: stageOf(ui, status),
     message: text,
     liveMessage: live,
     led: ledFor(ui),
-    counts: countsFor(ui, status),
+    counts: countsFor(status),
     model,
     elapsed: runId !== null && startedMs !== null ? formatElapsed(elapsedMs) : "",
     linkToActivity: runId !== null && active && elapsedMs >= 60_000,

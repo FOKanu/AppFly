@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ROUTES } from "../../routes";
 import { Toast, useToast } from "../../shared/ui/Toast";
@@ -60,7 +60,7 @@ const DEFAULT_GUARDRAILS: Guardrails = {
  *           save for real; schedule, caps, writer and guardrails are read-only.
  */
 export function WorkflowPage() {
-  const { snapshot } = useWorkflow();
+  const { snapshot, reload } = useWorkflow();
   const toast = useToast();
 
   const [profile, setProfile] = useState<HuntProfile | null>(null);
@@ -86,6 +86,13 @@ export function WorkflowPage() {
   }, []);
 
   const run = useRun();
+  // Post-B1 pass item 5: refresh the snapshot once each time the run leaves an active state.
+  const wasActive = useRef(false);
+  useEffect(() => {
+    const active = ACTIVE_UI.has(run.ui);
+    if (wasActive.current && !active) reload();
+    wasActive.current = active;
+  }, [run.ui, reload]);
   const lastRun = snapshot?.lastRun ?? null;
   const view = heartbeatView(run, lastRun, snapshot?.rateLimited ?? false);
 
@@ -232,23 +239,28 @@ function heartbeatView(run: RunController, lastRun: Run | null, rateLimited: boo
       return lit("waking", "starting a run\u2026");
     case "queued":
       return lit("waking", `run #${id} queued`);
-    case "running":
-      // Before B1 the API reports no stage, so no step is lit.
+    case "running": {
+      // H1 with B1: the reported stage lights its step; before the first stage report none is lit.
+      const step = stepForStage(run.stage);
       return {
-        activeStep: null,
-        label: "running",
-        dataState: "hunting",
+        activeStep: step,
+        label: step ?? "running",
+        dataState: step ?? "hunting",
         detail: `run #${id} in flight \u00b7 ${run.elapsed}`,
         detailLink: run.linkToActivity,
       };
-    case "cancelling":
+    }
+    case "cancelling": {
+      // The stage's step stays lit while the run finishes its current step.
+      const step = stepForStage(run.stage);
       return {
-        activeStep: null,
+        activeStep: step,
         label: "stopping",
-        dataState: "hunting",
-        detail: `stopping run #${id} \u00b7 finishing the current step`,
+        dataState: step ?? "hunting",
+        detail: `stopping run #${id} \u00b7 finishing the current ${run.stage === "write" ? "letter" : "step"}`,
         detailLink: false,
       };
+    }
     case "lost-contact":
       return { activeStep: null, label: "lost contact", dataState: "error", detail: run.message, detailLink: false };
     case "completed":
@@ -262,6 +274,14 @@ function heartbeatView(run: RunController, lastRun: Run | null, rateLimited: boo
     case "interrupted":
       return lit("error", `run #${id} interrupted \u00b7 the process stopped mid-run`);
   }
+}
+
+/** Purpose: H1 step for a B1 stage: scout -> hunting, match -> matching, write -> writing, none -> null. */
+function stepForStage(stage: RunController["stage"]): HeartbeatStateName | null {
+  if (stage === "scout") return "hunting";
+  if (stage === "match") return "matching";
+  if (stage === "write") return "writing";
+  return null;
 }
 
 /** Purpose: H1 idle row: the step implied by the last pipeline run. */

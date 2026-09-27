@@ -1,6 +1,7 @@
 import type { HeartbeatState } from "../api/client";
 import { redactSecrets } from "../../features/activity/redact";
 import type { RunCounts, RunStatus, RunUiState } from "./types";
+import { knownCounts } from "./progress";
 
 /** Purpose: UI states in which a run is in flight (Run now disabled, elapsed ticking). */
 export const ACTIVE_UI: ReadonlySet<RunUiState> = new Set([
@@ -39,20 +40,12 @@ export function whoLabel(trigger: string | undefined): string {
   return "Run";
 }
 
-/** Purpose: B3 flag, or the "interrupted:" error prefix until B3 (section 6). */
+/** Purpose: B3 flag only; the "interrupted:" error-prefix fallback is gone (post-B1 pass, section 4). */
 export function isInterrupted(status: RunStatus): boolean {
-  if (status.interrupted === true) return true;
-  if (status.status === "failed" && status.errors) {
-    for (const error of status.errors) {
-      if (typeof error === "string" && error.startsWith("interrupted:")) {
-        return true;
-      }
-    }
-  }
-  return false;
+  return status.interrupted === true;
 }
 
-/** Purpose: Map a polled run status to its UI state (section 4 table, B2 fallback). */
+/** Purpose: Map a polled run status to its UI state (section 4 table; with B2, failed means a crash). */
 export function uiFromStatus(status: RunStatus): RunUiState {
   switch (status.status) {
     case "queued":
@@ -67,7 +60,6 @@ export function uiFromStatus(status: RunStatus): RunUiState {
       return "problems";
     case "failed":
       if (isInterrupted(status)) return "interrupted";
-      if ((status.written ?? 0) > 0) return "problems";
       return "failed";
     default:
       return "running";
@@ -96,17 +88,15 @@ export function ledFor(ui: RunUiState): HeartbeatState {
   }
 }
 
-/** Purpose: RunningBar counts; unknown (undefined) while running before B1, never 0. */
-export function countsFor(ui: RunUiState, status: RunStatus | null): RunCounts {
+/** Purpose: RunningBar counts; a count knownCounts() can't vouch for is undefined (a dash), never 0. */
+export function countsFor(status: RunStatus | null): RunCounts {
   if (status === null) return {};
-  const hasLive = status.stage !== undefined;
-  if (ACTIVE_UI.has(ui) && !hasLive) return {};
-  if (ui === "interrupted" && !hasLive) return {};
+  const known = knownCounts(status);
   return {
-    scouted: status.scouted,
-    matched: status.shortlisted,
-    written: status.written,
-    writeCap: status.write_cap,
+    scouted: known.scouted ? status.scouted : undefined,
+    matched: known.shortlisted ? status.shortlisted : undefined,
+    written: known.written ? status.written : undefined,
+    writeCap: status.write_cap ?? undefined,
   };
 }
 
@@ -155,15 +145,15 @@ export function runMessage(input: RunMessageInput): { text: string; live: string
       base = `${who} #${id} running`;
       const stage = stageLabel(s);
       text = base + (stage ? dot + stage : "") + dot + formatElapsed(input.elapsedMs);
-      if (input.elapsedMs >= 60000) {
+      if (input.elapsedMs >= 60000 && (!s?.stage || s.stage === "write")) {
         text += " \u00b7 long runs are normal while letters are written";
       }
       live = base;
       break;
     case "cancelling":
-      base = `Stopping run #${id}\u2026 finishing the current step`;
+      base = `Stopping run #${id}\u2026 finishing the current ${s?.stage === "write" ? "letter" : "step"}`;
       text = base;
-      if (input.cancellingMs > 30000) {
+      if (input.cancellingMs > 30000 && s?.stage === "write") {
         text += " \u00b7 the current letter is still being written";
       }
       live = base;
@@ -202,8 +192,13 @@ export function runMessage(input: RunMessageInput): { text: string; live: string
       break;
     case "interrupted":
       base = `${who} #${id} was interrupted: the process running it stopped before it finished. Check Queue for any drafts it saved, then start a new run.`;
-      if (s?.stage !== undefined) {
-        base += ` Got as far as: scouted ${sc}, shortlisted ${m}, wrote ${w}.`;
+      const reached = s ? knownCounts(s) : null;
+      const got: string[] = [];
+      if (reached?.scouted) got.push(`scouted ${sc}`);
+      if (reached?.shortlisted) got.push(`shortlisted ${m}`);
+      if (reached?.written) got.push(`wrote ${w}`);
+      if (got.length > 0) {
+        base += ` Got as far as: ${got.join(", ")}.`;
       }
       text = base;
       live = base;
@@ -227,10 +222,10 @@ function stageLabel(s: RunStatus | null): string {
   if (stage.startsWith("writ")) {
     const w = s.written ?? 0;
     const cap = s.write_cap;
-    if (cap !== undefined) {
-      return `writing letters (${w} of ${cap})`;
+    if (cap !== undefined && cap !== null) {
+      return `writing letters (${w} written, cap ${cap})`;
     }
-    return `writing letters (${w})`;
+    return `writing letters (${w} written)`;
   }
   return "";
 }

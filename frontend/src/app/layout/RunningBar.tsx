@@ -89,5 +89,5 @@ function format(value: number | undefined): string {
 
 function formatRatio(value: number | undefined, cap: number | undefined): string {
   if (value === undefined) return "—";
-  return cap === undefined ? String(value) : `${value}/${cap}`;
+  return cap === undefined ? String(value) : `${value}/${cap} cap`;
 }
