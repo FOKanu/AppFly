@@ -5,6 +5,7 @@ import { ROUTES } from "../../routes";
 import { getWorkspace, initWorkspace } from "../vault/api";
 import type { WorkspaceStatus } from "../vault/types";
 import { describeApiError, isUnreachable, type ApiFailure } from "../../shared/api/errors";
+import { SETUP_DISMISSED_KEY } from "../setup/constants";
 
 interface WorkspacePanelProps {
   onToast: (message: string) => void;
@@ -163,6 +164,19 @@ export function WorkspacePanel({ onToast }: WorkspacePanelProps) {
             </>
           ) : null}
           <Link to={ROUTES.vault}>open the Vault</Link>
+          {" \u00b7 "}
+          <Link
+            to={ROUTES.setup}
+            onClick={() => {
+              try {
+                localStorage.removeItem(SETUP_DISMISSED_KEY);
+              } catch {
+                /* ignore */
+              }
+            }}
+          >
+            Run setup again
+          </Link>
         </span>
         <Button
           variant="quiet"

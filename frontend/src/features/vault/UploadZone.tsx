@@ -9,6 +9,8 @@ interface UploadZoneProps {
   busy: boolean;
   /** Prefill the kind select (e.g. from `?kind=cert` deep links). */
   initialKind?: DocumentKind;
+  /** When set, hide the kind select and always upload as this kind (setup wizard). */
+  lockKind?: DocumentKind;
 }
 
 /**
@@ -22,14 +24,15 @@ export function UploadZone({
   disabledReason,
   busy,
   initialKind = "cv",
+  lockKind,
 }: UploadZoneProps) {
-  const [kind, setKind] = useState<DocumentKind>(initialKind);
+  const [kind, setKind] = useState<DocumentKind>(lockKind ?? initialKind);
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setKind(initialKind);
-  }, [initialKind]);
+    setKind(lockKind ?? initialKind);
+  }, [initialKind, lockKind]);
 
   function accept(files: FileList | null) {
     if (!enabled || !files || files.length === 0) return;
@@ -53,20 +56,22 @@ export function UploadZone({
             Upload a file
           </h2>
         </div>
-        <label className="upload__kind">
-          <span className="menu__sr-only">File type</span>
-          <select
-            value={kind}
-            disabled={!enabled}
-            onChange={(event) => setKind(event.target.value as DocumentKind)}
-          >
-            {DOCUMENT_KINDS.map((entry) => (
-              <option key={entry.value} value={entry.value}>
-                {entry.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        {lockKind ? null : (
+          <label className="upload__kind">
+            <span className="menu__sr-only">File type</span>
+            <select
+              value={kind}
+              disabled={!enabled}
+              onChange={(event) => setKind(event.target.value as DocumentKind)}
+            >
+              {DOCUMENT_KINDS.map((entry) => (
+                <option key={entry.value} value={entry.value}>
+                  {entry.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
 
       <div

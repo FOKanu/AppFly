@@ -1,6 +1,6 @@
 # MVP epic sequence (`integrate/mvp-v1`)
 
-Status: **Open** — `integrate/mvp-v1` @ `2fedb3c` (2026-09-27, M4 #56). Stage 1 is on `main` (#48). M5 desktop in flight.
+Status: **Open** — `integrate/mvp-v1` @ `759b508` (2026-09-27, M5 #57). Stage 1 is on `main` (#48). M6 wizard in flight.
 
 Owner: Grok (or Cursor as temp planner). Implementer: 5090 local coder under briefs.
 Composer: gate every M* PR; owns M5 and M8. Claude: on call only where noted.
