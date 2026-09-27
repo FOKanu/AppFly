@@ -10,6 +10,9 @@ import { LetterWorkbench } from "./LetterWorkbench";
 import { PacketSpec } from "./PacketSpec";
 import "./packet.css";
 
+/** 404 sentence for save and regenerate (UI spec, W1 follow-up). */
+const JOB_GONE = "This job is no longer in the store. Go back to Queue and refresh.";
+
 /**
  * Purpose: Sealed writer packet — one job, its letter, and the approval step.
  * Does not: load the rest of the vault, render the CV body, or submit anything.
@@ -96,12 +99,14 @@ export function PacketPage() {
         return;
       }
       setBusy(true);
+      setError(null);
       try {
         await apiPut<unknown>(`/jobs/${encodeURIComponent(job.source_id)}/letter`, { body: text });
         setLetterBody(text);
         setFeedback("Letter saved to the local store.");
       } catch (err: unknown) {
-        setError(describeApiError(err, "Saving the letter").message);
+        const failure = describeApiError(err, "Saving the letter", JOB_GONE);
+        if (!failure.aborted) setError(failure.message);
       } finally {
         setBusy(false);
       }
@@ -115,6 +120,7 @@ export function PacketPage() {
       return;
     }
     setBusy(true);
+    setError(null);
     try {
       const data = await apiPost<{ body?: string }>(
         `/jobs/${encodeURIComponent(job.source_id)}/letter/regenerate`,
@@ -122,7 +128,8 @@ export function PacketPage() {
       if (data?.body) setLetterBody(data.body);
       setFeedback("Letter regenerated.");
     } catch (err: unknown) {
-      setError(describeApiError(err, "Regenerating the letter").message);
+      const failure = describeApiError(err, "Regenerating the letter", JOB_GONE);
+      if (!failure.aborted) setError(failure.message);
     } finally {
       setBusy(false);
     }
