@@ -15,7 +15,7 @@ export interface RunTelemetry {
   /** e.g. "gemini-flash ×3 · llama3.1:8b ×2". */
   writer?: string;
   tokens?: number;
-  /** e.g. "02:00". */
+  /** e.g. "21:00" (matches launchd template). */
   nextNightly?: string;
 }
 

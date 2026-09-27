@@ -2,7 +2,7 @@ import { Segmented } from "../../shared/ui/Segmented";
 
 /** Nightly schedule and the caps that bound one run. */
 export interface NightlyPlan {
-  /** 24h local start time, e.g. "02:00". */
+  /** 24h local start time, e.g. "21:00". */
   start: string;
   timezone: string;
   /** Index 0 = Monday. */

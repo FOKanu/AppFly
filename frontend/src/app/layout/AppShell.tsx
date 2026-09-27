@@ -190,7 +190,7 @@ export function AppShell() {
     written: run.counts.written,
     writeCap: run.counts.writeCap,
     writer: run.model || undefined,
-    nextNightly: "02:00",
+    nextNightly: "21:00",
   };
 
   return (

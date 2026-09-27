@@ -40,9 +40,9 @@ When an epic opens, name it here and every Cloud Agent prompt includes the Base/
 
 ### Live tip (avoid double work)
 
-- **Base every prototype PR on** `origin/integrate/prototype-v1` (tip as of 2026-09-27: `b6a247f`, Post-B1 A / #37). `git fetch origin` before cutting a branch.
+- **Base every prototype PR on** `origin/integrate/prototype-v1` (tip as of 2026-09-27: `06fa6d8`, Post-B4 UI / #41). `git fetch origin` before cutting a branch.
 - **Do not** reopen or continue closed `cursor/*` PRs (#1–#10 era); that UI already landed via `feat/ui-*`.
-- **In flight:** PR #38 (`feat/ui-post-b1-pages`) → integrate. **Next:** B4 / F4 `feat/backend-run-visibility` ([docs/design/FOLLOW_UPS.md](docs/design/FOLLOW_UPS.md)).
+- **B1–B4 + UI waves landed.** **Next:** P7 smoke (manual happy path) → human sign-off → Composer opens `integrate/prototype-v1` → `main`. Then Grok opens `integrate/mvp-v1` (or Cursor while Grok credits are out).
 - `main` may lag the epic until Composer merges `integrate/prototype-v1` → `main`. Prefer integrate while the epic is open.
 
 ### Closed epics

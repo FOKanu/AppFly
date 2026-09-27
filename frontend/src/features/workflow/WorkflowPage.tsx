@@ -36,9 +36,9 @@ const SCHEDULE_NOTE =
   "Schedule and caps live in config.yaml, which PUT /settings does not expose. Edit the file directly for now.";
 
 const DEFAULT_PLAN: NightlyPlan = {
-  start: "02:00",
+  start: "21:00",
   timezone: "Europe/Berlin",
-  days: [false, false, true, false, false, false, false],
+  days: [true, true, true, true, true, false, false],
   lettersPerNight: 5,
   maxListings: 150,
   shortlistThreshold: 7,
