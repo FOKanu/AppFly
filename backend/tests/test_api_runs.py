@@ -19,8 +19,8 @@ from jobhunt.vault import Vault
 def test_post_runs_accepts_async_and_completes(
     api_client: TestClient, api_vault: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def fake_run_all(config, vault=None):
-        v = vault or Vault(config.vault)
+    def fake_run_all(config, vault=None, **_kwargs):
+        v = Vault(config.vault)
         v.ensure_dirs()
         path = v.append_run_note("2099-01-01", "### Test run\n### Errors\n- write: GEMINI_API_KEY\n")
         return PipelineResult(
@@ -74,7 +74,7 @@ def test_post_runs_uses_pipeline_result(
         home_path=tmp_path / "Home.md",
         model="gemini-2.5-flash",
     )
-    monkeypatch.setattr("jobhunt.api.runner.run_all", lambda config, vault=None: fake)
+    monkeypatch.setattr("jobhunt.api.runner.run_all", lambda config, vault=None, **_kwargs: fake)
     response = api_client.post("/runs")
     assert response.status_code == 200
     run_id = response.json()["id"]

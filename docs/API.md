@@ -12,8 +12,8 @@ Local FastAPI app (`jobhunt.api.app:app`), default bind `http://127.0.0.1:8787`.
 | GET | `/jobs` | List job notes | query `status=` (optional; `inbox`, `shortlist`, `draft`, `approved`, `applied`, `skipped`) | Job summaries (source_id, title, company, status, score, url, crawl_allowed, …) | Fetch listing URLs; return API keys |
 | GET | `/jobs/{source_id}` | One job | path `source_id` | Job note payload (frontmatter + body excerpt) | HTTP-GET the job's `url` |
 | PATCH | `/jobs/{source_id}` | Update job metadata | JSON patch: `status`, `gemini`, `applied`, … | Updated job | Submit the application |
-| POST | `/runs` | Start a pipeline run | JSON: which stages (`scout`, `match`, `write`) or full run | Run id + accepted status | Crawl deny-listed hosts; hide `CrawlDeniedError` |
-| GET | `/runs` | List run logs | optional date query | Run summaries from `Runs/` | Include env secrets |
+| POST | `/runs` | Start a full pipeline run (scout → match → write) in the background | none (no request body) | `{ id, status: "queued", started, model }`; `409` while another run is queued/running | Crawl deny-listed hosts; hide `CrawlDeniedError` |
+| GET | `/runs` | List runs | none | One row per run id plus legacy day notes (see Runs below) | Include env secrets |
 | GET | `/settings` | Read non-secret settings | none | Keywords, location, source flags, plus `secrets: { gemini: bool, apify: bool, jobsuche: bool }` | Return key material or `.env` contents |
 | PUT | `/settings` | Replace non-secret settings | JSON subset of `config.yaml` | Updated settings (same shape as GET, still no raw secrets) | Write `GEMINI_API_KEY` / Apify tokens into YAML |
 | PUT | `/settings/secrets/{name}` | Store a named secret | `{"value": "..."}`; `name` is `gemini`, `apify`, or `jobsuche` | `{ "configured": true }` (no value echoed) | Return last-4 or plaintext |
@@ -21,8 +21,8 @@ Local FastAPI app (`jobhunt.api.app:app`), default bind `http://127.0.0.1:8787`.
 | GET | `/jobs/{id}/letter` | Full letter body | path | `{ body, model, … }` | CV body |
 | PUT | `/jobs/{id}/letter` | Save edited letter | `{ body }` | Saved letter | Auto-submit |
 | POST | `/jobs/{id}/letter/regenerate` | Force Gemini rewrite | none | New letter body | Include other jobs |
-| GET | `/runs/{id}` | Async run status | path | counts, errors, status | Secrets |
-| POST | `/runs/{id}/cancel` | Best-effort cancel | path | `{ cancelled }` | Kill Gemini mid-call reliably |
+| GET | `/runs/{id}` | Run status (memory, then store; survives restart) | path | counts, errors, status | Secrets |
+| POST | `/runs/{id}/cancel` | Cooperative cancel (checked between stages and letters) | path | `{ cancelled }`; `404` if the run is not in this process | Kill Gemini mid-call |
 | GET/POST | `/documents` | List / upload Vault docs | multipart on POST | metadata only | CV body in list |
 | GET/PATCH/DELETE | `/documents/{id}` | Meta / update / delete | patch fields | metadata | Echo originals in PATCH |
 | GET | `/documents/{id}/text` | Extracted text | path | plain text | Meant for engine; UI must not show CV in Memory |
@@ -56,6 +56,20 @@ The gateway must speak the Gemini REST API (`google-genai` sends `/{api_version}
 ### Runs
 
 `POST /runs` is asynchronous from the UI's point of view: it must not block the browser on embedding-model download without returning a run id. Errors from scout (including crawl denial) are recorded on the run, not swallowed.
+
+- **No body.** `POST /runs` always runs scout → match → write. Only one run may be `queued` or `running` per server process; a second `POST /runs` returns `409` with the active run id in `detail`. The CLI (`jobhunt run`) and the nightly job call the pipeline directly and are not covered by this lock.
+- **Statuses:** `queued` → `running` → `completed` | `failed` | `cancelled`. Every transition is written to the store (`runs` table, native backend). A crash inside the pipeline is recorded as `failed` with `"<ExceptionType>: <message>"` in `errors`. A stored run left `queued`/`running` by a previous process is reported as `failed` with an `interrupted: …` error.
+- **Cancel** sets a flag the pipeline checks before scout, match and write and before each letter; the run then ends as `cancelled`. A Gemini call already in flight finishes first.
+- **`GET /runs`** returns one row per run id (live in-memory state wins over the stored row), newest first. Day notes (`Runs/YYYY-MM-DD.md`) are listed only for days without a stored run. Legacy fields `date`, `path`, `preview`, `has_errors` are unchanged; new fields:
+
+| Field | Meaning |
+| --- | --- |
+| `id` | Run id (or `YYYY-MM-DD` for a day note) |
+| `kind` | `run` or `day_note` |
+| `status` | See statuses above (`completed` for day notes) |
+| `started_at` / `finished_at` | ISO timestamps (empty when unknown) |
+| `counts` | `{ scouted, matched, written }` for runs; `{}` for day notes |
+| `error_count` | Number of recorded error strings |
 
 ### Settings secrets
 

@@ -1,92 +1,163 @@
-"""In-memory async pipeline runner.
+"""In-process async pipeline runner.
 
-Purpose: Non-blocking POST /runs with status polling.
-Inputs: AppConfig; runs ``run_all`` on a background thread.
-Returns: RunRecord updates via the store when possible.
-Does not: Cancel mid-Gemini reliably (best-effort flag only).
+Purpose: Non-blocking POST /runs with status polling, one active run at a time.
+Inputs: AppConfig, the app store, and an ``on_update`` persistence callback.
+Returns: ``RunRecord`` snapshots; every status transition is passed to ``on_update``.
+Does not: Interrupt a Gemini call in flight (cancel is checked between stages and letters).
 """
 
 from __future__ import annotations
 
+import logging
 import threading
 import uuid
-from datetime import datetime
-from typing import Callable
+from collections.abc import Callable
+from dataclasses import replace
+from typing import Any
 
 from jobhunt.config import AppConfig
 from jobhunt.features.pipeline.run_all import run_all
 from jobhunt.store.types import RunRecord, utc_now
 
+logger = logging.getLogger(__name__)
+
+ACTIVE_STATUSES = frozenset({"queued", "running"})
+
 _lock = threading.Lock()
 _runs: dict[str, RunRecord] = {}
-_cancel: set[str] = set()
+_cancel_events: dict[str, threading.Event] = {}
+
+OnUpdate = Callable[[RunRecord], None]
+
+
+class RunConflictError(RuntimeError):
+    """Raised when a run is requested while another one is queued or running."""
+
+    def __init__(self, run_id: str) -> None:
+        super().__init__(f"Run {run_id} is already active")
+        self.run_id = run_id
 
 
 def get_run(run_id: str) -> RunRecord | None:
     with _lock:
-        return _runs.get(run_id)
+        rec = _runs.get(run_id)
+        return _snapshot(rec) if rec is not None else None
 
 
 def list_async_runs() -> list[RunRecord]:
     with _lock:
-        return list(_runs.values())
+        return [_snapshot(rec) for rec in _runs.values()]
+
+
+def reset_runs() -> None:
+    """Forget in-memory runs (tests and app restarts only)."""
+
+    with _lock:
+        _runs.clear()
+        _cancel_events.clear()
 
 
 def request_cancel(run_id: str) -> bool:
+    """Ask a run to stop at its next checkpoint; False when the id is unknown."""
+
     with _lock:
         if run_id not in _runs:
             return False
-        _cancel.add(run_id)
-        rec = _runs[run_id]
-        if rec.status in {"queued", "running"}:
-            rec.status = "cancelled"
+        event = _cancel_events.get(run_id)
+        if event is not None:
+            event.set()
         return True
 
 
-def start_async_run(config: AppConfig, *, on_done: Callable[[RunRecord], None] | None = None) -> RunRecord:
-    """Queue a background ``run_all`` and return the run id immediately."""
+def _snapshot(rec: RunRecord) -> RunRecord:
+    return replace(rec, errors=list(rec.errors))
+
+
+def _notify(on_update: OnUpdate | None, rec: RunRecord) -> None:
+    if on_update is None:
+        return
+    try:
+        on_update(rec)
+    except Exception:
+        logger.exception("Could not persist run %s", rec.id)
+
+
+def _update(run_id: str, on_update: OnUpdate | None, **changes: Any) -> None:
+    with _lock:
+        rec = _runs[run_id]
+        for key, value in changes.items():
+            setattr(rec, key, value)
+        snap = _snapshot(rec)
+    _notify(on_update, snap)
+
+
+def start_async_run(
+    config: AppConfig,
+    *,
+    store: Any = None,
+    on_update: OnUpdate | None = None,
+) -> RunRecord:
+    """Queue a background ``run_all`` and return the queued record immediately.
+
+    Raises ``RunConflictError`` when another run is queued or running.
+    """
 
     run_id = uuid.uuid4().hex[:12]
-    record = RunRecord(
-        id=run_id,
-        status="queued",
-        started=utc_now(),
-        model=config.gemini_model,
-    )
+    event = threading.Event()
     with _lock:
+        for existing in _runs.values():
+            if existing.status in ACTIVE_STATUSES:
+                raise RunConflictError(existing.id)
+        record = RunRecord(
+            id=run_id,
+            status="queued",
+            started=utc_now(),
+            model=config.gemini_model,
+        )
         _runs[run_id] = record
+        _cancel_events[run_id] = event
+        queued = _snapshot(record)
+    _notify(on_update, queued)
 
     def worker() -> None:
-        with _lock:
-            if run_id in _cancel:
-                return
-            _runs[run_id].status = "running"
+        if event.is_set():
+            _update(run_id, on_update, status="cancelled", finished=utc_now())
+            return
+        _update(run_id, on_update, status="running")
         try:
-            result = run_all(config)
-            with _lock:
-                rec = _runs[run_id]
-                if run_id in _cancel:
-                    rec.status = "cancelled"
-                else:
-                    rec.status = "completed" if not result.errors else "failed"
-                rec.finished = utc_now()
-                rec.scouted = result.scouted
-                rec.shortlisted = result.shortlisted
-                rec.skipped = result.skipped
-                rec.written = result.written
-                rec.write_skipped = result.write_skipped
-                rec.errors = list(result.errors)
-                rec.model = result.model
-                rec.preview = f"scouted={result.scouted} shortlisted={result.shortlisted} written={result.written}"
-                final = RunRecord(**rec.__dict__)
-            if on_done:
-                on_done(final)
-        except Exception as exc:  # noqa: BLE001
-            with _lock:
-                rec = _runs[run_id]
-                rec.status = "failed"
-                rec.finished = utc_now()
-                rec.errors = [str(exc)]
+            result = run_all(config, store, cancel=event)
+        except Exception as exc:  # noqa: BLE001 - a crashed run must still be recorded
+            _update(
+                run_id,
+                on_update,
+                status="failed",
+                finished=utc_now(),
+                errors=[f"{type(exc).__name__}: {exc}"],
+            )
+            return
+        if result.cancelled:
+            status = "cancelled"
+        elif result.errors:
+            status = "failed"
+        else:
+            status = "completed"
+        _update(
+            run_id,
+            on_update,
+            status=status,
+            finished=utc_now(),
+            scouted=result.scouted,
+            shortlisted=result.shortlisted,
+            skipped=result.skipped,
+            written=result.written,
+            write_skipped=result.write_skipped,
+            errors=list(result.errors),
+            model=result.model,
+            preview=(
+                f"scouted={result.scouted} shortlisted={result.shortlisted} "
+                f"written={result.written}"
+            ),
+        )
 
-    threading.Thread(target=worker, daemon=True).start()
-    return record
+    threading.Thread(target=worker, name=f"run-{run_id}", daemon=True).start()
+    return queued
