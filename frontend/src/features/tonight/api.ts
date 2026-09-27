@@ -1,7 +1,7 @@
 import { apiBaseUrl } from "../../shared/api/client";
 import { MOCK_DRAFTS, MOCK_RUN, MOCK_SHORTLIST, MOCK_TONIGHT } from "./mock";
 import type { DataSource, Health, Job, Run, StageStatus, TonightSnapshot } from "./types";
-import type { RunCounts } from "../../shared/run/types";
+import type { RunCounts, RunUiState } from "../../shared/run/types";
 
 /**
  * GET helper that never follows job-board URLs.
@@ -129,14 +129,15 @@ function stagesFor(status: string): Run["stages"] {
 }
 
 /**
- * Purpose: D1 - the active run as Tonight shows it, built from the shared run controller.
+ * Purpose: D1 - the active run as Tonight shows it, built from the shared run controller (status running,
+ *          stopping while the controller is cancelling, or lost-contact).
  * Does not: read the loader; counts are only what useRun() reports (B1), else undefined.
  */
-export function liveRun(runId: string | null, lostContact: boolean, counts: RunCounts): Run {
+export function liveRun(runId: string | null, ui: RunUiState, counts: RunCounts): Run {
   return {
     id: runId ?? "",
     started_at: "",
-    status: lostContact ? "lost-contact" : "running",
+    status: ui === "lost-contact" ? "lost-contact" : ui === "cancelling" ? "stopping" : "running",
     scouted: counts.scouted,
     shortlisted: counts.matched,
     written: counts.written,

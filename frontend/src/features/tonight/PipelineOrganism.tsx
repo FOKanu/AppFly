@@ -88,7 +88,7 @@ export function PipelineOrganism({ run, vaultNotes, vaultPath }: PipelineOrganis
           rows={[
             { label: "notes written", value: num(vaultNotes) },
             { label: "letters", value: num(run?.written) },
-            { label: "Home.md", value: run ? "updated" : "—" },
+            { label: "Home.md", value: homeUpdated(run) ? "updated" : "\u2014" },
           ]}
           note={vaultPath}
         />
@@ -202,4 +202,11 @@ function vaultStatus(run: Run | null): StageStatus | undefined {
   if (!run) return undefined;
   if (run.stages.write === "in flight") return "queued";
   return (run.written ?? 0) > 0 ? "done" : "idle";
+}
+
+/** Review fix: Home.md reads `updated` only once a run has finished writing (or for a day note). */
+function homeUpdated(run: Run | null): boolean {
+  if (!run) return false;
+  if (run.kind === "day_note") return true;
+  return run.status === "completed" || run.status === "completed_with_errors" || run.status === "cancelled";
 }

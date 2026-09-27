@@ -40,7 +40,7 @@ export function TonightPage() {
   // the loaded snapshot shows again once the run ends.
   const active = ACTIVE_UI.has(shared.ui);
   const run = active
-    ? liveRun(shared.runId, shared.ui === "lost-contact", shared.counts)
+    ? liveRun(shared.runId, shared.ui, shared.counts)
     : preview === "empty"
       ? null
       : (snapshot?.lastRun ?? null);

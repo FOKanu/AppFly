@@ -51,6 +51,7 @@ function kicker(run: Run | null): string {
   if (!run) return "Tonight \u00b7 no run recorded";
   const shortId = run.id ? ` #${id5(run.id)}` : "";
   if (run.status === "lost-contact") return `Tonight \u00b7 run${shortId} \u00b7 lost contact`;
+  if (run.status === "stopping") return `Tonight \u00b7 run${shortId} stopping`;
   if (isActive(run)) return `Tonight \u00b7 run${shortId} in flight`;
   const finished = run.finished_at ? clock(run.finished_at) : null;
   return finished
@@ -77,9 +78,14 @@ function lead(run: Run | null, refusalCount: number | null): string {
   return `${parts.join(" \u00b7 ")}.`;
 }
 
-/** A run still going: the live run, or a loaded queued/running row (G3). */
+/** A run still going: the live run (running, stopping, lost contact), or a loaded queued/running row (G3). */
 function isActive(run: Run): boolean {
-  return run.status === "queued" || run.status === "running" || run.status === "lost-contact";
+  return (
+    run.status === "queued" ||
+    run.status === "running" ||
+    run.status === "stopping" ||
+    run.status === "lost-contact"
+  );
 }
 
 function count(value: number | undefined): string {
