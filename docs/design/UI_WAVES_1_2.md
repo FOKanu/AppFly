@@ -8,6 +8,25 @@ Roles are unchanged (see [MULTI_AGENT.md](../workflow/MULTI_AGENT.md)). This doc
 decides copy, states and acceptance criteria. It does not prescribe code beyond
 naming the files a brief will need.
 
+**Decisions (user, 2026-09-27).** These resolve the open questions of the first draft.
+The backend work they need is tracked, with a Cursor prompt, in
+[FOLLOW_UPS.md](FOLLOW_UPS.md).
+
+| # | Decision | Effect on this spec |
+| --- | --- | --- |
+| D-1 | The API reports the current **stage** and **live counts** while a run is going. | Backend task B1. The running state shows the stage and counts (section 4). |
+| D-2 | Activity and the API must agree on the outcome. | Backend task B2 adds status `completed_with_errors`. The UI maps statuses 1:1 (section 4). |
+| D-3 | Fetch listing is deferred. | Hidden in W1 (item 2). Reminder F1. |
+| D-4 | An `interrupted` flag is required. | Backend task B3. Section 6 reads the flag. |
+| D-5 | The mock-data rule for Tonight / Workflow / Activity waits for M7. | Brief W1-C dropped from this epic (item 3). Reminder F2. |
+| D-6 | No `package.json` / lockfile changes, so no vitest for now. | **Manual checks are the binding gate.** Vitest cases below are kept, marked *(deferred)*. Reminder F3. |
+| D-7 | The UI must see nightly and CLI runs. | Backend task B4. The UI shows every run regardless of trigger (sections 4 and 5). |
+
+**Compatibility rule.** The UI waves must not wait for B1 to B4. Every new field is read
+only if present (`stage`, live counts, `interrupted`, `trigger`, status
+`completed_with_errors`). Until it lands, the UI uses the fallback noted in each section.
+Once B1 to B4 are merged, delete the fallbacks.
+
 ---
 
 ## 0. Ground truth the UI must respect
@@ -20,12 +39,13 @@ naming the files a brief will need.
 | A `Host` other than `127.0.0.1` or `localhost` → `400` (Starlette `TrustedHostMiddleware`, plain-text body). | `backend/src/jobhunt/api/app.py:108` | Its own copy. |
 | `POST /workspace/import/obsidian` returns an import report `{source, jobs, letters, documents, runs, errors[], imported_at}`, **not** `WorkspaceStatus`. A missing folder → `404 {"detail":"Vault not found: <path>"}`. | `backend/src/jobhunt/api/routes/workspace.py:79-97`, `store/import_obsidian.py:32-41` | The frontend type is wrong (`vault/api.ts:118`). The success copy uses report counts. |
 | `POST /runs` returns `{id, status:"queued", started, model}` immediately. A second POST while a run is queued or running → `409 {"detail":"A pipeline run is already active: <id>"}`. | `backend/src/jobhunt/api/routes/runs.py:119-142` | The Workflow page wrongly treats the response as a finished run (`WorkflowPage.tsx:144-158`). A 409 must attach to the active run. |
-| `GET /runs/{id}` returns `status`, `started`, `finished`, counts, `errors[]`. **There is no `stage` field. Counts are written only when the run ends.** | `runs.py:46-77`, `api/runner.py:122-159` | While running, the UI cannot show a stage or live counts. It shows elapsed time only (Q1). |
+| `GET /runs/{id}` returns `status`, `started`, `finished`, counts, `errors[]`. **There is no `stage` field. Counts are written only when the run ends.** | `runs.py:46-77`, `api/runner.py:122-159` | While running, the UI cannot show a stage or live counts. Until B1 it shows elapsed time only. |
 | The run ends `failed` if `errors` is non-empty, **even when letters were written** (per-letter failures from #17). | `runner.py:138-143` | The UI splits `failed` into "finished with problems" and "failed" (section 4). |
 | `POST /runs/{id}/cancel` → `{cancelled:true}`, or `404` if the id is not in this process. Cancel is checked before scout, match, write and each letter. A Gemini call already in flight finishes first. | `runs.py:158-163`, `docs/API.md` Runs | "Cancelling" is a real, possibly long state. A 404 means "API restarted". |
 | A stored run left `queued`/`running` by a dead process is returned as `failed` with an error starting `interrupted:`. | `runs.py:34, 89-94` | Detect by prefix and show it as its own state (section 6). |
-| `GET /runs` rows carry `status`, `started_at`, `counts`, `error_count`, `path` (`async:<id>` = live in this process), but **not** the error strings. | `runs.py:97-116, 166-189` | Activity can't tell "interrupted" from "failed" in the list (Q4). |
-| Vitest is **not** installed and there is no `test` script. `*.test.*` files exist but don't run. The only gate is `npm run build`. | `frontend/package.json:8` | Acceptance criteria are written as vitest cases **plus** a manual check. The manual check is binding until vitest is wired (Q6). |
+| `GET /runs` rows carry `status`, `started_at`, `counts`, `error_count`, `path` (`async:<id>` = live in this process), but **not** the error strings. | `runs.py:97-116, 166-189` | Activity can't tell "interrupted" from "failed" in the list until B3. |
+| Vitest is **not** installed and there is no `test` script. `*.test.*` files exist but don't run. The only gate is `npm run build`. | `frontend/package.json:8` | Per D-6, the manual checks are binding. Vitest cases are kept as *(deferred)* so they can be enabled later without rewriting. |
+| `jobhunt run` (CLI and nightly) calls the pipeline directly and writes **no** run record, only the day note. The nightly plist still points at an old checkout (`…/Job Application Automation/.venv/bin/jobhunt`). | `backend/src/jobhunt/cli.py:165-186`, `launchd/com.jobhunt.nightly.plist:13` | The UI can't see these runs until B4 lands. |
 | The local API is started with `python -m jobhunt.api` on `127.0.0.1:8787`. | `backend/src/jobhunt/api/__main__.py`, `README.md:18` | Used in the offline copy. |
 
 **Copy encoding.** New copy uses ASCII plus the existing house characters `·` (U+00B7)
@@ -60,7 +80,7 @@ State rules:
 Files likely touched: `frontend/src/shared/api/client.ts` (keep `detail`, add a `timeout` flag), new
 `frontend/src/shared/api/errors.ts` (classifier and templates). `client.ts` is shared, so this should be its own brief, landing first.
 
-Acceptance (vitest `shared/api/errors.test.ts`; manual in brackets):
+Acceptance (manual checks in brackets are binding; the vitest form is deferred, F3):
 
 - [ ] A mocked `fetch` rejection → kind `offline`, message contains `python -m jobhunt.api`. [Stop the API, click Re-create folders → toast matches.]
 - [ ] An abort after timeout → kind `timeout`.
@@ -115,8 +135,8 @@ type), and `features/vault/UploadZone.tsx` / `DocumentTable.tsx` only if the rea
 Acceptance:
 
 - [ ] `grep -rn "not serving yet\|STORE_UNAVAILABLE_NOTE\|SAMPLE_DOCUMENTS" frontend/src` returns nothing.
-- [ ] vitest: `getWorkspace` / `listDocuments` reject on 404 (no sample rows, no fake status).
-- [ ] vitest: `importObsidianVault` resolves to a report type; the success toast renders the counts.
+- [ ] *(deferred, F3)* vitest: `getWorkspace` / `listDocuments` reject on 404 (no sample rows, no fake status).
+- [ ] *(deferred, F3)* vitest: `importObsidianVault` resolves to a report type; the success toast renders the counts.
 - [ ] Manual, API up, empty store: Vault shows FirstRun, no banner. Settings checklist `0 of 4 done`. Re-create folders → `App data folder ready at …`.
 - [ ] Manual, API stopped: Vault shows the offline banner and no rows. Settings head reads `status unknown (API not reachable)` and the button is disabled with the 1b title.
 - [ ] Manual: import a non-existent path → `No Obsidian vault found at …`. Import a real vault → counts toast.
@@ -148,10 +168,10 @@ Why:
 Acceptance:
 
 - [ ] `grep -rn "Fetch listing\|requestListingFetch\|/fetch\`" frontend/src` returns nothing (READMEs included).
-- [ ] vitest: the Packet page for `agentur-ref-88112` has no `Fetch listing` button and has an `Open listing` link.
+- [ ] *(deferred, F3)* vitest: the Packet page for `agentur-ref-88112` has no `Fetch listing` button and has an `Open listing` link.
 - [ ] Manual: open an allowed and a denied packet. Neither shows the button; the denied one still shows the policy note.
 
-Out of scope: any `POST /jobs/{id}/fetch` route. If wanted later, it's a post-MVP backend task with a policy review (Q3).
+Out of scope: any `POST /jobs/{id}/fetch` route. Deferred (D-3). Reminder F1 in [FOLLOW_UPS.md](FOLLOW_UPS.md).
 
 ---
 
@@ -164,9 +184,9 @@ samples. Where samples appear, they are always labelled.
 | Screen | Samples when offline? | Violations today |
 | --- | --- | --- |
 | Vault | **No, never.** Sample files in a vault read as the user's own files. | `vault/api.ts:17-59, 76-78` (fixed in item 1) |
-| Tonight | Yes, labelled | `features/tonight/api.ts:14-19`: any non-OK becomes mock |
-| Workflow | Yes, labelled | `features/workflow/api.ts:10-16`: same |
-| Activity | Yes, labelled | Banner exists (`ActivityPage.tsx:56-59`). Check that its loader only falls back on network failure. |
+| Tonight | Yes, labelled | `features/tonight/api.ts:14-19`: any non-OK becomes mock. **Fix deferred to M7 (D-5, F2).** |
+| Workflow | Yes, labelled | `features/workflow/api.ts:10-16`: same. **Deferred to M7 (D-5, F2).** |
+| Activity | Yes, labelled | Banner exists (`ActivityPage.tsx:56-59`). Loader check **deferred to M7 (D-5, F2).** |
 | Queue / Packet | Yes, labelled | `usingMock` path. Reuse the banner below. |
 | Memory | Per M7 | Out of scope here |
 
@@ -180,18 +200,18 @@ Copy:
 | Global "Local IPC disconnected" body (`OfflineBanner.tsx:50-51`) | `This page can't reach the local API at {baseUrl}. Start it with python -m jobhunt.api. Never paste job-board cookies to work around this.` |
 | Non-offline load failure (any screen) | Danger banner, title `Couldn't load {screen}`, body = section 1 message |
 
-Files likely touched: `shared/ui/OfflineBanner.tsx`, `shared/ui/Banner.tsx` (only if a shared
-`SampleDataBanner` is added), `features/tonight/api.ts`, `features/workflow/api.ts`, and the
-Activity loader (`features/activity/api.ts`).
+In this epic: the rule is **defined** here and applied to Vault (item 1) and the global
+`OfflineBanner` copy. The Tonight / Workflow / Activity loaders keep today's behaviour until M7.
+
+Files likely touched in this epic: `shared/ui/OfflineBanner.tsx` only.
 
 Acceptance:
 
-- [ ] vitest per loader: a `fetch` rejection gives `source: "mock"`. A 500 response gives an error result, **not** mock.
-- [ ] Manual, API up but `/runs` forced to 500 (for example temporarily): Tonight shows `Couldn't load Tonight`, with no sample rows.
-- [ ] Manual, API stopped: every screen with samples shows the `Sample data` banner. Vault shows none.
+- [ ] *(deferred, F3)* vitest per loader: a `fetch` rejection gives `source: "mock"`. A 500 response gives an error result, **not** mock.
+- [ ] Manual, API stopped: the global banners show the new copy (no "Obsidian"). Vault shows no sample rows.
+- [ ] *(M7, F2)* Manual, API up but `/runs` forced to 500: Tonight shows `Couldn't load Tonight`, with no sample rows.
 
-Out of scope: rewriting the mock fixtures, and Memory ledgers (M7).
-**Split note for Grok:** the Tonight / Workflow / Activity loader fixes can be a separate brief (W1-C) from the Settings / Vault work (Q5).
+Out of scope: rewriting the mock fixtures, the Tonight / Workflow / Activity loaders, and Memory ledgers (all M7).
 
 ---
 
@@ -210,24 +230,27 @@ AppShell and read by WorkflowPage. The interface is Grok's call.
 | idle | No active run known | `idle` | `Idle · no run in progress` | enabled | disabled, title `No run in progress.` |
 | starting | `POST /runs` sent, no reply yet | `running` | `Starting run…` | disabled | disabled |
 | queued | Latest poll `status: "queued"` | `running` | `Run #{id5} queued…` | disabled | enabled |
-| running | Latest poll `status: "running"` | `running` | `Run #{id5} running · {elapsed}` (stage appended as ` · {stage}` once the API provides it, Q1) | disabled | enabled |
+| running | Latest poll `status: "running"` | `running` | `{Who} #{id5} running · {stage} · {elapsed}`. Fallback until B1: `{Who} #{id5} running · {elapsed}` | disabled | enabled |
 | cancelling | `POST /cancel` returned 200, run not yet terminal | `running` | `Stopping run #{id5}… finishing the current step` | disabled | disabled, label `Stopping…` |
 | cancelled | Poll `status: "cancelled"` | `stopped` | `Run #{id5} stopped. Scouted {s}, shortlisted {m}, wrote {w} before stopping.` | enabled | disabled |
 | completed | `completed` and `written > 0` | `waiting-for-you` | `Run #{id5} done. {w} draft(s) to review in Queue.` | enabled | disabled |
 | completed, nothing new | `completed` and `written === 0` | `idle` | `Run #{id5} done. Scouted {s}, shortlisted {m}; no new drafts.` | enabled | disabled |
-| finished with problems | `failed`, `written > 0`, not interrupted | `waiting-for-you` | `Run #{id5} finished with problems: {w} draft(s) written, {e} error(s). See Activity.` | enabled | disabled |
-| failed | `failed`, `written === 0`, not interrupted | `stopped` | `Run #{id5} failed: {firstError}. See Activity for all {e} error(s).` | enabled | disabled |
+| finished with problems | `status: "completed_with_errors"` (B2). Fallback until B2: `failed`, `written > 0`, not interrupted | `waiting-for-you` | `Run #{id5} finished with problems: {w} draft(s) written, {e} error(s). See Activity.` | enabled | disabled |
+| failed | `status: "failed"` and not interrupted. Fallback until B2: also requires `written === 0` | `stopped` | `Run #{id5} failed: {firstError}. See Activity for all {e} error(s).` | enabled | disabled |
 | interrupted | Section 6 | `stopped` | See section 6 | enabled | disabled |
 | already active (409) | `POST /runs` → 409 | `running` | Toast `A run is already in progress (#{id5}). Showing its progress.`, then attach to that id as queued/running | disabled | enabled |
+| run from elsewhere | Active run with `trigger` `nightly` or `cli` (B4), found by re-attach (section 5) | `running` | Same lines as queued / running, with `{Who}` = `Nightly run` or `CLI run`; toast on first sight: `A {nightly \| CLI} run started outside this page. Showing its progress.` | disabled | enabled once B4 supports cross-process cancel; until then disabled, title `This run was started outside the app and can't be stopped from here yet.` |
 | lost contact | 3 polls in a row fail with `offline`/`timeout` | `stopped` | `Lost contact with the local API. Run #{id5} may still be going; retrying…` | disabled | disabled |
 
 Formatting:
 
+- `{Who}` = `Run` for runs started in the UI (`trigger: "api"` or no `trigger`), `Nightly run` or `CLI run` otherwise (B4).
+- `{stage}` = `scouting`, `matching` or `writing letters ({w} of {cap})` from `stage` (B1); `{cap}` omitted when unknown.
 - `{id5}` = last 5 characters of the run id, which matches `WorkflowPage.tsx:255`.
 - `{elapsed}` = now minus the server's `started`, formatted like the RunningBar window (`45s`, `3m12s`, `1h04m`), updated every second on the client.
 - `{firstError}` = `errors[0]` after `redactSecrets`, cut to 120 characters with `…`.
 - `{e}` = `errors.length`.
-- Counts come from the final `GET /runs/{id}`. While running, the RunningBar count fields show `—`, never `0` (they're unknown, not zero).
+- Counts: with B1, the RunningBar scout / match / write fields update on every poll. Before B1 (fallback), they show `—` while running, never `0`, because they're unknown, not zero.
 
 Stop rules:
 
@@ -265,6 +288,12 @@ Acceptance (vitest with fake timers and a mocked `fetch`; manual against the loc
 - [ ] Workflow: the string `no cancel endpoint` is gone (`grep`). Stop is enabled while a run is active. Run now from Workflow shows the same states as the header.
 - [ ] Manual: Run now → Stop during scout → ends `cancelled` within one checkpoint. Screenshot in the PR.
 
+Acceptance for B1 / B2 / B4 fields (run once those backend tasks land):
+
+- [ ] Manual: during a run the header reads `Run #… running · matching · 1m03s` and the RunningBar counts move.
+- [ ] Manual: a run with one failing letter and one written draft ends `finished with problems`, and the Activity row shows the same outcome.
+- [ ] Manual: start `jobhunt run` in a terminal with the UI open → within 5 s the header shows `CLI run #… running`. Run now is disabled; a `POST /runs` returns 409.
+
 Out of scope: stage-selective runs, a CV picker (M3), a pause/resume that the API doesn't support, and killing an in-flight Gemini call.
 
 ---
@@ -283,20 +312,24 @@ Replaces the 120 × 500 ms loop (`AppShell.tsx:253`) and its `Run timed out — 
 
 | After 60 s | Copy / element |
 | --- | --- |
-| Header line | `Run #{id5} running · {elapsed} · long runs are normal while letters are written` |
+| Header line | The running line from section 4, followed by ` · long runs are normal while letters are written` |
 | RunningBar `run` field | Becomes a link to `/activity` (`ROUTES.activity`), text `run #{id5}` |
 | Workflow HeartbeatPanel detail | `run #{id5} in flight · {elapsed}` + link `Watch in Activity →` |
 
-Re-attach on load: when AppShell mounts and the API is reachable, it reads `GET /runs`. If a row has
-`status` `queued`/`running` and `path` starting `async:`, the UI attaches to that id (same as 409).
+Re-attach: when AppShell mounts and the API is reachable, it reads `GET /runs`. If a row has
+`status` `queued`/`running` and is not interrupted, the UI attaches to that id (same as 409).
+Fallback until B4: only rows whose `path` starts with `async:`.
+While idle, AppShell re-reads `GET /runs` every 30 s (visible tab only), so a nightly or CLI run
+that starts later is picked up within 30 s (D-7).
 Navigating or reloading must never lose a live run.
 
 Acceptance:
 
-- [ ] vitest, fake timers: after 60 s the poll gap is 5 s. With 20 minutes of `running`, polling never stops and no `timed out` text appears.
+- [ ] *(deferred, F3)* vitest, fake timers: after 60 s the poll gap is 5 s. With 20 minutes of `running`, polling never stops and no `timed out` text appears.
 - [ ] 3 rejected polls → `Lost contact…`; the 4th returns `running` → back to `running`.
 - [ ] `grep -n "timed out" frontend/src` returns nothing.
 - [ ] Manual: start a run, reload the page mid-run → the header shows the same run id still running.
+- [ ] Manual (after B4): with the UI idle, start `jobhunt run` in a terminal → within 30 s the header shows `CLI run #… running`.
 
 Out of scope: server push (SSE / WebSocket), and notifications.
 
@@ -304,14 +337,15 @@ Out of scope: server push (SSE / WebSocket), and notifications.
 
 ## W2 item 6: interrupted runs after an API restart
 
-**Detection:** `status === "failed"` and any `errors[i]` starts with `interrupted:`. This takes
-priority over "finished with problems" and "failed".
+**Detection:** `interrupted === true` on `GET /runs/{id}` and on `GET /runs` rows (B3).
+Fallback until B3: `status === "failed"` and any `errors[i]` starts with `interrupted:`.
+This takes priority over "finished with problems" and "failed".
 
 | Surface | Copy |
 | --- | --- |
-| Header / RunningBar (LED `stopped`) | `Run #{id5} was interrupted: the local API stopped before it finished. Check Queue for any drafts it saved, then start a new run.` |
-| Workflow HeartbeatPanel detail | `run #{id5} interrupted · API restarted mid-run` |
-| Activity row (display only) | Status chip `interrupted` (neutral tone, not danger), **only if** the list exposes it (Q4). Until then the row shows `failed`, which is accurate. |
+| Header / RunningBar (LED `stopped`) | `{Who} #{id5} was interrupted: the process running it stopped before it finished. Check Queue for any drafts it saved, then start a new run.` |
+| Workflow HeartbeatPanel detail | `run #{id5} interrupted · the process stopped mid-run` |
+| Activity row (display only) | Status chip `interrupted` (neutral tone, not danger) when the row has `interrupted: true` (B3). Before B3 the row shows `failed`, which is accurate. |
 
 When it's reached:
 
@@ -319,11 +353,11 @@ When it's reached:
 - After a cancel 404 (section 4).
 - When `lost contact` recovers and the run now reads interrupted.
 
-Don't show counts in this state. They're stored only at run end, so they read 0 and would mislead.
+Counts: with B1 (counts saved as the run goes) show `Got as far as: scouted {s}, shortlisted {m}, wrote {w}.` Without B1, show no counts; they're stored only at run end and would read 0.
 
 Acceptance:
 
-- [ ] vitest: a `GET /runs/{id}` with `status: "failed"`, `errors: ["interrupted: the server stopped before this run finished"]` renders the interrupted copy, with no counts and no `failed:` wording.
+- [ ] *(deferred, F3)* vitest: a `GET /runs/{id}` with `status: "failed"`, `errors: ["interrupted: the server stopped before this run finished"]` renders the interrupted copy, with no counts and no `failed:` wording.
 - [ ] Manual: Run now, kill the API during scout, restart it → within 5 s of the API returning, the header shows the interrupted message. Run now is enabled and works.
 
 Out of scope: automatic resume of interrupted runs.
@@ -334,14 +368,16 @@ Out of scope: automatic resume of interrupted runs.
 
 | Brief | Branch | Depends on | ALLOWED FILES (core) |
 | --- | --- | --- | --- |
-| W1-A errors | `feat/ui-firstrun-truth` (first commit) | none | `shared/api/client.ts`, new `shared/api/errors.ts` (+ test) |
+| W1-A errors | `feat/ui-firstrun-truth` (first commit) | none | `shared/api/client.ts`, new `shared/api/errors.ts` (no new test files until F3) |
 | W1-B first-run | same branch | W1-A | `features/settings/WorkspacePanel.tsx`, `ImportObsidianPanel.tsx`, `features/vault/{VaultPage.tsx,api.ts,types.ts}` (+ `UploadZone.tsx`, `DocumentTable.tsx` if the prop changes), `shared/ui/OfflineBanner.tsx` |
 | W1-P packet | same branch, or `feat/ui-packet-no-fetch` | none | `features/packet/{PacketSpec,PacketPage,PacketPage.test}.tsx`, `features/queue/jobsApi{,.test}.ts`, both READMEs |
-| W1-C loaders | separate (Q5) | W1-A | `features/{tonight,workflow,activity}/api.ts` (+ tests) |
 | W2-A run controller | `feat/ui-run-progress` | W1-A merged | `app/layout/{AppShell,RunningBar,ControlHeader}.tsx`, new `shared/run/*` |
 | W2-B workflow | same branch | W2-A | `features/workflow/{WorkflowPage,HeartbeatPanel}.tsx`, `features/workflow/api.ts` |
+| W2-C activity display | same branch | W2-A | `features/activity/RunRow.tsx`, `RunList.tsx`, `types.ts` for the `interrupted` chip and the `completed_with_errors` / `trigger` labels only. Display only, no loader changes (M7). |
 
 `AppShell.tsx` is effectively a magnet: keep W2-A as the only brief that edits it.
+
+Backend tasks B1 to B4 are **not** Grok briefs in this spec. You implement them (via Cursor) after the UI waves: see [FOLLOW_UPS.md](FOLLOW_UPS.md). The UI waves don't wait for them (compatibility rule, top of this doc).
 
 Privacy check on this spec: no CV bodies anywhere (Vault stays metadata-only). No secrets reach the
 frontend (every error detail is redacted). No browser job-board fetches (item 2 removes the only
@@ -349,12 +385,7 @@ candidate path).
 
 ---
 
-## Open questions (for the user)
+## Open questions
 
-1. **Stage while running.** The API has no `stage` field and counts only appear at the end, so "running" can show only elapsed time. Should Grok add `stage` (`scout` / `match` / `write`) and live counts to `GET /runs/{id}` (small backend task, W2)? If yes, the running line gains ` · {stage}`.
-2. **"Failed" when letters were written.** The backend marks a run `failed` if any letter errored, even with drafts written. This spec shows it as "finished with problems". Would you rather the backend add a `completed_with_errors` status so Activity and the API agree?
-3. **Fetch listing.** OK to drop it for the prototype and treat a server-side listing fetch as post-MVP (it needs a policy review)?
-4. **Interrupted in Activity.** `GET /runs` doesn't return error strings, so Activity can't label a run "interrupted". Add an `interrupted: bool` (or the first error) to the list row?
-5. **Scope of the mock-data rule.** Fix the Tonight / Workflow / Activity loaders in prototype-v1 (brief W1-C), or leave them to M7?
-6. **Frontend tests.** Every criterion above has a vitest form, but vitest isn't installed. Should Grok add vitest + Testing Library and a `test` script (a `package.json` / lockfile change, Composer's CI area)? Or do manual checks stay binding for this epic?
-7. **Nightly / CLI runs.** The single-run lock only covers the API process. A nightly `jobhunt run` running at the same time is invisible to the UI. Is that acceptable for the prototype?
+None left for the user. All seven were answered on 2026-09-27 (Decisions table at the top).
+Follow-ups and reminders: [FOLLOW_UPS.md](FOLLOW_UPS.md).
