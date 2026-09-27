@@ -44,10 +44,13 @@ Coming from an Obsidian vault? **Settings → Import from Obsidian** (`POST /wor
 Start a run from the UI (`POST /runs`) or the CLI:
 
 ```bash
-jobhunt run      # scout -> match -> write against the configured store
+jobhunt scout    # fetch + inbox
+jobhunt match    # filter + score (downloads the embedding model once)
+jobhunt write    # Gemini letters for shortlisted jobs
+jobhunt run      # scout -> match -> write in one pass
 ```
 
-`jobhunt scout`, `jobhunt match` and `jobhunt write` still exist, but they currently operate on the markdown vault at `vault_path`, not the native store. With the native backend, use `jobhunt run` or the UI.
+All four commands use the configured store (`storage_backend`: native SQLite by default, or the markdown vault).
 
 Morning loop in the UI:
 
