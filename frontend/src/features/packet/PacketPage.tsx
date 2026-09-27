@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { apiBaseUrl } from "../../shared/api/client";
+import { apiBaseUrl, APPFLY_HEADERS } from "../../shared/api/client";
 import { getJob, patchJobStatus, requestListingFetch } from "../queue/jobsApi";
 import type { JobRecord, JobStatus } from "../queue/types";
 import { ApproveStrip } from "./ApproveStrip";
@@ -106,7 +106,7 @@ export function PacketPage() {
           new URL(`/jobs/${encodeURIComponent(job.source_id)}/letter`, apiBaseUrl()),
           {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...APPFLY_HEADERS },
             body: JSON.stringify({ body: text }),
           },
         );
@@ -131,7 +131,7 @@ export function PacketPage() {
     try {
       const res = await fetch(
         new URL(`/jobs/${encodeURIComponent(job.source_id)}/letter/regenerate`, apiBaseUrl()),
-        { method: "POST" },
+        { method: "POST", headers: { ...APPFLY_HEADERS } },
       );
       if (!res.ok) throw new Error(await res.text());
       const data = (await res.json()) as { body?: string };

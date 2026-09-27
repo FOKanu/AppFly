@@ -1,4 +1,4 @@
-import { apiBaseUrl } from "../../shared/api/client";
+import { apiBaseUrl, APPFLY_HEADERS } from "../../shared/api/client";
 import { MOCK_QUEUED, MOCK_RUN, MOCK_WORKFLOW } from "./mock";
 import type { DataSource, Health, Job, Run, Stage, StageStatus, WorkflowSnapshot } from "./types";
 
@@ -158,7 +158,7 @@ export async function retryGemini(): Promise<RetryResult> {
   try {
     const response = await fetch(`${apiBaseUrl()}/runs`, {
       method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      headers: { Accept: "application/json", "Content-Type": "application/json", ...APPFLY_HEADERS },
     });
     if (response.status === 429) {
       return { ok: false, message: "Gemini still rate-limited" };
