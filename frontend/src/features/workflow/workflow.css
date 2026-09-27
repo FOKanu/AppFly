@@ -74,6 +74,10 @@
   color: var(--text-secondary);
 }
 
+.heartbeat-panel__detail a {
+  text-decoration: underline;
+}
+
 .heartbeat-panel__controls {
   display: flex;
   align-items: center;
@@ -84,13 +88,8 @@
 .nightly-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  height: var(--control-h);
-  padding: 0 10px 0 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--surface-3);
   font-size: 13px;
+  color: var(--text-tertiary);
   white-space: nowrap;
 }
 

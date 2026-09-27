@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ROUTES } from "../../routes";
-import { apiPost } from "../../shared/api/client";
 import { Toast, useToast } from "../../shared/ui/Toast";
 import {
   fetchSettings,
@@ -11,13 +10,15 @@ import {
 } from "../profiles/api";
 import type { HuntProfile } from "../profiles/types";
 import { recordProfileSnapshot } from "../memory/versionLedger";
-import { retryGemini } from "./api";
 import { GeminiRateLimitBanner } from "./GeminiRateLimitBanner";
 import { HeartbeatPanel, type HeartbeatStateName } from "./HeartbeatPanel";
 import { RequirementsPanel, type Guardrails } from "./RequirementsPanel";
 import { SchedulePanel, WriterPanel, type NightlyPlan, type WriterMode } from "./SchedulePanel";
 import { CrawlPolicyCard, SourcesPanel, type ScoutSource } from "./SourcesPanel";
 import { useWorkflow } from "./useWorkflow";
+import { useRun, type RunController } from "../../shared/run/RunContext";
+import { ACTIVE_UI, id5 } from "../../shared/run/format";
+import type { Run } from "./types";
 import "./workflow.css";
 
 /** Hosts `backend/src/jobhunt/policy.py` refuses. Read-only here on purpose. */
@@ -67,9 +68,6 @@ export function WorkflowPage() {
   const [plan] = useState(DEFAULT_PLAN);
   const [writerMode] = useState<WriterMode>("auto");
   const [guardrails] = useState(DEFAULT_GUARDRAILS);
-  const [retryMessage, setRetryMessage] = useState<string | null>(null);
-  const [retrying, setRetrying] = useState(false);
-  const [running, setRunning] = useState(false);
 
   useEffect(() => {
     document.title = "AppFly · Workflow";
@@ -87,10 +85,9 @@ export function WorkflowPage() {
     };
   }, []);
 
-  const run = snapshot?.lastRun ?? null;
-  const state: HeartbeatStateName = running
-    ? "hunting"
-    : heartbeatFor(run?.status, snapshot?.rateLimited);
+  const run = useRun();
+  const lastRun = snapshot?.lastRun ?? null;
+  const view = heartbeatView(run, lastRun, snapshot?.rateLimited ?? false);
 
   const sources: ScoutSource[] = [
     {
@@ -142,49 +139,30 @@ export function WorkflowPage() {
     [toast],
   );
 
-  const onRunNow = useCallback(async () => {
-    setRunning(true);
-    try {
-      const result = await apiPost<{ scouted: number; shortlisted: number; written: number }>(
-        "/runs",
-      );
-      toast.show(
-        `Run finished — scouted ${result.scouted}, shortlisted ${result.shortlisted}, wrote ${result.written}.`,
-      );
-    } catch {
-      toast.show("Run failed — the local API is unreachable.");
-    } finally {
-      setRunning(false);
-    }
-  }, [toast]);
-
-  const onRetry = useCallback(async () => {
-    setRetrying(true);
-    const result = await retryGemini();
-    setRetryMessage(result.message);
-    setRetrying(false);
-  }, []);
-
   return (
     <div className="workflow">
       {snapshot?.rateLimited ? (
         <GeminiRateLimitBanner
-          onRetry={() => void onRetry()}
-          busy={retrying}
-          message={retryMessage}
+          onRunAgain={run.start}
+          disabled={run.runDisabled}
+          title={run.runTitle}
         />
       ) : null}
 
       <HeartbeatPanel
-        state={state}
-        detail={heartbeatDetail(run, running)}
-        nightlyOn={plan.days.some(Boolean)}
-        onNightly={() => undefined}
-        nightlyReason={SCHEDULE_NOTE}
-        onRunNow={() => void onRunNow()}
-        onStop={() => undefined}
-        stopReason="The API has no cancel endpoint; a run finishes on its own."
-        running={running}
+        activeStep={view.activeStep}
+        label={view.label}
+        dataState={view.dataState}
+        detail={view.detail}
+        detailLink={view.detailLink}
+        inFlight={ACTIVE_UI.has(run.ui)}
+        onRunNow={run.start}
+        runDisabled={run.runDisabled}
+        runTitle={run.runTitle}
+        onStop={run.stop}
+        stopDisabled={run.stopDisabled}
+        stopTitle={run.stopTitle}
+        stopping={run.ui === "cancelling"}
       />
 
       <div className="workflow__columns">
@@ -206,7 +184,7 @@ export function WorkflowPage() {
             tokenHistory={[]}
             cloudLabel="gemini-2.5-flash"
             localLabel="llama3.1:8b (fallback)"
-            fallbackNote={run?.errors[0]}
+            fallbackNote={lastRun?.errors[0]}
           />
         </div>
 
@@ -227,30 +205,88 @@ export function WorkflowPage() {
   );
 }
 
-/** Map the run status onto the heartbeat state machine. */
-function heartbeatFor(
-  status: string | undefined,
-  rateLimited: boolean | undefined,
-): HeartbeatStateName {
-  if (rateLimited) return "writing";
-  switch (status) {
+/** What the HeartbeatPanel shows for one shared run state (spec H1 and H2). */
+interface HeartbeatView {
+  activeStep: HeartbeatStateName | null;
+  label: string;
+  dataState: HeartbeatStateName;
+  detail: string;
+  detailLink: boolean;
+}
+
+/** Purpose: H1 step + label and H2 detail line from useRun() and the last loaded run. */
+function heartbeatView(run: RunController, lastRun: Run | null, rateLimited: boolean): HeartbeatView {
+  const id = run.runId ? id5(run.runId) : "";
+  const lit = (step: HeartbeatStateName, detail: string): HeartbeatView => ({
+    activeStep: step,
+    label: step,
+    dataState: step,
+    detail,
+    detailLink: false,
+  });
+  switch (run.ui) {
+    case "idle":
+      // Fixture-only rate limit wins while idle; otherwise the last run decides (H1 idle row).
+      return lit(rateLimited ? "writing" : idleStep(lastRun), idleDetail(lastRun));
+    case "starting":
+      return lit("waking", "starting a run\u2026");
+    case "queued":
+      return lit("waking", `run #${id} queued`);
     case "running":
-      return "hunting";
+      // Before B1 the API reports no stage, so no step is lit.
+      return {
+        activeStep: null,
+        label: "running",
+        dataState: "hunting",
+        detail: `run #${id} in flight \u00b7 ${run.elapsed}`,
+        detailLink: run.linkToActivity,
+      };
+    case "cancelling":
+      return {
+        activeStep: null,
+        label: "stopping",
+        dataState: "hunting",
+        detail: `stopping run #${id} \u00b7 finishing the current step`,
+        detailLink: false,
+      };
+    case "lost-contact":
+      return { activeStep: null, label: "lost contact", dataState: "error", detail: run.message, detailLink: false };
+    case "completed":
+    case "problems":
+      return lit("waiting-for-you", run.message);
+    case "completed-empty":
+    case "cancelled":
+      return lit("asleep", run.message);
     case "failed":
-      return "error";
-    case "ok":
-      return "waiting-for-you";
-    default:
-      return "asleep";
+      return lit("error", run.message);
+    case "interrupted":
+      return lit("error", `run #${id} interrupted \u00b7 the process stopped mid-run`);
   }
 }
 
-function heartbeatDetail(
-  run: { id: string; status: string; written: number } | null,
-  running: boolean,
-): string {
-  if (running) return "run in flight · started from this screen";
-  if (!run) return "no run recorded · nothing needs review";
-  const drafts = run.written > 0 ? `${run.written} drafts need review` : "no drafts need review";
-  return `run ${run.id.slice(-5)} ${run.status} · ${drafts}`;
+/** Purpose: H1 idle row: the step implied by the last pipeline run. */
+function idleStep(lastRun: Run | null): HeartbeatStateName {
+  if (!lastRun) return "asleep";
+  if (lastRun.status === "completed_with_errors") return "waiting-for-you";
+  if (lastRun.status === "completed" && (lastRun.written ?? 0) > 0) return "waiting-for-you";
+  if (lastRun.status === "failed") return "error";
+  return "asleep";
+}
+
+/** H2 status words for the idle line. */
+const LAST_RUN_WORD: Record<string, string> = {
+  completed: "done",
+  completed_with_errors: "finished with problems",
+  ok: "done",
+  failed: "failed",
+  cancelled: "stopped",
+};
+
+/** Purpose: H2 idle detail: `last run #{id5} {word} \u00b7 ...` or the no-run line. */
+function idleDetail(lastRun: Run | null): string {
+  if (!lastRun) return "no run recorded \u00b7 nothing needs review";
+  const word = LAST_RUN_WORD[lastRun.status] ?? lastRun.status;
+  const written = lastRun.written ?? 0;
+  const drafts = written > 0 ? `${written} draft(s) to review` : "no drafts to review";
+  return `last run #${id5(lastRun.id)} ${word} \u00b7 ${drafts}`;
 }

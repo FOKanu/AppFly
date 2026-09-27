@@ -30,27 +30,58 @@ function asHealth(payload: unknown): Health {
   return { ok, api: ok ? "up" : "down" };
 }
 
+/** Purpose: Legacy Runs/YYYY-MM-DD.md note as a Run (counts 0, stages done), kind "day_note". */
+function dayNote(row: Record<string, unknown>): Run {
+  const failed = Boolean(row.has_errors);
+  return {
+    id: String(row.path ?? row.date),
+    started_at: String(row.date ?? ""),
+    status: failed ? "failed" : "ok",
+    scouted: 0,
+    shortlisted: 0,
+    skipped: 0,
+    written: 0,
+    write_skipped: 0,
+    errors: failed && typeof row.preview === "string" ? [row.preview] : [],
+    stages: {
+      scout: "done",
+      match: "done",
+      write: failed ? "failed" : "done",
+    },
+    kind: "day_note",
+  };
+}
+
 function runFromLog(item: unknown): Run | null {
   if (!item || typeof item !== "object") return null;
   const row = item as Record<string, unknown>;
-  if (typeof row.date === "string") {
-    const failed = Boolean(row.has_errors);
+  if (row.kind === "day_note" && typeof row.date === "string") {
+    return dayNote(row);
+  }
+  if (
+    typeof row.id === "string" &&
+    row.id !== "" &&
+    typeof row.status === "string" &&
+    row.kind === "run"
+  ) {
+    const counts = (row.counts && typeof row.counts === "object" ? row.counts : {}) as Record<string, unknown>;
+    const count = (key: string): number | undefined =>
+      typeof counts[key] === "number" ? (counts[key] as number) : undefined;
     return {
-      id: String(row.path ?? row.date),
-      started_at: row.date,
-      status: failed ? "failed" : "ok",
-      scouted: 0,
-      shortlisted: 0,
-      skipped: 0,
-      written: 0,
-      write_skipped: 0,
-      errors: failed && typeof row.preview === "string" ? [row.preview] : [],
-      stages: {
-        scout: "done",
-        match: "done",
-        write: failed ? "failed" : "done",
-      },
+      id: row.id,
+      started_at: typeof row.started_at === "string" && row.started_at ? row.started_at : String(row.date ?? ""),
+      finished_at: typeof row.finished_at === "string" && row.finished_at ? row.finished_at : undefined,
+      status: row.status,
+      scouted: count("scouted"),
+      shortlisted: count("matched"),
+      written: count("written"),
+      errors: [],
+      error_count: typeof row.error_count === "number" ? row.error_count : undefined,
+      kind: "run",
     };
+  }
+  if (typeof row.date === "string") {
+    return dayNote(row);
   }
   if (typeof row.id === "string" && typeof row.status === "string") {
     return item as Run;
@@ -74,7 +105,7 @@ function stageFromRun(run: Run): Stage[] {
       label: "Match",
       status: statusOf("match", "done"),
       count: run.shortlisted,
-      detail: `${run.shortlisted} shortlist · ${run.skipped} skipped`,
+      detail: `${run.shortlisted ?? "\u2014"} shortlist \u00b7 ${run.skipped ?? "\u2014"} skipped`,
     },
     {
       id: "write",
@@ -87,7 +118,7 @@ function stageFromRun(run: Run): Stage[] {
       detail:
         run.gemini === "rate_limited"
           ? "Gemini rate-limited"
-          : `${run.written} letters`,
+          : `${run.written ?? "\u2014"} letters`,
     },
   ];
 }
@@ -105,7 +136,8 @@ export async function fetchWorkflow(): Promise<{ data: WorkflowSnapshot; source:
   const runList = asList<unknown>(runs.data, "runs")
     .map(runFromLog)
     .filter((row): row is Run => row !== null);
-  const lastRun = runList[0] ?? null;
+  // H1/H2: the heartbeat reads the latest pipeline run, never a day note.
+  const lastRun = runList.find((row) => row.kind !== "day_note") ?? null;
   const draftJobs = asList<Job>(drafts.data, "jobs");
   const queued = [
     ...asList<Job>(inbox.data, "jobs"),
