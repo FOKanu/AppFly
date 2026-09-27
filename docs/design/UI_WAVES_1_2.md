@@ -39,7 +39,7 @@ Once B1 to B4 are merged, delete the fallbacks.
 | A `Host` other than `127.0.0.1` or `localhost` → `400` (Starlette `TrustedHostMiddleware`, plain-text body). | `backend/src/jobhunt/api/app.py:108` | Its own copy. |
 | `POST /workspace/import/obsidian` returns an import report `{source, jobs, letters, documents, runs, errors[], imported_at}`, **not** `WorkspaceStatus`. A missing folder → `404 {"detail":"Vault not found: <path>"}`. | `backend/src/jobhunt/api/routes/workspace.py:79-97`, `store/import_obsidian.py:32-41` | The frontend type is wrong (`vault/api.ts:118`). The success copy uses report counts. |
 | `POST /runs` returns `{id, status:"queued", started, model}` immediately. A second POST while a run is queued or running → `409 {"detail":"A pipeline run is already active: <id>"}`. | `backend/src/jobhunt/api/routes/runs.py:119-142` | The Workflow page wrongly treats the response as a finished run (`WorkflowPage.tsx:144-158`). A 409 must attach to the active run. |
-| `GET /runs/{id}` returns `status`, `started`, `finished`, counts, `errors[]`. **There is no `stage` field. Counts are written only when the run ends.** | `runs.py:46-77`, `api/runner.py:122-159` | While running, the UI cannot show a stage or live counts. Until B1 it shows elapsed time only. |
+| `GET /runs/{id}` returns `status`, `started`, `finished`, counts, `errors[]`. **There is no `stage` field. Counts are written only when the run ends.** | `runs.py:46-77`, `api/runner.py:122-160` | While running, the UI cannot show a stage or live counts. Until B1 it shows elapsed time only. |
 | The run ends `failed` if `errors` is non-empty, **even when letters were written** (per-letter failures from #17). | `runner.py:138-143` | The UI splits `failed` into "finished with problems" and "failed" (section 4). |
 | `POST /runs/{id}/cancel` → `{cancelled:true}`, or `404` if the id is not in this process. Cancel is checked before scout, match, write and each letter. A Gemini call already in flight finishes first. | `runs.py:158-163`, `docs/API.md` Runs | "Cancelling" is a real, possibly long state. A 404 means "API restarted". |
 | A stored run left `queued`/`running` by a dead process is returned as `failed` with an error starting `interrupted:`. | `runs.py:34, 89-94` | Detect by prefix and show it as its own state (section 6). |
@@ -160,7 +160,7 @@ Why:
 | `features/packet/PacketSpec.tsx:114-117` | Remove the `Fetch listing` button. When `crawl_allowed` is true, render nothing in its place. Keep the `crawl-denied` note for false. |
 | `features/packet/PacketSpec.tsx:53-55` meta line | `allowed source · fetched via the local scout` → `allowed source · ingested by the scout` (it no longer implies an on-demand fetch). |
 | `features/packet/PacketPage.tsx:93` | Remove `onFetchListing` and its prop wiring. |
-| `features/queue/jobsApi.ts:152-180` | Delete `requestListingFetch`. |
+| `features/queue/jobsApi.ts:153-180` | Delete `requestListingFetch`. |
 | `features/queue/jobsApi.test.ts:60-73` (the `/fetch` assertion is at `:71`) | Replace with: `no code path calls /jobs/{id}/fetch`. |
 | `features/packet/PacketPage.test.tsx:66-71` | Invert: `Fetch listing` is absent for allowed jobs, and `Open listing` is present. |
 | `features/packet/README.md:16`, `features/queue/README.md:23` | Remove the "Fetch listing" mentions. |
