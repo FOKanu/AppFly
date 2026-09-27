@@ -22,6 +22,8 @@ from jobhunt.store.types import RunRecord, utc_now
 logger = logging.getLogger(__name__)
 
 ACTIVE_STATUSES = frozenset({"queued", "running"})
+# B1: the only fields the pipeline may change while running.
+_PROGRESS_FIELDS = frozenset({"stage", "scouted", "shortlisted", "skipped", "written", "write_skipped"})
 
 _lock = threading.Lock()
 _runs: dict[str, RunRecord] = {}
@@ -113,25 +115,40 @@ def start_async_run(
             status="queued",
             started=utc_now(),
             model=config.gemini_model,
+            write_cap=config.letter_cap,
         )
         _runs[run_id] = record
         _cancel_events[run_id] = event
         queued = _snapshot(record)
     _notify(on_update, queued)
 
+    def progress(**changes: Any) -> None:
+        """Record live stage and counts for this run.
+
+        Purpose: B1 - let GET /runs/{id} show the stage and counts while the run is going.
+        Inputs: Keyword changes from the pipeline (stage, scouted, shortlisted, skipped, written, write_skipped).
+        Returns: None; the change is persisted through ``on_update`` like any transition.
+        Does not: Change status, errors or timestamps; unknown keys are ignored.
+        """
+
+        allowed = {key: value for key, value in changes.items() if key in _PROGRESS_FIELDS}
+        if allowed:
+            _update(run_id, on_update, **allowed)
+
     def worker() -> None:
         if event.is_set():
-            _update(run_id, on_update, status="cancelled", finished=utc_now())
+            _update(run_id, on_update, status="cancelled", finished=utc_now(), stage=None)
             return
         _update(run_id, on_update, status="running")
         try:
-            result = run_all(config, store, cancel=event)
+            result = run_all(config, store, cancel=event, on_progress=progress)
         except Exception as exc:  # noqa: BLE001 - a crashed run must still be recorded
             _update(
                 run_id,
                 on_update,
                 status="failed",
                 finished=utc_now(),
+                stage=None,
                 errors=[f"{type(exc).__name__}: {exc}"],
             )
             return
@@ -146,6 +163,7 @@ def start_async_run(
             on_update,
             status=status,
             finished=utc_now(),
+            stage=None,
             scouted=result.scouted,
             shortlisted=result.shortlisted,
             skipped=result.skipped,

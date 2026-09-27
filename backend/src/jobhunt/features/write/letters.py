@@ -32,12 +32,14 @@ def write_letters(
     config: AppConfig,
     vault: Vault,
     should_stop: Callable[[], bool] | None = None,
+    on_letter: Callable[[int, int], None] | None = None,
 ) -> dict[str, Any]:
     """Write up to ``letter_cap`` letters for shortlisted jobs.
 
     Purpose: CLI ``jobhunt write`` pipeline step.
     Inputs: Config (model, cap, excerpt length) and vault; key from the Keychain
-    (``gemini``) or ``GEMINI_API_KEY``; optional ``should_stop`` checked before each letter.
+    (``gemini``) or ``GEMINI_API_KEY``; optional ``should_stop`` checked before each letter;
+    optional ``on_letter(written, skipped)`` called after each letter attempt (B1 live counts).
     Returns: ``written`` / ``skipped`` / ``capped`` / ``failed`` counts and ``errors``
     (one string per failed job); ``stopped`` (True when cancelled between letters).
     Does not: Overwrite jobs that already have a letter or ``gemini: false``; stop the
@@ -86,6 +88,8 @@ def write_letters(
         except Exception as exc:  # noqa: BLE001 - one failed letter must not stop the batch
             failed += 1
             errors.append(f"{job.company} - {job.title}: {type(exc).__name__}: {exc}")
+            if on_letter is not None:
+                on_letter(written, skipped)
             continue
         vault.write_letter(
             job,
@@ -95,6 +99,8 @@ def write_letters(
             tokens_out=tokens_out,
         )
         written += 1
+        if on_letter is not None:
+            on_letter(written, skipped)
     return {
         "written": written,
         "skipped": skipped,

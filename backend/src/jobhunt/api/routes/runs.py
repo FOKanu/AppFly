@@ -59,6 +59,8 @@ class AsyncRunStatus(BaseModel):
     model: str = ""
     preview: str = ""
     interrupted: bool = False
+    stage: str | None = None
+    write_cap: int | None = None
 
 
 def _status_out(rec: RunRecord) -> AsyncRunStatus:
@@ -76,6 +78,8 @@ def _status_out(rec: RunRecord) -> AsyncRunStatus:
         model=rec.model,
         preview=rec.preview,
         interrupted=rec.interrupted,
+        stage=rec.stage,
+        write_cap=rec.write_cap,
     )
 
 
@@ -98,7 +102,9 @@ def _settle_stale(rec: RunRecord) -> RunRecord:
     """
 
     if rec.status in ACTIVE_STATUSES:
-        return replace(rec, status="failed", errors=[*rec.errors, _INTERRUPTED], interrupted=True)
+        return replace(
+            rec, status="failed", errors=[*rec.errors, _INTERRUPTED], interrupted=True, stage=None
+        )
     return rec
 
 
@@ -122,6 +128,7 @@ def _summary(rec: RunRecord, *, path: str) -> RunLogSummary:
         counts=counts,
         error_count=len(rec.errors),
         interrupted=rec.interrupted,
+        stage=rec.stage,
     )
 
 

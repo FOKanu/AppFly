@@ -40,7 +40,8 @@ class RunLogSummary(BaseModel):
     Purpose: Activity list with one row per run id (live state wins over stored state).
     Inputs: In-memory runner records, the store ``runs`` table, ``Runs/YYYY-MM-DD.md`` notes.
     Returns: Legacy ``date``/``path``/``preview``/``has_errors`` plus id, kind, status,
-    timestamps, ``counts`` (scouted/matched/written where known) and ``error_count`` and ``interrupted`` (B3: settled as stale).
+    timestamps, ``counts`` (scouted/matched/written where known) and ``error_count`` and ``interrupted`` (B3: settled as stale)
+    and ``stage`` (B1: current stage while running).
     Does not: Include API keys or job description full text.
     """
 
@@ -58,3 +59,4 @@ class RunLogSummary(BaseModel):
     counts: dict[str, int] = Field(default_factory=dict)
     error_count: int = 0
     interrupted: bool = False
+    stage: str | None = None
