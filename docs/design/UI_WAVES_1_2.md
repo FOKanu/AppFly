@@ -3,14 +3,15 @@
 Status: READY FOR GROK
 Owner: Claude (UI design). Consumer: Grok, who splits this into local-coder briefs.
 Baseline: `integrate/prototype-v1` @ `bd43eee`. Every file:line below was checked
-against that commit.
+against that commit. Corrections from the audit at `3eca567` (accepted by Grok, 2026-09-27)
+are folded in; the frontend was unchanged between the two commits.
 
 Roles are unchanged (see [MULTI_AGENT.md](../workflow/MULTI_AGENT.md)). This doc
 decides copy, states and acceptance criteria. It does not prescribe code beyond
 naming the files a brief will need.
 
 **Decisions (user, 2026-09-27).** These resolve the open questions of the first draft.
-The backend work they need is tracked, with a Cursor prompt, in
+The backend work they need is tracked, with its contract prompt, in
 [FOLLOW_UPS.md](FOLLOW_UPS.md).
 
 | # | Decision | Effect on this spec |
@@ -26,7 +27,12 @@ The backend work they need is tracked, with a Cursor prompt, in
 **Compatibility rule.** The UI waves must not wait for B1 to B4. Every new field is read
 only if present (`stage`, live counts, `interrupted`, `trigger`, status
 `completed_with_errors`). Until it lands, the UI uses the fallback noted in each section.
-Once B1 to B4 are merged, delete the fallbacks.
+The fallbacks are removed in two passes:
+
+1. **After B2, B3 and B1** (the post-B1 UI pass): the stage and live-count fallbacks (B1), the
+   `failed` + `written > 0` split (B2), and the `interrupted:` error-prefix detection (B3).
+2. **After B4**: the `async:` path-prefix re-attach fallback (section 5) and the disabled Stop
+   for runs started outside the app (section 4).
 
 ---
 
@@ -38,6 +44,7 @@ Once B1 to B4 are merged, delete the fallbacks.
 | GET timeout 2.5 s, PUT 10 s, POST 60 s. | `client.ts:136` | A slow import or init can show up as a timeout, and the copy must allow for that. |
 | Mutating requests without `X-AppFly: 1` → `403 {"detail":"Missing X-AppFly: 1 header"}`. A mutating request from a disallowed `Origin` → `403 {"detail":"Origin not allowed"}`. | `backend/src/jobhunt/api/security.py:64-71` | Two different 403 messages (section 1). |
 | A `Host` other than `127.0.0.1` or `localhost` → `400` (Starlette `TrustedHostMiddleware`, plain-text body). | `backend/src/jobhunt/api/app.py:108` | Its own copy. |
+| **In a browser, neither the origin 403 nor the host 400 is readable.** The UI (`:5173`) and the API (`:8787`) are always cross-origin (no Vite proxy). From a disallowed origin the CORS preflight returns `400 Disallowed CORS origin` with no `Access-Control-Allow-Origin`; the host 400 comes from the outermost middleware, also without CORS headers. `fetch` rejects, so both arrive as `status: 0`. The `Missing X-AppFly` 403 does carry CORS headers and is readable. | `api/app.py:100-108` (verified with `TestClient`) | `offline` gets an allow-list hint when the page origin is non-default (section 1). |
 | `POST /workspace/import/obsidian` returns an import report `{source, jobs, letters, documents, runs, errors[], imported_at}`, **not** `WorkspaceStatus`. A missing folder → `404 {"detail":"Vault not found: <path>"}`. | `backend/src/jobhunt/api/routes/workspace.py:79-97`, `store/import_obsidian.py:32-41` | The frontend type is wrong (`vault/api.ts:118`). The success copy uses report counts. |
 | `POST /runs` returns `{id, status:"queued", started, model}` immediately. A second POST while a run is queued or running → `409 {"detail":"A pipeline run is already active: <id>"}`. | `backend/src/jobhunt/api/routes/runs.py:119-142` | The Workflow page wrongly treats the response as a finished run (`WorkflowPage.tsx:144-158`). A 409 must attach to the active run. |
 | `GET /runs/{id}` returns `status`, `started`, `finished`, counts, `errors[]`. **There is no `stage` field. Counts are written only when the run ends.** | `runs.py:46-77`, `api/runner.py:122-160` | While running, the UI cannot show a stage or live counts. Until B1 it shows elapsed time only. |
@@ -46,13 +53,15 @@ Once B1 to B4 are merged, delete the fallbacks.
 | A stored run left `queued`/`running` by a dead process is returned as `failed` with an error starting `interrupted:`. | `runs.py:34, 89-94` | Detect by prefix and show it as its own state (section 6). |
 | `GET /runs` rows carry `status`, `started_at`, `counts`, `error_count`, `path` (`async:<id>` = live in this process), but **not** the error strings. | `runs.py:97-116, 166-189` | Activity can't tell "interrupted" from "failed" in the list until B3. |
 | Vitest is **not** installed and there is no `test` script. `*.test.*` files exist but don't run. The only gate is `npm run build`. | `frontend/package.json:8` | Per D-6, the manual checks are binding. Vitest cases are kept as *(deferred)* so they can be enabled later without rewriting. |
-| `jobhunt run` (CLI and nightly) calls the pipeline directly and writes **no** run record, only the day note. The nightly plist still points at an old checkout (`…/Job Application Automation/.venv/bin/jobhunt`). | `backend/src/jobhunt/cli.py:165-186`, `launchd/com.jobhunt.nightly.plist:13` | The UI can't see these runs until B4 lands. |
+| `jobhunt run` (CLI and nightly) calls the pipeline directly and writes **no** run record, only the day note. Since #22, `jobhunt scout`, `match` and `write` also write into the configured store, with no run record and no lock. The nightly plist still points at an old checkout (`…/Job Application Automation/.venv/bin/jobhunt`). | `backend/src/jobhunt/cli.py:126-179, 187-208`, `launchd/com.jobhunt.nightly.plist:13` | The UI can't see these runs until B4 lands (B4 covers the stage commands too). |
 | The local API is started with `python -m jobhunt.api` on `127.0.0.1:8787`. | `backend/src/jobhunt/api/__main__.py`, `README.md:18` | Used in the offline copy. |
 
 **Copy encoding.** New copy uses ASCII plus the existing house characters `·` (U+00B7)
 and `…` (U+2026). Briefs are piped PowerShell → WSL and non-ASCII turns into `?`,
 so Grok should write them in briefs as the JS escapes `·` and `…`. No em dashes
-in new copy.
+in new copy, with one exception: `—` (U+2014) is allowed **only** as a standalone empty-value
+placeholder (for example the WorkspacePanel path and the RunningBar counts), written as `\u2014`
+in briefs. Never inside a sentence.
 
 ---
 
@@ -63,11 +72,11 @@ site in this spec uses it. Nothing shows raw `HTTP 4xx for /path` text.
 
 | Kind | Rule | Copy template (`{action}` = verb phrase from the call site) |
 | --- | --- | --- |
-| `offline` | `status === 0` and not a timeout | `Can't reach the local API at {baseUrl}. Start it with: python -m jobhunt.api` |
+| `offline` | `status === 0` and not a timeout | `Can't reach the local API at {baseUrl}. Start it with: python -m jobhunt.api`. When `window.location.origin` is neither `http://localhost:5173` nor `http://127.0.0.1:5173`, append: ` If the API is already running, this page's address ({origin}) may not be on its allow-list: open AppFly at http://localhost:5173, or add the address to APPFLY_ALLOWED_ORIGINS and restart the API.` |
 | `timeout` | Our own abort timer fired | `The local API didn't answer within {seconds}s. It may still be working; refresh in a moment before trying again.` |
 | `forbidden-header` | 403 and detail contains `X-AppFly` | `{action} was blocked: AppFly sent the request without its security header. This is a bug; please report it.` |
-| `forbidden-origin` | 403 and detail is `Origin not allowed` (or any other 403) | `{action} was blocked: this page's address ({origin}) isn't on the API's allow-list. Open AppFly at http://localhost:5173, or add the address to APPFLY_ALLOWED_ORIGINS and restart the API.` |
-| `bad-host` | 400 and body mentions `host` | `The API only answers on localhost or 127.0.0.1. Set VITE_API_BASE_URL to http://127.0.0.1:8787 and reload.` |
+| `forbidden-origin` | 403 and detail is `Origin not allowed` (or any other 403). Not reachable from a browser (section 0); kept for non-browser callers and for any 403 other than the header one. | `{action} was blocked: this page's address ({origin}) isn't on the API's allow-list. Open AppFly at http://localhost:5173, or add the address to APPFLY_ALLOWED_ORIGINS and restart the API.` |
+| `bad-host` | 400 and body mentions `host`. Not reachable from a browser (section 0); kept as above. | `The API only answers on localhost or 127.0.0.1. Set VITE_API_BASE_URL to http://127.0.0.1:8787 and reload.` |
 | `not-found` | 404 | Set per call site (a 404 now means "the thing doesn't exist", never "not built yet"). |
 | `rejected` | Any other 4xx | `{action} failed: {detail}` |
 | `server` | 5xx | `{action} failed: the API hit an internal error (HTTP {status}). Check the terminal running the API, then try again.` |
@@ -77,6 +86,7 @@ State rules:
 - `detail` comes from the JSON body. If `detail` is a string, use it. If it's a FastAPI 422 list, join each item's `msg` with `; `. Otherwise leave it empty and fall back to `HTTP {status}`.
 - Every `detail` goes through `redactSecrets` (`features/activity/redact.ts:5`) and is cut to 160 characters with `…`.
 - Never show the response body for a 5xx.
+- **Timeout with a caller-passed signal.** Today a caller's `init.signal` replaces the internal one, so the timer aborts a controller nothing listens to and the request never times out (`client.ts:136-156`). Rule: always pass the **internal** controller's signal to `fetch` and keep the internal timer. If the caller passed a signal, combine them manually: when the caller's signal is already aborted, abort the internal controller at once; otherwise add an `abort` listener on the caller's signal that aborts the internal controller, and remove it in `finally`. Don't rely on `AbortSignal.any`. Set `timeout: true` only when the internal timer fired. An abort that came from the caller is **not** a timeout and shows no toast; the call site just drops the result.
 
 Files likely touched: `frontend/src/shared/api/client.ts` (keep `detail`, add a `timeout` flag), new
 `frontend/src/shared/api/errors.ts` (classifier and templates). `client.ts` is shared, so this should be its own brief, landing first.
@@ -84,8 +94,9 @@ Files likely touched: `frontend/src/shared/api/client.ts` (keep `detail`, add a 
 Acceptance (manual checks in brackets are binding; the vitest form is deferred, F3):
 
 - [ ] A mocked `fetch` rejection → kind `offline`, message contains `python -m jobhunt.api`. [Stop the API, click Re-create folders → toast matches.]
-- [ ] An abort after timeout → kind `timeout`.
-- [ ] 403 `{"detail":"Missing X-AppFly: 1 header"}` → `forbidden-header`. 403 `{"detail":"Origin not allowed"}` → `forbidden-origin`. [Open the UI from `http://<LAN-IP>:5173` with `--host`, click Import → the origin message shows.]
+- [ ] An abort after timeout → kind `timeout`. A call with a caller-passed signal still times out at the method's limit; aborting the caller's signal gives no `timeout` flag and no toast.
+- [ ] 403 `{"detail":"Missing X-AppFly: 1 header"}` → `forbidden-header`. 403 `{"detail":"Origin not allowed"}` → `forbidden-origin` (unit level only).
+- [ ] [Open the UI at `http://<LAN-IP>:5173` (`npm run dev -- --host`) with the API running, click Import → the toast shows the `offline` message **plus** the allow-list hint naming `http://<LAN-IP>:5173`. At `http://localhost:5173` with the API stopped → the `offline` message with **no** hint.]
 - [ ] 422 with a list `detail` → the `msg` values joined. 413 `{"detail":"File exceeds 8 MiB limit"}` → `Upload failed: File exceeds 8 MiB limit`.
 - [ ] 500 with body `{"detail":"AIzaSyA...secret"}` → message contains no body text.
 - [ ] A detail containing `GEMINI_API_KEY=abc` renders `[redacted]`.
@@ -101,8 +112,13 @@ All five are verified to be at these lines on `bd43eee`:
 | 1a | `features/settings/WorkspacePanel.tsx:53` (init failure toast) | `Could not create the folder — POST /workspace/init is not serving yet.` | Section 1 template with `{action}` = `Creating the app data folder`. Offline / timeout / 403 / 5xx as in section 1. |
 | 1b | `features/settings/WorkspacePanel.tsx:146` (disabled button title) | `POST /workspace/init is not serving yet.` | Disabled **only** when status load failed with `offline`/`timeout`: title `Start the local API first (python -m jobhunt.api).` For any other load failure the button stays enabled (it doubles as a retry). |
 | 1c | `features/settings/ImportObsidianPanel.tsx:64` (import failure toast) | `Import failed — /workspace/import/obsidian is not serving yet.` | 404 → `No Obsidian vault found at {path}. Check the folder and try again.` Otherwise section 1 with `{action}` = `Import`. |
-| 1d | `features/vault/VaultPage.tsx:203` (banner title) | `Document store not serving yet` | Replaced by the section 3 offline banner, or the error banner below. |
-| 1e | `features/vault/api.ts:14` (`STORE_UNAVAILABLE_NOTE`) | `The document store is not serving yet — /documents returns 404…` | **Delete the constant.** Its three uses (`VaultPage.tsx:204, 236, 271`) become: banner = section 3; `disabledReason` on UploadZone and DocumentTable = `Start the local API to upload or change files.` |
+| 1d | `features/vault/VaultPage.tsx:203` (banner title) | `Document store not serving yet` | Removed. Offline: no Vault banner (the global banner covers it). Timeout or other failure: the banners in the state table below. |
+| 1e | `features/vault/api.ts:14` (`STORE_UNAVAILABLE_NOTE`) | `The document store is not serving yet — /documents returns 404…` | **Delete the constant.** Its four uses become: `VaultPage.tsx:204` banner removed (1d); `disabledReason` on UploadZone and DocumentTable (`VaultPage.tsx:236, 271`) = `Start the local API to upload or change files.`; `disabledReason` on ProfileDocuments (`features/profiles/ProfilesPage.tsx:198`, import at `:8`) = `Start the local API to attach files.` |
+
+ProfilesPage: only the import and the `disabledReason` change. Its `listDocuments().catch(() => undefined)`
+(`ProfilesPage.tsx:83-95`) already leaves `storeLive` false on failure, so it needs no other change.
+Keep the `availability` field on `VaultSnapshot` (it only ever reads `"live"` now) so
+`AppShell.tsx:109-110` compiles without W1 touching AppShell.
 
 Success copy (replaces the current toasts):
 
@@ -120,7 +136,8 @@ State rules:
 | WorkspacePanel | Status failed, `offline`/`timeout` | Path `—`, head `Setup · status unknown (API not reachable)`. Checklist rows show no ✓ **and** no action links. Button disabled (1b). |
 | WorkspacePanel | Status failed, other kind | Head `Setup · status unknown`, then one line with the section 1 message (`{action}` = `Loading setup status`). Button enabled. |
 | VaultPage | API live, 0 documents | Existing `FirstRun` panel (unchanged) |
-| VaultPage | `listDocuments` or `getWorkspace` fails, `offline`/`timeout` | Section 3 offline banner; table shows `No files to show while the API is offline.`; upload and edit disabled with 1e reason |
+| VaultPage | `listDocuments` or `getWorkspace` fails, `offline` | **No Vault banner**: the global `Local IPC disconnected` banner already says it, and two banners would repeat the same instruction. Table shows `No files to show while the API is offline.`; upload and edit disabled with the 1e reason |
+| VaultPage | Fails with `timeout` | Warning banner, title `Vault not loaded`, body = section 1 `timeout` message. (Health may still pass, so the global banner may not show.) Table and disabled state as for `offline`; **Refresh** stays enabled |
 | VaultPage | Fails with any other kind | Danger banner, title `Vault not loaded`, body = section 1 message (`{action}` = `Loading your files`); **Refresh** stays enabled |
 | VaultPage | Upload / rename / active / delete fails | Toasts become the section 1 message with `{action}` = `Upload` / `Rename` / `Changing the active file` / `Delete` (replace `VaultPage.tsx:126, 144, 169, 185`) |
 
@@ -131,15 +148,16 @@ Also remove the fabricated 404 fallbacks:
 
 Files likely touched: `features/settings/WorkspacePanel.tsx`, `features/settings/ImportObsidianPanel.tsx`,
 `features/vault/VaultPage.tsx`, `features/vault/api.ts`, `features/vault/types.ts` (import report
-type), and `features/vault/UploadZone.tsx` / `DocumentTable.tsx` only if the reason prop name changes.
+type), `features/profiles/ProfilesPage.tsx` (1e only), and `features/vault/UploadZone.tsx` /
+`DocumentTable.tsx` only if the reason prop name changes.
 
 Acceptance:
 
-- [ ] `grep -rn "not serving yet\|STORE_UNAVAILABLE_NOTE\|SAMPLE_DOCUMENTS" frontend/src` returns nothing.
+- [ ] `grep -rn "not serving yet\|STORE_UNAVAILABLE_NOTE\|SAMPLE_DOCUMENTS\|isMissingEndpoint" frontend/src` returns nothing, and `npm run build` passes (catches a missed import).
 - [ ] *(deferred, F3)* vitest: `getWorkspace` / `listDocuments` reject on 404 (no sample rows, no fake status).
 - [ ] *(deferred, F3)* vitest: `importObsidianVault` resolves to a report type; the success toast renders the counts.
 - [ ] Manual, API up, empty store: Vault shows FirstRun, no banner. Settings checklist `0 of 4 done`. Re-create folders → `App data folder ready at …`.
-- [ ] Manual, API stopped: Vault shows the offline banner and no rows. Settings head reads `status unknown (API not reachable)` and the button is disabled with the 1b title.
+- [ ] Manual, API stopped: Vault shows only the global `Local IPC disconnected` banner (no Vault banner) and the empty-table line, with no rows. Settings head reads `status unknown (API not reachable)` and the button is disabled with the 1b title. Profiles: attach is disabled with `Start the local API to attach files.`
 - [ ] Manual: import a non-existent path → `No Obsidian vault found at …`. Import a real vault → counts toast.
 
 Out of scope: redesigning the checklist, new readiness fields, multi-profile, and the Obsidian path editor.
@@ -158,7 +176,8 @@ Why:
 
 | Surface | Change |
 | --- | --- |
-| `features/packet/PacketSpec.tsx:114-117` | Remove the `Fetch listing` button. When `crawl_allowed` is true, render nothing in its place. Keep the `crawl-denied` note for false. |
+| `features/packet/PacketSpec.tsx:114-117` | Remove the `Fetch listing` button. When `crawl_allowed` is true, render nothing in its place. Keep the `crawl-denied` note (and its `data-testid`) for false. |
+| `features/packet/PacketSpec.tsx:120-121` denied note | `crawl_allowed is false. Fetch listing is hidden so deny-listed hosts are never crawled.` → `crawl_allowed is false, so AppFly never fetches this listing's host.` |
 | `features/packet/PacketSpec.tsx:53-55` meta line | `allowed source · fetched via the local scout` → `allowed source · ingested by the scout` (it no longer implies an on-demand fetch). |
 | `features/packet/PacketPage.tsx:93` | Remove `onFetchListing` and its prop wiring. |
 | `features/queue/jobsApi.ts:153-180` | Delete `requestListingFetch`. |
@@ -168,7 +187,7 @@ Why:
 
 Acceptance:
 
-- [ ] `grep -rn "Fetch listing\|requestListingFetch\|/fetch\`" frontend/src` returns nothing (READMEs included).
+- [ ] `grep -rn "Fetch listing\|requestListingFetch\|onFetchListing" frontend/src --exclude='*.test.*'` returns nothing (READMEs included). Test files are excluded on purpose: the negative assertions at `PacketPage.test.tsx:58` and `QueuePage.test.tsx:65` legitimately keep the string.
 - [ ] *(deferred, F3)* vitest: the Packet page for `agentur-ref-88112` has no `Fetch listing` button and has an `Open listing` link.
 - [ ] Manual: open an allowed and a denied packet. Neither shows the button; the denied one still shows the policy note.
 
@@ -370,7 +389,7 @@ Out of scope: automatic resume of interrupted runs.
 | Brief | Branch | Depends on | ALLOWED FILES (core) |
 | --- | --- | --- | --- |
 | W1-A errors | `feat/ui-firstrun-truth` (first commit) | none | `shared/api/client.ts`, new `shared/api/errors.ts` (no new test files until F3) |
-| W1-B first-run | same branch | W1-A | `features/settings/WorkspacePanel.tsx`, `ImportObsidianPanel.tsx`, `features/vault/{VaultPage.tsx,api.ts,types.ts}` (+ `UploadZone.tsx`, `DocumentTable.tsx` if the prop changes), `shared/ui/OfflineBanner.tsx` |
+| W1-B first-run | same branch | W1-A | `features/settings/WorkspacePanel.tsx`, `ImportObsidianPanel.tsx`, `features/vault/{VaultPage.tsx,api.ts,types.ts}`, `features/profiles/ProfilesPage.tsx` (1e only) (+ `UploadZone.tsx`, `DocumentTable.tsx` if the prop changes), `shared/ui/OfflineBanner.tsx` |
 | W1-P packet | same branch, or `feat/ui-packet-no-fetch` | none | `features/packet/{PacketSpec,PacketPage,PacketPage.test}.tsx`, `features/queue/jobsApi{,.test}.ts`, both READMEs |
 | W2-A run controller | `feat/ui-run-progress` | W1-A merged | `app/layout/{AppShell,RunningBar,ControlHeader}.tsx`, new `shared/run/*` |
 | W2-B workflow | same branch | W2-A | `features/workflow/{WorkflowPage,HeartbeatPanel}.tsx`, `features/workflow/api.ts` |
@@ -378,7 +397,7 @@ Out of scope: automatic resume of interrupted runs.
 
 `AppShell.tsx` is effectively a magnet: keep W2-A as the only brief that edits it.
 
-Backend tasks B1 to B4 are **not** Grok briefs in this spec. You implement them (via Cursor) after the UI waves: see [FOLLOW_UPS.md](FOLLOW_UPS.md). The UI waves don't wait for them (compatibility rule, top of this doc).
+Backend tasks B1 to B4 are **not** part of this brief split. The local coder implements them under Grok briefs after the UI waves, in the order set in [FOLLOW_UPS.md](FOLLOW_UPS.md) ("Decisions delegated to Grok"). The UI waves don't wait for them (compatibility rule, top of this doc).
 
 Privacy check on this spec: no CV bodies anywhere (Vault stays metadata-only). No secrets reach the
 frontend (every error detail is redacted). No browser job-board fetches (item 2 removes the only
