@@ -245,7 +245,7 @@ export function useRunController({ notify, onTick }: RunControllerOptions): RunC
         if (stopped) return;
         const httpStatus = error instanceof ApiError ? error.status : 0;
         if (httpStatus >= 400 && httpStatus < 500) {
-          // Post-B1 pass item 3: the API doesn't know this run (404 or another 4xx), so go back to idle.
+          // The API doesn't know this run (404 or another 4xx), so go back to idle.
           notifyRef.current("That run is no longer known to the API.");
           failuresRef.current = 0;
           setRunId(null);

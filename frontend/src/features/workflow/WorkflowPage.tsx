@@ -86,7 +86,7 @@ export function WorkflowPage() {
   }, []);
 
   const run = useRun();
-  // Post-B1 pass item 5: refresh the snapshot once each time the run leaves an active state.
+  // Refresh the snapshot once each time the run leaves an active state.
   const wasActive = useRef(false);
   useEffect(() => {
     const active = ACTIVE_UI.has(run.ui);

@@ -46,17 +46,30 @@ export function TonightHero({
   );
 }
 
-/** D1/D8: `Tonight \u00b7 run #{id5} ...`; a live run reads `in flight` or `lost contact`. */
+/**
+ * D1/D8/2b: `Tonight \u00b7 run #{id5} ...`; a live run reads `queued`, `in flight`, `stopping` or `lost contact`.
+ * An ended run reads `finished`, `stopped` or `failed` with its finish time; `interrupted` has no finish time.
+ */
 function kicker(run: Run | null): string {
   if (!run) return "Tonight \u00b7 no run recorded";
   const shortId = run.id ? ` #${id5(run.id)}` : "";
   if (run.status === "lost-contact") return `Tonight \u00b7 run${shortId} \u00b7 lost contact`;
   if (run.status === "stopping") return `Tonight \u00b7 run${shortId} stopping`;
+  if (run.status === "queued") return `Tonight \u00b7 run${shortId} queued`;
   if (isActive(run)) return `Tonight \u00b7 run${shortId} in flight`;
+  if (run.status === "interrupted") return `Tonight \u00b7 run${shortId} interrupted`;
   const finished = run.finished_at ? clock(run.finished_at) : null;
   return finished
-    ? `Tonight \u00b7 run${shortId} finished ${finished}`
+    ? `Tonight \u00b7 run${shortId} ${endWord(run)} ${finished}`
     : `Tonight \u00b7 run${shortId}`;
+}
+
+/** The kicker's end word: `stopped` for a cancelled run, `failed` for a failed run, else `finished` (day notes too). */
+function endWord(run: Run): string {
+  if (run.kind === "day_note") return "finished";
+  if (run.status === "cancelled") return "stopped";
+  if (run.status === "failed") return "failed";
+  return "finished";
 }
 
 /** D1/D6: counts with a dash when unknown; `so far` and no refusal clause while active. */

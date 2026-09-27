@@ -38,7 +38,7 @@ const BANNED_HOSTS = [
 ];
 
 /**
- * Purpose: Right rail on Tonight — 30-day funnel, writer token split, and the
+ * Purpose: Right rail on Tonight — last run's funnel, writer token split, and the
  *          crawl-policy card.
  * Does not: enforce policy; policy.py refuses before any request is made.
  */
@@ -50,7 +50,7 @@ export function LastRunSummary({ funnel, writer, refusals }: LastRunSummaryProps
       <h2 className="run-summary__title">Last run summary</h2>
 
       <section className="run-summary__card">
-        <p className="run-summary__label">Funnel · 30 days</p>
+        <p className="run-summary__label">Funnel · last run</p>
         <FunnelRow label="Scouted" value={funnel.scouted} of={top} tone="accent" />
         <FunnelRow
           label="Shortlisted"
