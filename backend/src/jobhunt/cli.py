@@ -8,9 +8,11 @@ Does not: Crawl deny-listed hosts or submit applications.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import typer
 import yaml
@@ -21,15 +23,35 @@ from jobhunt.config import (
     load_config,
     write_example_config,
 )
-from jobhunt.vault import Vault, init_workspace
+from jobhunt.store import get_store
+from jobhunt.vault import init_workspace
 
-app = typer.Typer(help="Job hunt copilot: scout, match, write letters into Obsidian.")
+app = typer.Typer(help="Job hunt copilot: scout, match, write letters into the configured store.")
 
 
 def _config(config_path: Optional[Path]) -> AppConfig:
     """Load YAML config (and .env) from the given path or the repo default."""
 
     return load_config(config_path)
+
+
+@contextmanager
+def _open_store(cfg: AppConfig) -> Iterator[Any]:
+    """Open the configured workspace store for one CLI command.
+
+    Purpose: Same store selection as ``jobhunt run`` and ``POST /runs`` (``get_store``).
+    Inputs: Loaded ``AppConfig`` (``storage_backend`` native or markdown).
+    Returns: The open store; it is closed when the ``with`` block exits.
+    Does not: Migrate data between backends or import Obsidian notes.
+    """
+
+    store = get_store(cfg)
+    try:
+        yield store
+    finally:
+        close = getattr(store, "close", None)
+        if callable(close):
+            close()
 
 
 @app.command()
@@ -91,7 +113,7 @@ def scout(
 ) -> None:
     """Fetch new jobs from Agentur, RSS, and the vault inbox.
 
-    Purpose: Ingest listings into ``Jobs/`` notes.
+    Purpose: Ingest listings into the configured store.
     Inputs: Optional config path.
     Returns: None; upserts new jobs and refreshes Home.md.
     Does not: HTTP-fetch deny-listed listing URLs.
@@ -101,17 +123,17 @@ def scout(
     from jobhunt.features.scout import collect_jobs
 
     cfg = _config(config)
-    vault = Vault(cfg.vault)
-    vault.ensure_dirs()
-    requirements = vault.load_requirements()
-    try:
-        jobs = collect_jobs(cfg, vault, requirements)
-    except CrawlDeniedError as exc:
-        typer.echo(str(exc), err=True)
-        raise typer.Exit(code=1) from exc
-    for job in jobs:
-        vault.upsert_job(job)
-    vault.regenerate_home(last_run=datetime.now().astimezone().isoformat(timespec="minutes"))
+    with _open_store(cfg) as store:
+        store.ensure_dirs()
+        requirements = store.load_requirements()
+        try:
+            jobs = collect_jobs(cfg, store, requirements)
+        except CrawlDeniedError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=1) from exc
+        for job in jobs:
+            store.upsert_job(job)
+        store.regenerate_home(last_run=datetime.now().astimezone().isoformat(timespec="minutes"))
     typer.echo(f"Wrote {len(jobs)} new job notes")
 
 
@@ -123,16 +145,16 @@ def match(
 
     Purpose: Promote inbox notes to shortlist or skipped.
     Inputs: Optional config path.
-    Returns: None; updates job frontmatter and Home.md.
+    Returns: None; updates job status and score in the store and refreshes Home.
     Does not: Fetch new listings or call Gemini.
     """
 
     from jobhunt.features.match import match_jobs
 
     cfg = _config(config)
-    vault = Vault(cfg.vault)
-    stats = match_jobs(cfg, vault)
-    vault.regenerate_home(last_run=datetime.now().astimezone().isoformat(timespec="minutes"))
+    with _open_store(cfg) as store:
+        stats = match_jobs(cfg, store)
+        store.regenerate_home(last_run=datetime.now().astimezone().isoformat(timespec="minutes"))
     typer.echo(
         f"Shortlisted {stats['shortlisted']}, skipped {stats['skipped']}, left {stats['unchanged']}"
     )
@@ -145,17 +167,17 @@ def write(
     """Write cover letters for shortlisted jobs via Gemini.
 
     Purpose: Draft letters from a sealed one-job packet.
-    Inputs: Optional config path (Gemini key from ``.env``).
-    Returns: None; writes Letters/ notes and sets status to draft.
+    Inputs: Optional config path (Gemini key from the OS keychain, then ``GEMINI_API_KEY`` in the env or ``.env``).
+    Returns: None; writes letters to the store and sets status to draft.
     Does not: Submit applications or include a second job in the packet.
     """
 
     from jobhunt.features.write import write_letters
 
     cfg = _config(config)
-    vault = Vault(cfg.vault)
-    stats = write_letters(cfg, vault)
-    vault.regenerate_home(last_run=datetime.now().astimezone().isoformat(timespec="minutes"))
+    with _open_store(cfg) as store:
+        stats = write_letters(cfg, store)
+        store.regenerate_home(last_run=datetime.now().astimezone().isoformat(timespec="minutes"))
     typer.echo(
         f"Wrote {stats['written']} letters "
         f"(skipped {stats['skipped']}, over cap {stats['capped']})"
