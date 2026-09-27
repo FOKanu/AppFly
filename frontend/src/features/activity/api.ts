@@ -87,7 +87,8 @@ const MOCK_RUNS_PAYLOAD = [
     model: "gemini-3.8-flash",
     path: "Runs/2026-09-18.md",
     errors: [
-      "write: GEMINI_API_KEY=AIzaSyFakeSecretThatMustNeverRender012345 is invalid",
+      // Already redacted — never plant a Google-shaped key in production bundles (M8).
+      "write: GEMINI_API_KEY=[redacted] is invalid",
       "scout: rss timeout for https://example.com/jobs/feed.xml",
     ],
   },

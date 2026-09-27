@@ -90,4 +90,11 @@ if (!existsSync(clientLibPath)) {
   console.log("Neutralino client library present.");
 }
 
+console.log("Scanning built UI for secret-shaped tokens…");
+execSync("node scripts/scan-bundle-secrets.mjs .ui-dist", {
+  cwd: join(repoRoot, "frontend"),
+  stdio: "inherit",
+  env: process.env,
+});
+
 console.log("desktop/resources ready.");

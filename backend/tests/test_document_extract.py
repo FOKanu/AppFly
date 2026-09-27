@@ -85,7 +85,18 @@ def test_upload_sets_extract_status(
 
     listed = client.get("/documents").json()
     assert listed[0]["extract_status"] == "ok"
-    assert client.get(f"/documents/{body['id']}/text").status_code == 200
+    assert "body" not in listed[0]
+    assert "text" not in listed[0]
+    assert "extracted" not in listed[0]
+    assert "content" not in listed[0]
+    text_resp = client.get(f"/documents/{body['id']}/text")
+    assert text_resp.status_code == 200
+    assert "Python engineer" in text_resp.text
+
+    meta = client.get(f"/documents/{body['id']}").json()
+    assert "body" not in meta
+    assert "text" not in meta
+    assert meta["id"] == body["id"]
 
     store = SqliteStore(tmp_path / "data")
     try:

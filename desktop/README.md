@@ -20,7 +20,7 @@ Neutralino window that loads the built Vite UI and spawns the loopback FastAPI
 cd desktop
 npm install
 npm run update              # downloads Neutralino binaries + client (gitignored)
-npm run prepare-resources   # vite build → resources/ + inject bootstrap
+npm run prepare-resources   # vite build → resources/ + inject bootstrap + secret scan
 npm run dev                 # prepare + neu run
 npm run build               # prepare + neu build → dist/
 npm run smoke               # import check for the API spawn path

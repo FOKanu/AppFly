@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "scan-secrets": "node scripts/scan-bundle-secrets.mjs",
+    "build:secure": "npm run build && npm run scan-secrets"
   },
   "dependencies": {
     "react": "^19.1.1",

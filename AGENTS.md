@@ -40,9 +40,9 @@ When an epic opens, name it here and every Cloud Agent prompt includes the Base/
 
 ### Live tip (avoid double work)
 
-- **Base every MVP PR on** `origin/integrate/mvp-v1` (tip as of 2026-09-27: `4a734b4`, M6 wizard / #58). `git fetch origin` before cutting a branch.
+- **Base every MVP PR on** `origin/integrate/mvp-v1` (tip as of 2026-09-27: `fffed5b`, M7 mock honesty / #59). `git fetch origin` before cutting a branch.
 - **Do not** reopen closed `cursor/*` or continue `integrate/prototype-v1` feature PRs; prototype closed on `main` via #48.
-- **Next:** M7 `feat/ui-mock-honesty` → M8 privacy. Sequence: [docs/workflow/MVP_SEQUENCE.md](docs/workflow/MVP_SEQUENCE.md).
+- **Next:** M8 `feat/privacy-pass-m8` (Composer). Sequence: [docs/workflow/MVP_SEQUENCE.md](docs/workflow/MVP_SEQUENCE.md).
 - **5090 briefs:** slice large features; mandatory cloud check-in between slices. Rule: [`.cursor/rules/local-coder-bulk.mdc`](.cursor/rules/local-coder-bulk.mdc).
 - **Claude:** Mac install only (not Cursor Claude agent); richer context OK; check-in before coding. Rule: [`.cursor/rules/claude-handoff.mdc`](.cursor/rules/claude-handoff.mdc).
 - Prefer integrate while the epic is open; `main` lags until Composer merges `integrate/mvp-v1` → `main`.
