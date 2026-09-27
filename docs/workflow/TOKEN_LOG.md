@@ -9,6 +9,7 @@ tokens / credits were nearly exhausted. See [MULTI_AGENT.md §1a](MULTI_AGENT.md
 
 | Date | Task / branch | Mode | Local model | Local tokens (if known) | Cloud escalation (y/n) | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-27 | feat/backend-run-cv (M2) | default | qwen3-coder:30b (try1+try2 failed) | ~27k sent / 21k recv try1; try2 runaway n_gen>50k | y | 9-file `diff` → 0 applies; `whole` runaway killed; Composer shipped #52. Drove LOCAL_BULK_LESSONS + local-coder-bulk rule |
 | 2026-09-27 | feat/backend-run-visibility (B4) | default | qwen3-coder:30b (store/API); Cursor for CLI/docs after Aider miss | unknown | y (CLI brief hallucinated) | #38 already merged; store+heartbeat via Aider; CLI/F4/tests by orchestrator |
 | 2026-09-27 | feat/ui-post-b4-reattach | default | qwen3-coder:30b | unknown | n | Post-B4 UI: drop async: filter; enable Stop for cli/nightly |
 | 2026-09-27 | chore/prototype-p7-prep | default | Cursor (orchestrator) | — | n | FEATURES/AGENTS/handoff tip @ 06fa6d8; UI nightly display 21:00 weekdays |

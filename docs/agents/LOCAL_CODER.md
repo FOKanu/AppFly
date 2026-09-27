@@ -56,3 +56,13 @@ Do not expand scope.
 
 You don't escalate to cloud yourself. After 2 failed retries, return the failing
 output and stop. Grok decides what happens next.
+
+**Slice discipline (cloud enforces):** if this brief's ALLOWED FILES list is large
+or spans schema+route+pipeline+tests+docs in one shot, expect the cloud admin to
+split it. Prefer small briefs. After you RETURN, wait — do not assume a follow-up
+try with a bigger edit format. See [LOCAL_BULK_LESSONS.md](../workflow/LOCAL_BULK_LESSONS.md)
+and [MULTI_AGENT.md §4a](../workflow/MULTI_AGENT.md).
+
+In RETURN item 4, surface **questions and flags** for cloud: unclear FastAPI /
+store semantics, alternate methods, tech-stack doubts, invariant conflicts. Those
+are the check-in payload.

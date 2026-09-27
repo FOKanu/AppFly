@@ -2,6 +2,9 @@
 
 Changelog:
 
+- 2026-09-27: §4a — local bulk slices + mandatory cloud check-ins (M2 Aider lesson:
+  9-file `diff` → 0 applies; `whole` → runaway). See LOCAL_BULK_LESSONS.md and
+  `.cursor/rules/local-coder-bulk.mdc`.
 - 2026-09-27: §1a — compute modes. **Default** stays the current mixed split. **Optimized**
   (~75% local implementation) is an optional user choice and the fallback when cloud
   agents are about to hit the user's token / credit limits. Roles and loop unchanged.
@@ -148,6 +151,33 @@ Grok brief -> local coder (5090) -> local checks --fail(<=2 retries)--> local co
 
 ---
 
+## 4a. Local bulk packages and cloud check-ins
+
+Pinned Cursor rule: [`.cursor/rules/local-coder-bulk.mdc`](../../.cursor/rules/local-coder-bulk.mdc).
+Evidence (M2): [LOCAL_BULK_LESSONS.md](LOCAL_BULK_LESSONS.md).
+
+Under **default** (mixed) mode especially, do **not** send a cross-stack feature to
+the 5090 as one Aider package (many ALLOWED FILES + large modules). Local models
+fail in two common ways: SEARCH/REPLACE that never applies (`diff`), or runaway
+whole-file generation (`whole`).
+
+**Required pattern:**
+
+1. **Slice** the task into sequential briefs (about ≤4–6 files each; often fewer).
+2. After each slice, **check in with cloud** before the next: `git diff --stat`,
+   Applied-edit count, pytest if ready, and the local RETURN (questions, method
+   flags, tech-stack doubts). Cloud answers those before the next brief.
+3. Prefer Aider **`diff`**. Use **`whole` only for one small new file**, never for
+   multi-module rewrites.
+4. On **0 Applied edits** or runaway `n_gen`: kill, escalate, **shrink** — do not
+   relaunch a larger package.
+
+Briefs that must stay multi-file should still list **CHECK-IN AFTER** steps
+(e.g. after schema+route, after pipeline thread, before docs) so the orchestrator
+stops and reviews even if Aider is still running a series of small passes.
+
+---
+
 ## 5. Free local checks
 
 Only commands that exist in the repo today are listed as required.
@@ -188,7 +218,8 @@ critical part itself, or (for UI/UX design questions) consult Claude.
   also implement; prefer local for large mechanical batches when the 5090 is up.
 - Grok reads summaries and diffs, not full files. Ask the local coder for a
   condensed module summary before reading a large file when the 5090 is in use.
-- Keep briefs small and file-bounded. One brief = one concern.
+- Keep briefs small and file-bounded. One brief = one concern. **Slice** cross-stack
+  work; mandatory cloud check-in between local slices ([§4a](MULTI_AGENT.md#4a-local-bulk-packages-and-cloud-check-ins)).
 - Log every task in [TOKEN_LOG.md](TOKEN_LOG.md): mode (`default` / `optimized`),
   local vs cloud, and whether it escalated or fell back for token limits.
 - If about to hit user token / credit limits, switch to **optimized** (section 1a)
