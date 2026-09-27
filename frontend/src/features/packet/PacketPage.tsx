@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { apiBaseUrl, APPFLY_HEADERS } from "../../shared/api/client";
+import { apiBaseUrl, apiPost, apiPut } from "../../shared/api/client";
+import { describeApiError } from "../../shared/api/errors";
 import { getJob, patchJobStatus } from "../queue/jobsApi";
 import type { JobRecord, JobStatus } from "../queue/types";
 import { ApproveStrip } from "./ApproveStrip";
@@ -96,19 +97,11 @@ export function PacketPage() {
       }
       setBusy(true);
       try {
-        const res = await fetch(
-          new URL(`/jobs/${encodeURIComponent(job.source_id)}/letter`, apiBaseUrl()),
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json", ...APPFLY_HEADERS },
-            body: JSON.stringify({ body: text }),
-          },
-        );
-        if (!res.ok) throw new Error(await res.text());
+        await apiPut<unknown>(`/jobs/${encodeURIComponent(job.source_id)}/letter`, { body: text });
         setLetterBody(text);
         setFeedback("Letter saved to the local store.");
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Save failed");
+        setError(describeApiError(err, "Saving the letter").message);
       } finally {
         setBusy(false);
       }
@@ -123,16 +116,13 @@ export function PacketPage() {
     }
     setBusy(true);
     try {
-      const res = await fetch(
-        new URL(`/jobs/${encodeURIComponent(job.source_id)}/letter/regenerate`, apiBaseUrl()),
-        { method: "POST", headers: { ...APPFLY_HEADERS } },
+      const data = await apiPost<{ body?: string }>(
+        `/jobs/${encodeURIComponent(job.source_id)}/letter/regenerate`,
       );
-      if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as { body?: string };
-      if (data.body) setLetterBody(data.body);
+      if (data?.body) setLetterBody(data.body);
       setFeedback("Letter regenerated.");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Regenerate failed");
+      setError(describeApiError(err, "Regenerating the letter").message);
     } finally {
       setBusy(false);
     }
