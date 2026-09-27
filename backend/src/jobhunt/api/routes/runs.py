@@ -24,7 +24,7 @@ from jobhunt.api.runner import (
     request_cancel,
     start_async_run,
 )
-from jobhunt.api.schemas.runs import RunLogSummary, RunResponse
+from jobhunt.api.schemas.runs import RunLogSummary
 from jobhunt.store.types import RunRecord
 
 router = APIRouter(tags=["runs"])
@@ -221,10 +221,9 @@ def list_runs(request: Request) -> list[RunLogSummary]:
     store = get_app_store(request)
     data_path = str(store.data_path())
 
-    # Settle stale runs if possible
     settle_stale = getattr(store, "settle_stale_active_runs", None)
     if callable(settle_stale):
-        settled_ids = settle_stale()
+        settle_stale()
 
     live = {rec.id: rec for rec in list_async_runs()}
     stored = _stored_runs(store)

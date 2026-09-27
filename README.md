@@ -104,7 +104,10 @@ Agent roles: Grok plans and opens epics, an RTX 5090 local coder implements, Com
 
 ## Nightly schedule
 
-A launchd template lives at [launchd/com.jobhunt.nightly.plist](launchd/com.jobhunt.nightly.plist) (weekdays 21:00, wrapped in `caffeinate`). After the venv exists:
+A launchd template lives at [launchd/com.jobhunt.nightly.plist](launchd/com.jobhunt.nightly.plist)
+(weekdays **21:00**, wrapped in `caffeinate`). It points at this checkout's
+`backend/.venv/bin/jobhunt run --trigger nightly`. Edit `WorkingDirectory`, the
+venv path, and log paths if your machine differs. After the venv exists:
 
 ```bash
 mkdir -p .cache
@@ -113,7 +116,7 @@ cp launchd/com.jobhunt.nightly.plist ~/Library/LaunchAgents/
 launchctl load ~/Library/LaunchAgents/com.jobhunt.nightly.plist
 ```
 
-Leave the lid open and the Mac plugged in if you can. `jobhunt run` is safe to re-run: existing `source_id`s are not duplicated; `draft` / `approved` / `applied` jobs are not overwritten.
+Leave the lid open and the Mac plugged in if you can. `jobhunt run` is safe to re-run: existing `source_id`s are not duplicated; `draft` / `approved` / `applied` jobs are not overwritten. If another run is already active, the CLI exits **75** (busy) so launchd can tell that apart from a real failure.
 
 ## Status values
 

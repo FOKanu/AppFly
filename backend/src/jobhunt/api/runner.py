@@ -62,12 +62,16 @@ def reset_runs() -> None:
 
 
 def request_cancel(run_id: str) -> bool:
-    """Ask a run to stop at its next checkpoint; False when the id is unknown."""
+    """Ask an in-process run to stop at its next checkpoint.
+
+    Purpose: Set the cooperative cancel event for a RAM-owned run.
+    Inputs: Run id.
+    Returns: True if the id is in this process; False otherwise (caller may try the store).
+    Does not: Touch the SQLite cancel flag — routes call ``request_run_cancel`` for that.
+    """
 
     with _lock:
         if run_id not in _runs:
-            # Try to check store for cancellation
-            store = None  # This would need to be passed in or retrieved somehow
             return False
         event = _cancel_events.get(run_id)
         if event is not None:
@@ -157,6 +161,10 @@ def start_async_run(
         Does not: Change status, errors or timestamps; unknown keys are ignored.
         """
 
+        if store is not None:
+            check_cancel = getattr(store, "is_run_cancel_requested", None)
+            if callable(check_cancel) and check_cancel(run_id):
+                event.set()
         allowed = {key: value for key, value in changes.items() if key in _PROGRESS_FIELDS}
         if allowed:
             _update(run_id, on_update, **allowed)
