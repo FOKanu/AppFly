@@ -11,7 +11,7 @@ export type JobStatus =
 export type SourceChannel = "api" | "rss" | "clips";
 
 /** Pipeline stage light used by the Tonight snapshot. */
-export type StageStatus = "idle" | "queued" | "running" | "done" | "failed";
+export type StageStatus = "idle" | "queued" | "running" | "in flight" | "stopped" | "done" | "failed";
 
 /**
  * One job row from GET /jobs. URLs are stored and can be opened by the person;
@@ -55,14 +55,20 @@ export interface Run {
   id: string;
   started_at: string;
   finished_at?: string;
-  status: "ok" | "running" | "failed" | "empty";
-  scouted: number;
-  shortlisted: number;
-  skipped: number;
-  written: number;
-  write_skipped: number;
+  /** API status word ("completed", "running", "cancelled", ...), "interrupted", or "lost-contact" for the live run. */
+  status: string;
+  /** Counts are undefined when unknown (shown as a dash), never 0. */
+  scouted?: number;
+  shortlisted?: number;
+  skipped?: number;
+  written?: number;
+  write_skipped?: number;
   errors: string[];
-  source_mix: Record<SourceChannel, number>;
+  /** False when the row carries no error strings (every GET /runs row), so refusals are unknown. */
+  errorsKnown?: boolean;
+  /** `run` for a pipeline run row, `day_note` for a legacy Runs/YYYY-MM-DD.md note. */
+  kind?: "run" | "day_note";
+  source_mix?: Record<SourceChannel, number>;
   stages: {
     scout: StageStatus;
     match: StageStatus;
