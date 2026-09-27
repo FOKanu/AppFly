@@ -82,6 +82,7 @@ def run_all(config: AppConfig, vault: Vault | None = None) -> PipelineResult:
         write_stats = write_letters(config, store)
         written = write_stats["written"]
         write_skipped = write_stats["skipped"]
+        errors.extend(f"write: {msg}" for msg in write_stats.get("errors", []))
     except Exception as exc:  # noqa: BLE001
         errors.append(f"write: {exc}")
 
