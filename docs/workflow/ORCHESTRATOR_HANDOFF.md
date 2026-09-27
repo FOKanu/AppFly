@@ -13,9 +13,9 @@ fall back to optimized (5090 briefs, cloud judgment only). See
 
 | Item | State |
 | --- | --- |
-| Epic tip (merged) | `origin/integrate/prototype-v1` @ **`06fa6d8`** (#41 Post-B4 UI merged) |
-| Open PR | none required for product — P7 gate |
-| Next | **P7** manual happy path on tip; then human sign-off → `integrate/prototype-v1` → `main` |
+| Epic tip (merged) | `origin/integrate/prototype-v1` @ **`75de379`** (#45 Agentur ergebnisliste fix) |
+| Open PR | none for product — P7 gate (real Agentur scout works again) |
+| Next | **P7** manual happy path on tip; then human sign-off → `integrate/prototype-v1` → `main`; then open `integrate/mvp-v1` per [MVP_SEQUENCE.md](MVP_SEQUENCE.md) |
 | Stale PRs | Closed `cursor/*` drafts #1–#6, #10 (and earlier #7–#8) — do not revive |
 | 5090 from Mac | Reachable via Tailscale (`rtx5090` / `MUC-A-3099`); Ollama `:11436` |
 
@@ -31,17 +31,18 @@ fall back to optimized (5090 briefs, cloud judgment only). See
 ```bash
 git fetch origin
 git checkout integrate/prototype-v1 && git pull --ff-only
-# tip must be at least 06fa6d8; then cut feat/… and PR into integrate/prototype-v1
+# tip must be at least 75de379; then cut feat/… and PR into integrate/prototype-v1
 ```
 
 Do not cut from `main` while this epic is open.
 
 ## P7 checklist (Composer)
 
-Automated (done on `06fa6d8`):
+Automated (done on tip through #45):
 
-- [x] `cd backend && python -m pytest` → 110 passed
+- [x] `cd backend && python -m pytest` → 115 passed
 - [x] `cd frontend && npm run build` → ok
+- [x] Agentur Jobsuche v6 `ergebnisliste` parsing (#45)
 
 Manual (human + Composer before integrate → main):
 

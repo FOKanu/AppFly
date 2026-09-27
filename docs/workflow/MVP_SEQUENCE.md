@@ -1,0 +1,64 @@
+# MVP epic sequence (`integrate/mvp-v1`)
+
+Status: **Ready to open after** Composer merges `integrate/prototype-v1` → `main`
+(P7 smoke + human sign-off). Do not cut `mvp-v1` from `main` until that lands.
+
+Owner: Grok (or Cursor as temp planner). Implementer: 5090 local coder under briefs.
+Composer: gate every M* PR; owns M5 and M8. Claude: on call only where noted.
+
+Compute mode: **default** (current mixed split) unless the human opts into
+**optimized** or cloud is near token limits — [MULTI_AGENT.md §1a](../workflow/MULTI_AGENT.md).
+
+---
+
+## Open the epic
+
+```bash
+git fetch origin
+git checkout main && git pull --ff-only   # tip must include prototype Stage 1
+git checkout -b integrate/mvp-v1
+git push -u origin integrate/mvp-v1
+# announce: integrate/mvp-v1 @ <SHA>
+# chore PR: AGENTS.md / RULES / branch-strategy / FEATURES MVP rows
+```
+
+---
+
+## Wave order (do not start all at once)
+
+| ID | Branch (suggested) | Stack | Depends on | Claude? | Summary |
+| --- | --- | --- | --- | --- | --- |
+| M1 | `feat/backend-doc-extract` | Backend | epic open | No | Opt-in `pypdf` / `python-docx`; fill `extracted.txt` on upload; empty-extract contract; never return bytes in list |
+| M2 | `feat/backend-run-cv` | Backend | M1 | No | `POST /runs` body `{ "cv": "<id>" }`; writer uses that doc; default `active_cv`; sealed packet still one CV |
+| M3 | `feat/ui-cv-picker` | Frontend | **M1 + M2 merged** | **Yes — call Claude before the brief** | CV picker on Tonight/Workflow from document **metadata** only; pass `cv` id |
+| M4 | `feat/backend-cache-appdata` | Backend | epic open (parallel with M1 OK) | No | Embeddings under app-data `cache/embeddings`; migrate/document old `.cache/`; STORAGE.md note |
+| M5 | Composer-owned | Desktop | Stage 1 on main | No (Composer) | Neutralino or Tauri shell + spawn API on loopback |
+| M6 | TBD frontend | Frontend | **M5** | **Yes — call Claude before the brief** | First-launch wizard (init workspace → paste key → upload CV) |
+| M7 | TBD frontend | Frontend | epic open (after Stage 1 UI stable) | **Yes — optional design pass** | Strip mock ledgers when `source === "api"`; mock only offline (F2) |
+| M8 | Composer-owned | Privacy | **M5** packaged paths | No (Composer) | No secrets in logs/renderer/bundles; GET never returns CV bodies/keys; deny-list still enforced |
+
+Deferred outside MVP waves: **F1** fetch listing (policy review first).
+
+---
+
+## When to call Claude
+
+Call Claude **only** with a focused question + screen/route + privacy check ask.
+Paste Claude’s copy/states/acceptance into the 5090 brief.
+
+| Gate | Call Claude when |
+| --- | --- |
+| **M3** | After M1+M2 are on `integrate/mvp-v1`. Ask for picker placement, empty/offline/error copy, and “metadata only / never CV body” acceptance. |
+| **M6** | After M5 shell can launch the UI. Ask for wizard step order and first-run honesty. |
+| **M7** | Before mock-stripping briefs if banner/empty-state copy is unclear. |
+
+Do **not** call Claude for M1/M2/M4 backend mechanics, M5 packaging choice (Composer + Grok), or M8 audit.
+
+---
+
+## Definition of done for Stage 2 start
+
+- [ ] Prototype on `main` (P7 + human sign-off)
+- [ ] `integrate/mvp-v1` pushed and announced
+- [ ] M1 brief ready for 5090 (ALLOWED FILES + extract contract)
+- [ ] Claude **not** yet — wait until M1+M2 land before M3 design call
