@@ -101,7 +101,8 @@ Only commands that exist in the repo today are listed as required.
 | Stack | Command | Status |
 | --- | --- | --- |
 | Backend | `cd backend && python -m pytest` | Exists (`pytest` in `[project.optional-dependencies] dev`, `[tool.pytest.ini_options]` in `backend/pyproject.toml`) |
-| Backend | `ruff check .` | If/when added. No ruff config or dependency today. |
+| Backend | `cd backend && uv run --with ruff ruff check <changed .py files>` | Local gate (waves 1–3), not in CI. No ruff config or dependency in the repo; `uv run --with ruff` fetches it for the run. Pass = no new findings compared with the base branch. |
+| Any | `git diff --check` | Local gate: no whitespace errors. Aider does not strip trailing whitespace (section 9). |
 | Frontend | `cd frontend && npm run build` | Exists. Script is `tsc --noEmit && vite build`, so it already type-checks. |
 | Frontend | separate `tsc --noEmit` script | Not needed; covered by `npm run build`. |
 | Frontend | `npm run lint` | If/when added. No lint script or ESLint config today. |
@@ -231,7 +232,7 @@ Gates after each try (from `~/work/AppFly`):
 
 ```bash
 (cd backend && uv run python -m pytest -q)
-(cd backend && uv run --with ruff ruff check <changed .py files>)
+(cd backend && uv run --with ruff ruff check <changed .py files>)   # no new findings vs base
 git diff --check
 (cd frontend && . ~/.nvm/nvm.sh && nvm use 24 && npm run build)
 ```

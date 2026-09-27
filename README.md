@@ -8,7 +8,7 @@ Python lives in `backend/`. The UI lives in `frontend/`.
 
 ## Setup
 
-Python 3.12+ and Node.js 20+ (for the UI). 16 GB is enough. The embedding model is ~470 MB on first `match`.
+Python 3.12+ and Node.js 20+ for the UI (CI builds with Node 20; the 5090 dev host uses Node 24 via nvm). 16 GB is enough. The embedding model is ~470 MB on first `match`.
 
 ```bash
 python3.12 -m venv .venv
