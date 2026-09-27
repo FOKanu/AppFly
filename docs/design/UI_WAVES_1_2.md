@@ -1,5 +1,6 @@
 # UI spec: prototype-v1 waves 1 and 2
 
+Status: READY FOR GROK
 Owner: Claude (UI design). Consumer: Grok, who splits this into local-coder briefs.
 Baseline: `integrate/prototype-v1` @ `bd43eee`. Every file:line below was checked
 against that commit.
