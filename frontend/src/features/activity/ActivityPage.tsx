@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { loadActivity } from "./api";
-import { ExecutionLog, type LogEvent } from "./ExecutionLog";
+import { ExecutionLog, type LogEvent, type LogLevel } from "./ExecutionLog";
 import { FunnelSummary } from "./FunnelSummary";
 import { PolicyRefusals, type PolicyRefusal } from "./PolicyRefusals";
 import { RunList } from "./RunList";
+import { outcomeOf } from "./RunRow";
 import type { ActivityView, RunSummary } from "./types";
-import { ACTIVE_UI } from "../../shared/run/format";
+import { ACTIVE_UI, id5 } from "../../shared/run/format";
 import { useRun } from "../../shared/run/RunContext";
 import "./activity.css";
 
@@ -139,8 +140,8 @@ function eventsFrom(runs: RunSummary[]): LogEvent[] {
         id: `${run.id}-core`,
         time,
         channel: "core",
-        level: run.ok ? "info" : "error",
-        message: `run ${run.id} ${run.ok ? "finished" : "failed"} · ${run.model || "writer —"}`,
+        level: coreLevel(run),
+        message: coreMessage(run),
       },
       {
         id: `${run.id}-scout`,
@@ -190,6 +191,27 @@ function refusalsFrom(runs: RunSummary[]): PolicyRefusal[] {
         context: `${run.date || run.id} · crawl policy`,
       })),
   );
+}
+
+/** Purpose: Core log level; run rows follow the chip (failed -> error, finished with problems -> warn). */
+function coreLevel(run: RunSummary): LogLevel {
+  if (run.kind !== "run") return run.ok ? "info" : "error";
+  const { label } = outcomeOf(run);
+  if (label === "failed") return "error";
+  if (label === "finished with problems") return "warn";
+  return "info";
+}
+
+/**
+ * Purpose: Core log line. Run rows read `run #{id5} {chip label}`, plus ` \u00b7 {model}` only when the
+ *          model is known; day-note and mock rows keep their wording.
+ */
+function coreMessage(run: RunSummary): string {
+  if (run.kind !== "run") {
+    return `run ${run.id} ${run.ok ? "finished" : "failed"} \u00b7 ${run.model || "writer \u2014"}`;
+  }
+  const model = run.model && run.model !== "\u2014" ? ` \u00b7 ${run.model}` : "";
+  return `run #${id5(run.id)} ${outcomeOf(run).label}${model}`;
 }
 
 function isPolicy(message: string): boolean {

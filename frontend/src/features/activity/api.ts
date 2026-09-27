@@ -139,8 +139,9 @@ function normalizeRun(item: unknown, index: number): RunSummary {
   const kind = asString(row.kind) === "run" ? "run" : "day_note";
   const status = asString(row.status);
   const counts = asRecord(row.counts);
-  // Spec section 4: before B1 the counts of an active run are unknown, not 0.
-  const active = kind === "run" && (status === "queued" || status === "running");
+  // Spec sections 4 and 6: before B1 the counts of an active or interrupted run are unknown, not 0.
+  const countsUnknown =
+    kind === "run" && (status === "queued" || status === "running" || row.interrupted === true);
   const started = asString(row.started ?? row.started_at ?? row.date);
   const date = asString(row.date, started.slice(0, 10) || `run-${index + 1}`);
   // C3: a run row's `preview` is never an error line; only real error strings are shown.
@@ -157,10 +158,10 @@ function normalizeRun(item: unknown, index: number): RunSummary {
     date,
     started,
     finished: asString(row.finished ?? row.finished_at),
-    scouted: active ? null : countOf(row.scouted ?? counts.scouted),
-    shortlisted: active ? null : countOf(row.shortlisted ?? counts.matched),
+    scouted: countsUnknown ? null : countOf(row.scouted ?? counts.scouted),
+    shortlisted: countsUnknown ? null : countOf(row.shortlisted ?? counts.matched),
     skipped: countOf(row.skipped),
-    written: active ? null : countOf(row.written ?? counts.written),
+    written: countsUnknown ? null : countOf(row.written ?? counts.written),
     writeSkipped: countOf(row.write_skipped ?? row.writeSkipped),
     model: redactSecrets(asString(row.model, "\u2014")),
     errors,

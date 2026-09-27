@@ -6,7 +6,7 @@ type RunRowProps = {
   run: RunSummary;
 };
 
-type Outcome = { label: string; tone: "ok" | "warning" | "danger" | "accent" | "neutral" };
+export type Outcome = { label: string; tone: "ok" | "warning" | "danger" | "accent" | "neutral" };
 
 /**
  * Purpose: One redacted run-log row: id, window, counts, and outcome (spec C2 to C5).
@@ -70,8 +70,8 @@ function metricsLine(run: RunSummary): string {
   return `scout ${s} \u00b7 match ${m} \u00b7 write ${writePart}`;
 }
 
-/** Purpose: Determine the outcome chip for a run row. */
-function outcomeOf(run: RunSummary): Outcome {
+/** Purpose: The outcome chip for a row; the Activity execution log reuses it so the two never drift. */
+export function outcomeOf(run: RunSummary): Outcome {
   if (run.kind === "day_note") {
     // Day note logic
     if (!run.ok) return { label: "error", tone: "danger" };
