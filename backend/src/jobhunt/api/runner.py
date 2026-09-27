@@ -9,6 +9,8 @@ Does not: Interrupt a Gemini call in flight (cancel is checked between stages an
 from __future__ import annotations
 
 import logging
+import os
+import socket
 import threading
 import uuid
 from collections.abc import Callable
@@ -64,6 +66,8 @@ def request_cancel(run_id: str) -> bool:
 
     with _lock:
         if run_id not in _runs:
+            # Try to check store for cancellation
+            store = None  # This would need to be passed in or retrieved somehow
             return False
         event = _cancel_events.get(run_id)
         if event is not None:
@@ -98,6 +102,7 @@ def start_async_run(
     *,
     store: Any = None,
     on_update: OnUpdate | None = None,
+    trigger: str = "api",
 ) -> RunRecord:
     """Queue a background ``run_all`` and return the queued record immediately.
 
@@ -106,16 +111,37 @@ def start_async_run(
 
     run_id = uuid.uuid4().hex[:12]
     event = threading.Event()
+
+    # Check for existing active runs in store
+    if store is not None:
+        settle_stale = getattr(store, "settle_stale_active_runs", None)
+        if callable(settle_stale):
+            settled_ids = settle_stale()
+            logger.debug("Settled stale runs: %s", settled_ids)
+
+        find_active = getattr(store, "find_active_run", None)
+        if callable(find_active):
+            active_run = find_active()
+            if active_run is not None:
+                raise RunConflictError(active_run.id)
+
     with _lock:
         for existing in _runs.values():
             if existing.status in ACTIVE_STATUSES:
                 raise RunConflictError(existing.id)
+
+        # Set owner to hostname:pid
+        owner = f"{socket.gethostname()}:{os.getpid()}"
+
         record = RunRecord(
             id=run_id,
             status="queued",
             started=utc_now(),
             model=config.gemini_model,
             write_cap=config.letter_cap,
+            trigger=trigger,
+            owner=owner,
+            heartbeat=utc_now(),
         )
         _runs[run_id] = record
         _cancel_events[run_id] = event
@@ -140,6 +166,29 @@ def start_async_run(
             _update(run_id, on_update, status="cancelled", finished=utc_now(), stage=None)
             return
         _update(run_id, on_update, status="running")
+
+        # Start heartbeat thread for this run
+        def heartbeat_thread():
+            while True:
+                # Check if we should stop
+                if event.is_set():
+                    break
+
+                # Update heartbeat in store if available
+                if store is not None:
+                    touch_heartbeat = getattr(store, "touch_run_heartbeat", None)
+                    if callable(touch_heartbeat):
+                        try:
+                            touch_heartbeat(run_id)
+                        except Exception:
+                            logger.exception("Failed to update heartbeat for run %s", run_id)
+
+                # Wait 10 seconds before next heartbeat
+                event.wait(timeout=10.0)
+
+        heartbeat = threading.Thread(target=heartbeat_thread, daemon=True)
+        heartbeat.start()
+
         try:
             result = run_all(config, store, cancel=event, on_progress=progress)
         except Exception as exc:  # noqa: BLE001 - a crashed run must still be recorded
@@ -176,6 +225,10 @@ def start_async_run(
                 f"written={result.written}"
             ),
         )
+
+        # Clean up heartbeat thread
+        event.set()
+        heartbeat.join(timeout=1.0)
 
     threading.Thread(target=worker, name=f"run-{run_id}", daemon=True).start()
     return queued

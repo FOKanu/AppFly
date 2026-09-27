@@ -25,6 +25,7 @@ from jobhunt.store.types import DocumentKind, DocumentMeta, JobNote, LetterRecor
 from jobhunt.vault import safe_filename
 
 _PROTECTED_STATUSES = frozenset({"draft", "approved", "applied", "skipped"})
+HEARTBEAT_STALE_SECONDS = 60
 
 _JOB_COLUMNS = frozenset(
     {
@@ -937,8 +938,8 @@ class SqliteStore:
             """
             INSERT INTO runs (
                 id, status, started, finished, scouted, shortlisted, skipped,
-                written, write_skipped, errors_json, model, preview
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                written, write_skipped, errors_json, model, preview, trigger, owner, heartbeat, cancel_requested
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 status = excluded.status,
                 started = excluded.started,
@@ -950,7 +951,11 @@ class SqliteStore:
                 write_skipped = excluded.write_skipped,
                 errors_json = excluded.errors_json,
                 model = excluded.model,
-                preview = excluded.preview
+                preview = excluded.preview,
+                trigger = excluded.trigger,
+                owner = excluded.owner,
+                heartbeat = excluded.heartbeat,
+                cancel_requested = excluded.cancel_requested
             """,
             (
                 record.id,
@@ -965,6 +970,10 @@ class SqliteStore:
                 errors_json,
                 record.model,
                 record.preview,
+                record.trigger,
+                record.owner,
+                record.heartbeat,
+                int(record.cancel_requested),
             ),
         )
         self._conn.commit()
@@ -1062,6 +1071,137 @@ class SqliteStore:
         filename = f"edit-{safe_filename(source_id, 80)}.md"
         return self._root / "files" / "letters" / filename
 
+    def find_active_run(self) -> RunRecord | None:
+        """Find the currently active run (queued or running) with fresh heartbeat.
+
+        Purpose: Check if a run is currently active and not stale.
+        Inputs: None.
+        Returns: RunRecord or None if no active run exists or it's stale.
+        Does not: Modify any data.
+        """
+        rows = self._conn.execute(
+            "SELECT * FROM runs WHERE status IN ('queued', 'running')"
+        ).fetchall()
+
+        for row in rows:
+            heartbeat = str(row["heartbeat"] or "")
+            age = _heartbeat_age_seconds(heartbeat)
+            if age is not None and age <= HEARTBEAT_STALE_SECONDS:
+                return _run_row_to_record(row)
+        return None
+
+    def settle_stale_active_runs(self) -> list[str]:
+        """Set stale active runs to failed status.
+
+        Purpose: Mark runs as interrupted if their heartbeat is too old.
+        Inputs: None.
+        Returns: List of run IDs that were settled.
+        Does not: Modify any data except the runs table.
+        """
+        ids_settled = []
+
+        rows = self._conn.execute(
+            "SELECT * FROM runs WHERE status IN ('queued', 'running')"
+        ).fetchall()
+
+        for row in rows:
+            heartbeat = str(row["heartbeat"] or "")
+            age = _heartbeat_age_seconds(heartbeat)
+
+            # If heartbeat is stale (older than 60 seconds) or invalid
+            if age is None or age > HEARTBEAT_STALE_SECONDS:
+                run_id = str(row["id"])
+
+                # Set status to failed and add error message
+                errors_json = row["errors_json"] or "[]"
+                try:
+                    errors = json.loads(errors_json)
+                except json.JSONDecodeError:
+                    errors = []
+
+                # Add the interruption error if not already present
+                interrupt_msg = "interrupted: the server stopped before this run finished"
+                if interrupt_msg not in errors:
+                    errors.append(interrupt_msg)
+
+                errors_json = json.dumps(errors)
+
+                # Clear cancel_requested flag and update
+                self._conn.execute(
+                    """
+                    UPDATE runs SET
+                        status = 'failed',
+                        errors_json = ?,
+                        cancel_requested = 0
+                    WHERE id = ?
+                    """,
+                    (errors_json, run_id)
+                )
+                ids_settled.append(run_id)
+
+        if ids_settled:
+            self._conn.commit()
+
+        return ids_settled
+
+    def request_run_cancel(self, run_id: str) -> bool:
+        """Request cancellation of an active run.
+
+        Purpose: Mark a queued/running run for cooperative cancel (cross-process).
+        Inputs: Run ID.
+        Returns: True if an active row was found and updated; False if missing or not active.
+        Does not: Stop an in-flight Gemini call.
+        """
+        row = self._conn.execute(
+            "SELECT id, status FROM runs WHERE id = ?",
+            (run_id,),
+        ).fetchone()
+        if row is None:
+            return False
+        if str(row["status"] or "") not in ("queued", "running"):
+            return False
+        self._conn.execute(
+            "UPDATE runs SET cancel_requested = 1 WHERE id = ?",
+            (run_id,),
+        )
+        self._conn.commit()
+        return True
+
+    def is_run_cancel_requested(self, run_id: str) -> bool:
+        """Check if cancellation was requested for a run.
+
+        Purpose: Check if a run should be cancelled.
+        Inputs: Run ID.
+        Returns: True if cancellation was requested, False otherwise.
+        Does not: Modify any data.
+        """
+        row = self._conn.execute(
+            "SELECT cancel_requested FROM runs WHERE id = ?",
+            (run_id,)
+        ).fetchone()
+
+        if row is None:
+            return False
+
+        return bool(int(row["cancel_requested"] or 0))
+
+    def touch_run_heartbeat(self, run_id: str, when: str | None = None) -> None:
+        """Update heartbeat timestamp for a run.
+
+        Purpose: Mark that a run is still active.
+        Inputs: Run ID and optional timestamp (defaults to current time).
+        Returns: None.
+        Does not: Modify any data except the runs table.
+        """
+        if when is None:
+            when = utc_now()
+
+        self._conn.execute(
+            "UPDATE runs SET heartbeat = ? WHERE id = ?",
+            (when, run_id)
+        )
+        self._conn.commit()
+
 
 def _document_row_to_meta(row: sqlite3.Row) -> DocumentMeta:
     return DocumentMeta(
@@ -1098,6 +1238,10 @@ def _run_row_to_record(row: sqlite3.Row) -> RunRecord:
         errors=[str(e) for e in errors],
         model=str(row["model"] or ""),
         preview=str(row["preview"] or ""),
+        trigger=str(row["trigger"] or "api"),
+        owner=str(row["owner"] or ""),
+        heartbeat=str(row["heartbeat"] or ""),
+        cancel_requested=bool(int(row["cancel_requested"] or 0)),
     )
 
 
@@ -1113,3 +1257,26 @@ def _score_sort(value: Any) -> float:
         return -float(value)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _heartbeat_age_seconds(heartbeat: str) -> float | None:
+    """Calculate age of heartbeat in seconds.
+
+    Purpose: Determine if a run is stale.
+    Inputs: ISO timestamp string.
+    Returns: Age in seconds or None if unparseable/empty.
+    Does not: Modify any data.
+    """
+    if not heartbeat:
+        return None
+    try:
+        from datetime import datetime
+
+        heartbeat_dt = datetime.fromisoformat(heartbeat)
+        if heartbeat_dt.tzinfo is None:
+            heartbeat_dt = heartbeat_dt.astimezone()
+        now = datetime.now().astimezone()
+        return (now - heartbeat_dt).total_seconds()
+    except (TypeError, ValueError):
+        return None
+
