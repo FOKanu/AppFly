@@ -33,7 +33,7 @@ One row per Cloud Agent package. Sibling agents add folders on parallel branches
 | M2 | Run CV override | `POST /runs` `{ "cv": "<id>" }` | **This tree** | Optional CV document id; default active CV; sealed packet still one CV slice; missing/non-cv → 404. |
 | M3 | CV picker UI | Tonight/Workflow metadata picker | **This tree** | Header picker + `RunContext` `{cv}` on POST /runs; metadata only. Claude design in `briefs/M3-claude-decision.md`. |
 | M4 | Embeddings app-data cache | `cache/embeddings` under native data dir | **This tree** | Native: `{data}/cache/embeddings`; one-shot migrate from repo `.cache/`; markdown keeps repo `.cache`. |
-| M5 | Desktop shell | Neutralino or Tauri + spawn API | **Planned** | Composer-owned. |
+| M5 | Desktop shell | Neutralino + spawn API on loopback | **This tree** | `desktop/`; port 5174; spawns uvicorn from checkout venv/`uv`. |
 | M6 | First-launch wizard | Desktop first-run flow | **Planned** | After M5. **Call Claude** before the brief. |
 | M7 | Mock-data honesty | Mock only when offline | **Planned** | F2. Claude optional for copy. |
 | M8 | Privacy pass | Packaged paths audit | **Planned** | After M5. Composer-owned. |

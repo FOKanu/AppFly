@@ -1,0 +1,24 @@
+# Neutralino binaries and packaged builds
+/bin
+/dist
+/.tmp
+
+# Client library (downloaded by `neu update`)
+/resources/js/neutralino.js
+/resources/js/neutralino.d.ts
+
+# Vite UI build copied into resources by prepare-resources
+/resources/assets
+/resources/index.html
+/resources/*.png
+/resources/*.svg
+/resources/*.ico
+/resources/*.webmanifest
+
+# Intermediate Vite outDir
+/.ui-dist
+
+# Neutralino runtime
+.storage
+*.log
+node_modules

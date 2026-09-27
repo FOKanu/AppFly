@@ -16,7 +16,13 @@ from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp
 
 ALLOWED_HOSTS: tuple[str, ...] = ("127.0.0.1", "localhost")
-DEFAULT_ALLOWED_ORIGINS: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173")
+# 5173 = Vite dev; 5174 = Neutralino desktop shell (M5, fixed port in desktop/)
+DEFAULT_ALLOWED_ORIGINS: tuple[str, ...] = (
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+)
 ORIGINS_ENV = "APPFLY_ALLOWED_ORIGINS"
 CSRF_HEADER = "X-AppFly"
 CSRF_HEADER_VALUE = "1"

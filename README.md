@@ -31,6 +31,16 @@ npm run build    # production check
 
 Copy `frontend/.env.example` to `frontend/.env` if you need to point at the API (`VITE_API_BASE_URL=http://127.0.0.1:8787`).
 
+Desktop shell (Neutralino, M5):
+
+```bash
+cd desktop
+npm install && npm run update
+npm run dev    # builds UI into resources/, opens the window, spawns API if needed
+```
+
+Details: [desktop/README.md](desktop/README.md).
+
 Then, in the UI:
 
 1. **Settings**: paste your Gemini key. It goes to the OS keychain and is never returned by the API. `GEMINI_API_KEY` in `.env` also works as a fallback. Get a key at [Google AI Studio](https://aistudio.google.com/apikey). The Arbeitsagentur key defaults to the public client id `jobboerse-jobsuche`.
