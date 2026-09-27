@@ -277,6 +277,7 @@ function idleStep(lastRun: Run | null): HeartbeatStateName {
 const LAST_RUN_WORD: Record<string, string> = {
   completed: "done",
   completed_with_errors: "finished with problems",
+  ok: "done",
   failed: "failed",
   cancelled: "stopped",
 };

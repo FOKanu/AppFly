@@ -2,7 +2,7 @@ import { Button } from "../../shared/ui/Button";
 import { Link } from "react-router-dom";
 import { ROUTES } from "../../routes";
 
-/** The state machine the jobhunt CLI emits over IPC, in order. */
+/** Heartbeat steps shown on the Workflow page, in order. */
 export const HEARTBEAT_STATES = [
   "asleep",
   "waking",
@@ -80,7 +80,7 @@ export function HeartbeatPanel({
               {detail}
               {detailLink ? (
                 <>
-                  {" "}
+                  {" \u00b7 "}
                   <Link to={ROUTES.activity}>{"Watch in Activity \u2192"}</Link>
                 </>
               ) : null}
