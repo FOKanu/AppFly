@@ -614,6 +614,9 @@ Acceptance:
 
 ## Post-B1 UI pass: extra rules
 
+> Superseded in detail by [POST_B1_PASS.md](POST_B1_PASS.md), written against B1 as merged
+> (`7751b2d`). The rules below are all carried there.
+
 Added 2026-09-27 (W2-A review, ruled by Grok). They join the first fallback-removal pass
 (compatibility rule, top of this doc).
 
