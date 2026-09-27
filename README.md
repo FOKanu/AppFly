@@ -1,6 +1,6 @@
 # Jobhunt Copilot
 
-Local-first job copilot. Scout and matching stay on your machine. Gemini writes cover letters from a sealed packet. You approve in Obsidian (or later in the UI) and submit applications yourself.
+Local-first job copilot. Scout and matching stay on your machine. Gemini writes cover letters from a sealed packet. You review and approve in the local UI and submit applications yourself.
 
 This repo does **not** automate LinkedIn, Indeed, Stepstone, ZipRecruiter, Xing, or Glassdoor. It does **not** scrape those sites, including via Apify. The deny-list is enforced in `jobhunt.policy`.
 
@@ -14,21 +14,11 @@ Python 3.12+ and Node.js 20+ (for the UI). 16 GB is enough. The embedding model 
 python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -e "./backend[dev]"
-cp .env.example .env
-# Put your Gemini API key in .env
-jobhunt init
+jobhunt init           # writes config.yaml (+ .env from .env.example) and the native store
+python -m jobhunt.api  # local API on http://127.0.0.1:8787
 ```
 
-`jobhunt init` creates `config.yaml` and a vault at `~/Documents/Job Search` (override with `--vault` or `vault_path` in config). Open that folder as an Obsidian vault.
-
-Then:
-
-1. Replace `CV/Master.md` with your real CV.
-2. Paste 1–3 sent letters into `CV/Voice-samples.md`.
-3. Edit `Requirements.md` properties (locations, banned terms, skip companies).
-4. Adjust keywords and location in `config.yaml`.
-
-Get a Gemini key at [Google AI Studio](https://aistudio.google.com/apikey). The Arbeitsagentur key defaults to the public client id `jobboerse-jobsuche`.
+Storage: the **native store is the source of truth**. `jobhunt init` sets `storage_backend: native` and creates `appfly.sqlite` plus `files/` under the app data dir: `~/Library/Application Support/AppFly/` on macOS, `~/.local/share/appfly/` on Linux. Override it with `native_data_dir` in `config.yaml` or `APPFLY_DATA_DIR`. `jobhunt init --markdown` keeps the legacy Obsidian-vault backend (`vault_path`, default `~/Documents/Job Search`). Details: [docs/STORAGE.md](docs/STORAGE.md).
 
 Frontend:
 
@@ -41,14 +31,33 @@ npm run build    # production check
 
 Copy `frontend/.env.example` to `frontend/.env` if you need to point at the API (`VITE_API_BASE_URL=http://127.0.0.1:8787`).
 
+Then, in the UI:
+
+1. **Settings**: paste your Gemini key. It goes to the OS keychain and is never returned by the API. `GEMINI_API_KEY` in `.env` also works as a fallback. Get a key at [Google AI Studio](https://aistudio.google.com/apikey). The Arbeitsagentur key defaults to the public client id `jobboerse-jobsuche`.
+2. **Vault**: upload your CV and 1–3 sent letters as voice samples, and mark the active CV and voice sample.
+3. Adjust keywords and location in `config.yaml` (or via `PUT /settings`).
+
+Coming from an Obsidian vault? **Settings → Import from Obsidian** (`POST /workspace/import/obsidian`) copies `Jobs/`, `Letters/`, `CV/`, `Requirements.md` and `Runs/` into the native store **once**. There is no dual-write and no live sync, so later edits in Obsidian are not picked up.
+
 ## Daily use
 
+Start a run from the UI (`POST /runs`) or the CLI:
+
 ```bash
-jobhunt scout    # fetch + inbox
-jobhunt match    # filter + score (downloads the embedding model once)
-jobhunt write    # Gemini letters for shortlisted jobs
-jobhunt run      # all of the above + Runs/YYYY-MM-DD.md
+jobhunt run      # scout -> match -> write against the configured store
 ```
+
+`jobhunt scout`, `jobhunt match` and `jobhunt write` still exist, but they currently operate on the markdown vault at `vault_path`, not the native store. With the native backend, use `jobhunt run` or the UI.
+
+Morning loop in the UI:
+
+1. Open **Tonight** for the last run and the drafts waiting for review.
+2. Open a job's packet and edit the letter (or regenerate it).
+3. Mark it **approved** or **skipped**.
+4. Submit the application yourself.
+5. Set its status to `applied` (Queue status menu, or `PATCH /jobs/{source_id}`).
+
+Clip a listing you already opened into the inbox folder: `files/inbox/` under the app data dir (`_inbox/` in markdown mode), with title, company and URL. Scout parses the local file only and will **never HTTP-fetch** a deny-listed listing URL. Do not clip search-result pages.
 
 Run backend tests from `backend/`:
 
@@ -57,15 +66,7 @@ cd backend
 pytest
 ```
 
-Morning loop in Obsidian:
-
-1. Open `Home.md`.
-2. Edit the letter.
-3. Set the job `status` to `approved` or `skipped`.
-4. Submit the application yourself.
-5. Set `status: applied` and fill `applied`.
-
-Clip a listing you already opened into `_inbox/` (title, company, URL). Scout parses the local file only and will **never HTTP-fetch** a deny-listed listing URL. Do not clip search-result pages.
+API contract: [docs/API.md](docs/API.md).
 
 ## Crawl policy (accounts)
 
@@ -109,13 +110,13 @@ cp launchd/com.jobhunt.nightly.plist ~/Library/LaunchAgents/
 launchctl load ~/Library/LaunchAgents/com.jobhunt.nightly.plist
 ```
 
-Leave the lid open and the Mac plugged in if you can. `jobhunt run` is safe to re-run: existing `source_id`s are not duplicated; `draft` / `approved` / `applied` notes are not overwritten.
+Leave the lid open and the Mac plugged in if you can. `jobhunt run` is safe to re-run: existing `source_id`s are not duplicated; `draft` / `approved` / `applied` jobs are not overwritten.
 
 ## Status values
 
 `inbox` → `shortlist` → `draft` → `approved` → `applied`, or `skipped`.
 
-Set `gemini: false` on a job note to keep it off the Writer.
+Set `gemini: false` on a job (`PATCH /jobs/{source_id}`) to keep it off the Writer.
 
 ## Out of scope
 
