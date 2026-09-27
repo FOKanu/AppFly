@@ -1,10 +1,12 @@
 import { Button } from "../../shared/ui/Button";
+import { id5 } from "../../shared/run/format";
 import type { Run } from "./types";
 
 interface TonightHeroProps {
   run: Run | null;
   draftCount: number;
-  refusalCount: number;
+  /** Real crawl refusals, or null when the run does not report them (D6). */
+  refusalCount: number | null;
   onOpenHome: () => void;
   onReviewDrafts: () => void;
 }
@@ -44,31 +46,50 @@ export function TonightHero({
   );
 }
 
+/** D1/D8: `Tonight \u00b7 run #{id5} ...`; a live run reads `in flight` or `lost contact`. */
 function kicker(run: Run | null): string {
-  if (!run) return "Tonight · no run recorded";
+  if (!run) return "Tonight \u00b7 no run recorded";
+  const shortId = run.id ? ` #${id5(run.id)}` : "";
+  if (run.status === "lost-contact") return `Tonight \u00b7 run${shortId} \u00b7 lost contact`;
+  if (run.status === "stopping") return `Tonight \u00b7 run${shortId} stopping`;
+  if (isActive(run)) return `Tonight \u00b7 run${shortId} in flight`;
   const finished = run.finished_at ? clock(run.finished_at) : null;
-  const shortId = run.id.slice(-5);
-  if (run.status === "running") return `Tonight · run ${shortId} in flight`;
   return finished
-    ? `Tonight · run ${shortId} finished ${finished}`
-    : `Tonight · run ${shortId}`;
+    ? `Tonight \u00b7 run${shortId} finished ${finished}`
+    : `Tonight \u00b7 run${shortId}`;
 }
 
-function lead(run: Run | null, refusalCount: number): string {
+/** D1/D6: counts with a dash when unknown; `so far` and no refusal clause while active. */
+function lead(run: Run | null, refusalCount: number | null): string {
   if (!run) {
-    return "No run in the vault yet. Scout, Match and Write are dark — this panel never crawls job boards.";
+    return "No run in the vault yet. Scout, Match and Write are dark \u2014 this panel never crawls job boards.";
   }
   const parts = [
-    `${run.scouted} scouted`,
-    `${run.shortlisted} shortlisted`,
-    `${run.written} letter${run.written === 1 ? "" : "s"} written`,
+    `${count(run.scouted)} scouted`,
+    `${count(run.shortlisted)} shortlisted`,
+    `${count(run.written)} letter${run.written === 1 ? "" : "s"} written`,
   ];
-  if (refusalCount > 0) {
+  if (isActive(run)) return `${parts.join(" \u00b7 ")} so far.`;
+  if (refusalCount !== null && refusalCount > 0) {
     parts.push(
       `${refusalCount} start URL${refusalCount === 1 ? "" : "s"} refused by crawl policy (never fetched)`,
     );
   }
-  return `${parts.join(" · ")}.`;
+  return `${parts.join(" \u00b7 ")}.`;
+}
+
+/** A run still going: the live run (running, stopping, lost contact), or a loaded queued/running row (G3). */
+function isActive(run: Run): boolean {
+  return (
+    run.status === "queued" ||
+    run.status === "running" ||
+    run.status === "stopping" ||
+    run.status === "lost-contact"
+  );
+}
+
+function count(value: number | undefined): string {
+  return value === undefined ? "\u2014" : String(value);
 }
 
 function clock(iso: string): string {

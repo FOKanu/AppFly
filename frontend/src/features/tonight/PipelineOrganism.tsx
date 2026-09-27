@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Chip } from "../../shared/ui/Chip";
 import { Segmented } from "../../shared/ui/Segmented";
+import { refusalsOf } from "./api";
 import type { Run, StageStatus } from "./types";
 
 /** Which window the pipeline strip reports on. */
@@ -51,7 +52,7 @@ export function PipelineOrganism({ run, vaultNotes, vaultPath }: PipelineOrganis
             { label: "sources", value: sourceMix(run) },
             { label: "refused", value: refusedHosts(run) },
           ]}
-          note={run?.errors[0]}
+          note={refusalsOf(run)?.[0]}
           noteTone="policy"
         />
         <Arrow />
@@ -83,11 +84,11 @@ export function PipelineOrganism({ run, vaultNotes, vaultPath }: PipelineOrganis
         <StageCard
           index="04"
           name="Vault"
-          status={run?.stages.write}
+          status={vaultStatus(run)}
           rows={[
             { label: "notes written", value: num(vaultNotes) },
             { label: "letters", value: num(run?.written) },
-            { label: "Home.md", value: run ? "updated" : "—" },
+            { label: "Home.md", value: homeUpdated(run) ? "updated" : "\u2014" },
           ]}
           note={vaultPath}
         />
@@ -122,7 +123,7 @@ function StageCard({
         <span className="stage-card__index">{index}</span>
         <h3 className="stage-card__name">{name}</h3>
         <span className="stage-card__rule" />
-        <Chip tone={stageTone(status)} dot pulse={status === "running"}>
+        <Chip tone={stageTone(status)} dot pulse={status === "running" || status === "in flight"}>
           {status ?? "idle"}
         </Chip>
       </header>
@@ -154,12 +155,16 @@ function stageTone(status: StageStatus | undefined) {
   switch (status) {
     case "done":
       return "ok" as const;
+    case "in flight":
+      return "accent" as const;
     case "running":
       return "accent" as const;
     case "failed":
       return "danger" as const;
     case "queued":
       return "warning" as const;
+    case "stopped":
+      return "neutral" as const;
     default:
       return "muted" as const;
   }
@@ -170,21 +175,38 @@ function num(value: number | undefined): string {
 }
 
 function writeRatio(run: Run | null): string {
-  if (!run) return "—";
+  if (!run || run.written === undefined) return "\u2014";
+  if (run.write_skipped === undefined) return String(run.written);
   const cap = run.written + run.write_skipped;
   return cap > 0 ? `${run.written} / ${cap} cap` : String(run.written);
 }
 
 function sourceMix(run: Run | null): string {
-  if (!run) return "—";
+  if (!run || !run.source_mix) return "\u2014";
   const parts: string[] = [];
   if (run.source_mix.api) parts.push("API");
   if (run.source_mix.rss) parts.push("RSS");
   if (run.source_mix.clips) parts.push(`${run.source_mix.clips} clips`);
-  return parts.length > 0 ? parts.join(" · ") : "—";
+  return parts.length > 0 ? parts.join(" \u00b7 ") : "\u2014";
 }
 
+/** D6: counted from real refusal strings only; a dash when the run does not report them. */
 function refusedHosts(run: Run | null): string {
-  if (!run) return "—";
-  return run.errors.length > 0 ? `${run.errors.length} host` : "0 hosts";
+  const refusals = refusalsOf(run);
+  if (refusals === null) return "\u2014";
+  return refusals.length === 1 ? "1 host" : `${refusals.length} hosts`;
+}
+
+/** D2/D5: Vault is queued while a run is in flight, else done when letters were written, else idle. */
+function vaultStatus(run: Run | null): StageStatus | undefined {
+  if (!run) return undefined;
+  if (run.stages.write === "in flight") return "queued";
+  return (run.written ?? 0) > 0 ? "done" : "idle";
+}
+
+/** Review fix: Home.md reads `updated` only once a run has finished writing (or for a day note). */
+function homeUpdated(run: Run | null): boolean {
+  if (!run) return false;
+  if (run.kind === "day_note") return true;
+  return run.status === "completed" || run.status === "completed_with_errors" || run.status === "cancelled";
 }

@@ -23,8 +23,8 @@ interface LastRunSummaryProps {
   run: Run | null;
   funnel: FunnelTotals;
   writer: WriterUsage;
-  /** Hosts the crawl policy refused, as reported by the run. */
-  refusals: string[];
+  /** Real crawl-policy refusals reported by the run; null when unknown (D6). */
+  refusals: string[] | null;
 }
 
 /** Hosts `backend/src/jobhunt/policy.py` refuses; shown read-only. */
@@ -42,7 +42,7 @@ const BANNED_HOSTS = [
  *          crawl-policy card.
  * Does not: enforce policy; policy.py refuses before any request is made.
  */
-export function LastRunSummary({ run, funnel, writer, refusals }: LastRunSummaryProps) {
+export function LastRunSummary({ funnel, writer, refusals }: LastRunSummaryProps) {
   const top = funnel.scouted ?? 0;
 
   return (
@@ -97,16 +97,19 @@ export function LastRunSummary({ run, funnel, writer, refusals }: LastRunSummary
           <span className="t-title-sm policy-title">Crawl policy enforced</span>
           <span className="run-summary__rule" />
           <span className="run-summary__value policy-count">
-            {refusals.length} refusal{refusals.length === 1 ? "" : "s"}
+            {refusals === null
+              ? "\u2014 refusals"
+              : `${refusals.length} refusal${refusals.length === 1 ? "" : "s"}`}
           </span>
         </div>
         <p className="run-summary__policy-copy">
-          0 fetches to {BANNED_HOSTS.join(" · ")}.
-          {refusals.length > 0 ? ` Refused: ${refusals.join(", ")}.` : " Nothing refused this run."}
+          0 fetches to {BANNED_HOSTS.join(" \u00b7 ")}.
+          {refusals === null
+            ? ""
+            : refusals.length > 0
+              ? ` Refused: ${refusals.join(", ")}.`
+              : " Nothing refused this run."}
         </p>
-        {run?.errors.length ? (
-          <p className="run-summary__policy-copy">{run.errors[0]}</p>
-        ) : null}
       </section>
     </aside>
   );

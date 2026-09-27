@@ -4,11 +4,14 @@ import { ROUTES } from "../../routes";
 import { Toast, useToast } from "../../shared/ui/Toast";
 import { copyToClipboard } from "../../app/layout/AppShell";
 import { patchJobStatus } from "../queue/jobsApi";
+import { ACTIVE_UI } from "../../shared/run/format";
+import { useRun } from "../../shared/run/RunContext";
 import type { JobStatus } from "../queue/types";
 import { LastRunSummary } from "./LastRunSummary";
 import { NeedsYou } from "./NeedsYou";
 import { PipelineOrganism } from "./PipelineOrganism";
 import { TonightHero } from "./TonightHero";
+import { liveRun, refusalsOf } from "./api";
 import { readPreview, useTonight } from "./useTonight";
 import type { Job } from "./types";
 import "./tonight.css";
@@ -32,10 +35,19 @@ export function TonightPage() {
     document.title = "AppFly · Tonight";
   }, []);
 
-  const run = preview === "empty" ? null : (snapshot?.lastRun ?? null);
+  const shared = useRun();
+  // D1: while a run is active Tonight reads the shared controller, not the loader. D4: no reload afterwards;
+  // the loaded snapshot shows again once the run ends.
+  const active = ACTIVE_UI.has(shared.ui);
+  const run = active
+    ? liveRun(shared.runId, shared.ui, shared.counts)
+    : preview === "empty"
+      ? null
+      : (snapshot?.lastRun ?? null);
   const allDrafts = preview === "empty" ? [] : (snapshot?.drafts ?? []);
   const drafts = allDrafts.filter((job) => !decided[job.source_id]);
-  const refusals = run?.errors ?? [];
+  // D6: only real crawl refusals count; null when the run does not report error strings.
+  const refusals = refusalsOf(run);
 
   const onReviewDrafts = useCallback(() => {
     navigate(`${ROUTES.queue}?status=draft`);
@@ -77,12 +89,12 @@ export function TonightPage() {
       <TonightHero
         run={run}
         draftCount={drafts.length}
-        refusalCount={refusals.length}
+        refusalCount={refusals === null ? null : refusals.length}
         onOpenHome={onOpenHome}
         onReviewDrafts={onReviewDrafts}
       />
 
-      <PipelineOrganism run={run} vaultNotes={snapshot?.shortlist.length} />
+      <PipelineOrganism run={run} vaultNotes={active ? undefined : snapshot?.shortlist.length} />
 
       <div className="tonight__lower">
         <NeedsYou
