@@ -42,7 +42,8 @@ When an epic opens, name it here and every Cloud Agent prompt includes the Base/
 
 - **Base every MVP PR on** `origin/integrate/mvp-v1` (tip as of 2026-09-27: `7d23e2c`, M1 doc extract / #50). `git fetch origin` before cutting a branch.
 - **Do not** reopen closed `cursor/*` or continue `integrate/prototype-v1` feature PRs; prototype closed on `main` via #48.
-- **Next:** M2 `feat/backend-run-cv` → **then** call Claude for M3 CV picker. Sequence: [docs/workflow/MVP_SEQUENCE.md](docs/workflow/MVP_SEQUENCE.md).
+- **Next:** M2 `feat/backend-run-cv` (#52) → **then** call Claude for M3 CV picker. Sequence: [docs/workflow/MVP_SEQUENCE.md](docs/workflow/MVP_SEQUENCE.md).
+- **5090 briefs:** slice large features; mandatory cloud check-in between slices (never one 9-file Aider package). Rule: [`.cursor/rules/local-coder-bulk.mdc`](.cursor/rules/local-coder-bulk.mdc). Lessons: [docs/workflow/LOCAL_BULK_LESSONS.md](docs/workflow/LOCAL_BULK_LESSONS.md).
 - Prefer integrate while the epic is open; `main` lags until Composer merges `integrate/mvp-v1` → `main`.
 
 ### Closed epics

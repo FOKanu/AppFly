@@ -31,12 +31,18 @@ a module summary first. One brief = one concern, file-bounded. Log mode=optimize
 (and token-limit fallback if that triggered it) in TOKEN_LOG.md.
 
 # Loop per task
-1. Write brief. 2. Run Aider in WSL on the 5090 host in ~/work/AppFly via ~/work/.logs/aider-run.sh
+1. Write brief — **slice large features** (≤~4–6 ALLOWED FILES per pass; see
+   MULTI_AGENT.md §4a and .cursor/rules/local-coder-bulk.mdc). Prefer a series of
+   small briefs with cloud check-ins over one bulk package.
+2. Run Aider in WSL on the 5090 host in ~/work/AppFly via ~/work/.logs/aider-run.sh
    (Ollama 127.0.0.1:11436, qwen3-coder:30b), restricted to ALLOWED FILES, auto-commits off.
+   Prefer diff edit format. Never whole-format multi-file rewrites.
 3. Run local checks (backend: cd backend && python -m pytest; frontend: cd frontend && npm run build).
 4. Local coder fixes its own failures, max 2 retries.
-5. Review only diff + check output + its self-review. Accept, send back, or escalate.
-6. Write/approve PR text, commit, open PR into integrate/<epic>. Composer runs CI + smoke, then merges.
+5. **Check-in:** review diff + Applied-edit count + check output + local questions/flags.
+   Accept slice, answer questions, or re-brief smaller. Do not enlarge the package after 0 applies.
+6. When all slices done: write/approve PR text, commit, open PR into integrate/<epic>.
+   Composer runs CI + smoke, then merges.
 7. Add a row to docs/workflow/TOKEN_LOG.md.
 
 # Escalate to cloud only when
@@ -147,6 +153,7 @@ BRANCH: <feat/ui-… or feat/backend-… already checked out>
 ALLOWED FILES:
 - <path>
 - <path>
+(Keep this list small — about ≤4–6 paths. Split cross-stack work into sequential briefs.)
 
 FORBIDDEN: everything else, especially
 - package.json, pyproject.toml, lockfiles, .github/, .env*, config.yaml
@@ -162,6 +169,10 @@ BRIEF:
 STEPS:
 1. …
 2. …
+
+CHECK-IN AFTER (orchestrator stops here before the next slice):
+- <e.g. schema + route compile / route 404 tests green>
+- Surface any open questions, method choices, or tech-stack flags in RETURN.
 
 INVARIANTS:
 - No deny-listed crawls; policy.py fails closed
@@ -183,7 +194,11 @@ RETURN:
 1. Summary of files changed (one line each)
 2. Self-review against each INVARIANT (pass/fail + evidence)
 3. Check output (commands + final result lines)
-4. Risks / open questions
+4. Risks / open questions / flags for cloud (methods, stack, unclear contracts)
 
 Do not expand scope. Do not commit.
 ```
+
+**Bulk package warning:** one brief that lists routes + schemas + runner + pipeline +
+match + write + tests + docs is too large for the local model in default split.
+Slice it; check in with cloud between slices. Lessons: [LOCAL_BULK_LESSONS.md](LOCAL_BULK_LESSONS.md).
