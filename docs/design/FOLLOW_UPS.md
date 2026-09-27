@@ -16,9 +16,10 @@ Baseline: `integrate/prototype-v1` @ `bd43eee`.
 | B3 | `interrupted` flag | After the UI waves | Local coder under Grok briefs |
 | B4 | Nightly / CLI runs visible (including `jobhunt scout\|match\|write`), one lock across processes | After the UI waves, **before prototype close (P7)** because D-7 says the prototype needs it | Local coder under Grok briefs |
 | F1 | Fetch listing (server-side, allowed hosts only) | Post-MVP, after a policy review | Decide then |
-| F2 | Mock-data rule for Tonight / Workflow / Activity loaders | M7 (`integrate/mvp-v1`) | Grok plans, local coder |
+| F2 | Mock-data rule for Tonight / Workflow / Activity loaders, plus the Queue / Packet loader items from the W1 review | M7 (`integrate/mvp-v1`) | Grok plans, local coder |
 | F3 | Vitest + Testing Library + `test` script | When you allow `package.json` / lockfile changes | Composer (CI area) |
 | F4 | Nightly plist points at an old checkout | With B4 | Local coder under Grok briefs |
+| F5 | Low-priority cleanups from the W1 review | Deferred, no date | Grok decides |
 
 ---
 
@@ -77,7 +78,11 @@ F4: `launchd/com.jobhunt.nightly.plist:13` runs `/Users/franciskanu/Projects/Job
 ## Reminders for the deferred items
 
 - **F1 Fetch listing.** It was hidden in W1. If it comes back, it needs a `POST /jobs/{id}/fetch` route that calls `assert_crawl_allowed` first (fail closed), never fetches deny-listed hosts, and has a policy review before merge. The UI copy will need a new design pass; ask Claude.
-- **F2 Mock-data rule (M7).** Tonight `features/tonight/api.ts:14-19`, Workflow `features/workflow/api.ts:10-16`, and the Activity loader must fall back to samples **only** on network failure or timeout, never on an HTTP error. Banner copy is in the spec, W1 item 3.
+- **F2 Mock-data rule (M7).** Tonight `features/tonight/api.ts:14-19`, Workflow `features/workflow/api.ts:10-16`, and the Activity loader must fall back to samples **only** on network failure or timeout, never on an HTTP error. Banner copy is in the spec, W1 item 3. Also in F2, from the W1 review of PR #25:
+  - **No timeout on the Queue / Packet loads.** `listJobs` and `getJob` (`features/queue/jobsApi.ts:101, 115`) and the letter GET (`features/packet/PacketPage.tsx:46`) call `fetch` directly. When the API accepts connections but never answers, the Packet page stays blank indefinitely. Move them to `apiGet` (2.5 s timeout) and apply the mock rule above (samples only on `offline`/`timeout`).
+  - **Raw error strings.** The Queue and Activity loaders show `err.message` text such as `GET /jobs 500` or `GET {path} failed (500)` (`features/activity/api.ts:170-176`). Use the section 1 messages from `shared/api/errors.ts` instead.
+  - **Sample packet banner.** `Sample packet — GET /jobs/{id} is unavailable.` (`PacketPage.tsx`, `data-testid="mock-banner"`) becomes the shared `Sample data` banner from W1 item 3, with `{jobs}` as the noun.
+- **F5 Low-priority cleanups.** (1) `shared/api/client.ts` imports `features/activity/redact.ts`; move `redact.ts` to `shared/` so the shared layer doesn't depend on a feature folder. (2) Pluralize the Obsidian import toast (`Imported 1 jobs` today).
 - **F3 Vitest.** Every acceptance item marked *(deferred, F3)* in the spec becomes a real test once vitest, `@testing-library/react`, `jsdom` and a `test` script exist, plus the CI step. This needs `package.json` + `package-lock.json` changes, which are currently not allowed.
 
 ---

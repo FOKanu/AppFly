@@ -4,7 +4,9 @@ Status: READY FOR GROK
 Owner: Claude (UI design). Consumer: Grok, who splits this into local-coder briefs.
 Baseline: `integrate/prototype-v1` @ `bd43eee`. Every file:line below was checked
 against that commit. Corrections from the audit at `3eca567` (accepted by Grok, 2026-09-27)
-are folded in; the frontend was unchanged between the two commits.
+are folded in; the frontend was unchanged between the two commits. The W1 review of PR #25
+(head `b661176`) added the rulings, the Vault failure copy, the `feat/ui-packet-errors`
+section and the W2-A AppShell items.
 
 Roles are unchanged (see [MULTI_AGENT.md](../workflow/MULTI_AGENT.md)). This doc
 decides copy, states and acceptance criteria. It does not prescribe code beyond
@@ -72,18 +74,18 @@ site in this spec uses it. Nothing shows raw `HTTP 4xx for /path` text.
 
 | Kind | Rule | Copy template (`{action}` = verb phrase from the call site) |
 | --- | --- | --- |
-| `offline` | `status === 0` and not a timeout | `Can't reach the local API at {baseUrl}. Start it with: python -m jobhunt.api`. When `window.location.origin` is neither `http://localhost:5173` nor `http://127.0.0.1:5173`, append: ` If the API is already running, this page's address ({origin}) may not be on its allow-list: open AppFly at http://localhost:5173, or add the address to APPFLY_ALLOWED_ORIGINS and restart the API.` |
+| `offline` | `status === 0` and not a timeout | `Can't reach the local API at {baseUrl}. Start it with: python -m jobhunt.api.` (always ends with the period). When `window.location.origin` is neither `http://localhost:5173` nor `http://127.0.0.1:5173`, append after that period: ` If the API is already running, this page's address ({origin}) may not be on its allow-list: open AppFly at http://localhost:5173, or add the address to APPFLY_ALLOWED_ORIGINS and restart the API.` |
 | `timeout` | Our own abort timer fired | `The local API didn't answer within {seconds}s. It may still be working; refresh in a moment before trying again.` |
 | `forbidden-header` | 403 and detail contains `X-AppFly` | `{action} was blocked: AppFly sent the request without its security header. This is a bug; please report it.` |
 | `forbidden-origin` | 403 and detail is `Origin not allowed` (or any other 403). Not reachable from a browser (section 0); kept for non-browser callers and for any 403 other than the header one. | `{action} was blocked: this page's address ({origin}) isn't on the API's allow-list. Open AppFly at http://localhost:5173, or add the address to APPFLY_ALLOWED_ORIGINS and restart the API.` |
 | `bad-host` | 400 and body mentions `host`. Not reachable from a browser (section 0); kept as above. | `The API only answers on localhost or 127.0.0.1. Set VITE_API_BASE_URL to http://127.0.0.1:8787 and reload.` |
-| `not-found` | 404 | Set per call site (a 404 now means "the thing doesn't exist", never "not built yet"). |
+| `not-found` | 404 | Set per call site (a 404 now means "the thing doesn't exist", never "not built yet"). A call site with no 404 sentence of its own falls back to `{action} failed: {detail}` (for example the Vault mutations: `Rename failed: Document not found`). |
 | `rejected` | Any other 4xx | `{action} failed: {detail}` |
 | `server` | 5xx | `{action} failed: the API hit an internal error (HTTP {status}). Check the terminal running the API, then try again.` |
 
 State rules:
 
-- `detail` comes from the JSON body. If `detail` is a string, use it. If it's a FastAPI 422 list, join each item's `msg` with `; `. Otherwise leave it empty and fall back to `HTTP {status}`.
+- `detail` comes from the JSON body. If `detail` is a string, use it. If it's a FastAPI 422 list, join each item's `msg` with `; `. If the body is JSON without a usable `detail`, leave it empty and fall back to `HTTP {status}`. If a **4xx** body isn't JSON (for example the plain-text `Invalid host header`), use its text as the detail, so `bad-host` can match.
 - Every `detail` goes through `redactSecrets` (`features/activity/redact.ts:5`) and is cut to 160 characters with `…`.
 - Never show the response body for a 5xx.
 - **Timeout with a caller-passed signal.** Today a caller's `init.signal` replaces the internal one, so the timer aborts a controller nothing listens to and the request never times out (`client.ts:136-156`). Rule: always pass the **internal** controller's signal to `fetch` and keep the internal timer. If the caller passed a signal, combine them manually: when the caller's signal is already aborted, abort the internal controller at once; otherwise add an `abort` listener on the caller's signal that aborts the internal controller, and remove it in `finally`. Don't rely on `AbortSignal.any`. Set `timeout: true` only when the internal timer fired. An abort that came from the caller is **not** a timeout and shows no toast; the call site just drops the result.
@@ -93,7 +95,7 @@ Files likely touched: `frontend/src/shared/api/client.ts` (keep `detail`, add a 
 
 Acceptance (manual checks in brackets are binding; the vitest form is deferred, F3):
 
-- [ ] A mocked `fetch` rejection → kind `offline`, message contains `python -m jobhunt.api`. [Stop the API, click Re-create folders → toast matches.]
+- [ ] A mocked `fetch` rejection → kind `offline`, message contains `python -m jobhunt.api.` (with the period). [Stop the API, click Re-create folders → toast matches.] With the allow-list hint, the text reads `…python -m jobhunt.api. If the API is already running…`.
 - [ ] An abort after timeout → kind `timeout`. A call with a caller-passed signal still times out at the method's limit; aborting the caller's signal gives no `timeout` flag and no toast.
 - [ ] 403 `{"detail":"Missing X-AppFly: 1 header"}` → `forbidden-header`. 403 `{"detail":"Origin not allowed"}` → `forbidden-origin` (unit level only).
 - [ ] [Open the UI at `http://<LAN-IP>:5173` (`npm run dev -- --host`) with the API running, click Import → the toast shows the `offline` message **plus** the allow-list hint naming `http://<LAN-IP>:5173`. At `http://localhost:5173` with the API stopped → the `offline` message with **no** hint.]
@@ -134,12 +136,14 @@ State rules:
 | WorkspacePanel | Status loading | Path `…`, checklist head `Setup · checking…`, all marks empty |
 | WorkspacePanel | Status loaded | As today (real flags) |
 | WorkspacePanel | Status failed, `offline`/`timeout` | Path `—`, head `Setup · status unknown (API not reachable)`. Checklist rows show no ✓ **and** no action links. Button disabled (1b). |
-| WorkspacePanel | Status failed, other kind | Head `Setup · status unknown`, then one line with the section 1 message (`{action}` = `Loading setup status`). Button enabled. |
+| WorkspacePanel | Status failed, other kind | Head `Setup · status unknown`, then one line with the section 1 message (`{action}` = `Loading setup status`). Checklist rows show no ✓ and no action links, as for `offline` (W1 review ruling: a link implies a known state we don't have). Button enabled. |
+| WorkspacePanel footer | Status loading or failed (any kind) | Only the `open the Vault` link: no job count and no ` · ` (a count would be a fake `0`). With a loaded status: `{n} job note(s) · open the Vault` as today |
 | VaultPage | API live, 0 documents | Existing `FirstRun` panel (unchanged) |
 | VaultPage | `listDocuments` or `getWorkspace` fails, `offline` | **No Vault banner**: the global `Local IPC disconnected` banner already says it, and two banners would repeat the same instruction. Table shows `No files to show while the API is offline.`; upload and edit disabled with the 1e reason |
-| VaultPage | Fails with `timeout` | Warning banner, title `Vault not loaded`, body = section 1 `timeout` message. (Health may still pass, so the global banner may not show.) Table and disabled state as for `offline`; **Refresh** stays enabled |
-| VaultPage | Fails with any other kind | Danger banner, title `Vault not loaded`, body = section 1 message (`{action}` = `Loading your files`); **Refresh** stays enabled |
-| VaultPage | Upload / rename / active / delete fails | Toasts become the section 1 message with `{action}` = `Upload` / `Rename` / `Changing the active file` / `Delete` (replace `VaultPage.tsx:126, 144, 169, 185`) |
+| VaultPage | Fails with `timeout` | Warning banner, title `Vault not loaded`, body = section 1 `timeout` message. (Health may still pass, so the global banner may not show.) Table shows `No files to show until the API answers.` Upload and edit disabled with the 1e reason; **Refresh** stays enabled |
+| VaultPage | Fails with any other kind | Danger banner, title `Vault not loaded`, body = section 1 message (`{action}` = `Loading your files`). Table shows `Your files couldn't be listed. Use Refresh to try again.` **Upload stays enabled** (the API is answering, and upload doesn't depend on the list; W1 review ruling). After a successful upload in this state, re-run the page load so the new file appears. **Refresh** stays enabled |
+| VaultPage stats | Any load failure (any kind) | The Files / CVs / Credentials tiles show `—` (`Stat` takes `number \| null`), and the `{n} files` kicker reads `— files`. Never `0` for an unknown count |
+| VaultPage | Upload / rename / active / delete fails | Toasts become the section 1 message with `{action}` = `Upload` / `Rename` / `Changing the active file` / `Delete` (replace `VaultPage.tsx:126, 144, 169, 185`). A 404 has no call-site sentence and uses the `not-found` fallback (`Rename failed: Document not found`) |
 
 Also remove the fabricated 404 fallbacks:
 
@@ -156,8 +160,10 @@ Acceptance:
 - [ ] `grep -rn "not serving yet\|STORE_UNAVAILABLE_NOTE\|SAMPLE_DOCUMENTS\|isMissingEndpoint" frontend/src` returns nothing, and `npm run build` passes (catches a missed import).
 - [ ] *(deferred, F3)* vitest: `getWorkspace` / `listDocuments` reject on 404 (no sample rows, no fake status).
 - [ ] *(deferred, F3)* vitest: `importObsidianVault` resolves to a report type; the success toast renders the counts.
-- [ ] Manual, API up, empty store: Vault shows FirstRun, no banner. Settings checklist `0 of 4 done`. Re-create folders → `App data folder ready at …`.
-- [ ] Manual, API stopped: Vault shows only the global `Local IPC disconnected` banner (no Vault banner) and the empty-table line, with no rows. Settings head reads `status unknown (API not reachable)` and the button is disabled with the 1b title. Profiles: attach is disabled with `Start the local API to attach files.`
+- [ ] Manual, API up, empty store: Vault shows FirstRun, no banner. Settings checklist `{n} of 4 done`, where `{n}` equals the ✓ marks shown (a fresh `jobhunt init` config has keywords, so `1 of 4`). Re-create folders → `App data folder ready at …`.
+- [ ] Manual, API stopped: Vault shows only the global `Local IPC disconnected` banner (no Vault banner) and the empty-table line, with no rows; the stat tiles read `—`. Settings head reads `status unknown (API not reachable)`, the footer shows only `open the Vault`, and the button is disabled with the 1b title. Profiles: attach is disabled with `Start the local API to attach files.`
+- [ ] Manual, API hangs (a stub that accepts and never answers): Vault shows the `Vault not loaded` warning with `didn't answer within 2.5s` and the table line `No files to show until the API answers.`
+- [ ] Manual, API answers 500 with a secret-looking body: Vault shows the `Vault not loaded` danger banner with `Loading your files failed: the API hit an internal error (HTTP 500)…`, the table line `Your files couldn't be listed. Use Refresh to try again.`, and an enabled upload zone. Settings shows `Setup · status unknown` plus the `Loading setup status failed: …` line. No body text appears anywhere.
 - [ ] Manual: import a non-existent path → `No Obsidian vault found at …`. Import a real vault → counts toast.
 
 Out of scope: redesigning the checklist, new readiness fields, multi-profile, and the Obsidian path editor.
@@ -184,6 +190,7 @@ Why:
 | `features/queue/jobsApi.test.ts:60-73` (the `/fetch` assertion is at `:71`) | Replace with: `no code path calls /jobs/{id}/fetch`. |
 | `features/packet/PacketPage.test.tsx:66-71` | Invert: `Fetch listing` is absent for allowed jobs, and `Open listing` is present. |
 | `features/packet/README.md:16`, `features/queue/README.md:23` | Remove the "Fetch listing" mentions. |
+| `features/packet/packet.css:189` | Delete the now-unused `.packet-spec__fetch` rule. |
 
 Acceptance:
 
@@ -192,6 +199,52 @@ Acceptance:
 - [ ] Manual: open an allowed and a denied packet. Neither shows the button; the denied one still shows the policy note.
 
 Out of scope: any `POST /jobs/{id}/fetch` route. Deferred (D-3). Reminder F1 in [FOLLOW_UPS.md](FOLLOW_UPS.md).
+
+---
+
+## W1 follow-up: Packet save and regenerate errors (`feat/ui-packet-errors`)
+
+Found in the W1 review. Lands after W1, before W2 (W2 doesn't touch `PacketPage`).
+
+**Problem.** `onSave` and `onRegenerate` in `features/packet/PacketPage.tsx` (`:91-137` on the W1
+head) call `fetch` directly and, on any non-OK status, throw `new Error(await res.text())`. The
+raw body, including 5xx bodies, reaches the `packet-error` banner unredacted, and neither call
+has a timeout.
+
+**Change.**
+
+| Call | Today | New |
+| --- | --- | --- |
+| Save | raw `fetch` PUT `/jobs/{id}/letter` | `apiPut("/jobs/{id}/letter", { body: text })` (10 s timeout, `X-AppFly` added by the client) |
+| Regenerate | raw `fetch` POST `/jobs/{id}/letter/regenerate` | `apiPost("/jobs/{id}/letter/regenerate")` (60 s timeout) |
+| Both, on failure | `setError(err.message)` | `setError(describeApiError(error, action, notFound).message)`; if the failure is `aborted`, set nothing |
+| Both, at start | error from an earlier attempt stays | `setError(null)` before the request |
+
+Copy (section 1 templates, so offline / timeout / 5xx wording is shared):
+
+| Call | `{action}` | 404 sentence (`notFound`) |
+| --- | --- | --- |
+| Save | `Saving the letter` | `This job is no longer in the store. Go back to Queue and refresh.` |
+| Regenerate | `Regenerating the letter` | same |
+
+The regenerate route turns a writer `RuntimeError` into `400 {detail}` (`routes/jobs.py:106-109`), so
+a missing key reads `Regenerating the letter failed: Gemini API key is not set. Save it in Settings (Keychain entry 'gemini') or set GEMINI_API_KEY.`
+Unchanged: the success feedback (`Letter saved to the local store.`, `Letter regenerated.`), the
+mock-mode messages, the banner element and its `data-testid="packet-error"`.
+
+ALLOWED FILES: `features/packet/PacketPage.tsx` only.
+
+Acceptance:
+
+- [ ] `grep -n "res.text()" frontend/src/features/packet/PacketPage.tsx` returns nothing.
+- [ ] `npm run build` passes; no change to `package.json` or the lockfile.
+- [ ] Manual, stub API answering 500 with body `{"detail":"GEMINI_API_KEY=AIza-secret"}`: Save → banner `Saving the letter failed: the API hit an internal error (HTTP 500). Check the terminal running the API, then try again.` No body text.
+- [ ] Manual, real API with no Gemini key: Regenerate → the 400 message above.
+- [ ] Manual, API stopped after the packet loaded: Save → the section 1 `offline` message.
+- [ ] Manual: a failed Save followed by a successful Save clears the error banner.
+
+Out of scope: the load path (`getJob`, the letter GET at `PacketPage.tsx:46`), the status PATCH
+through `patchJobStatus`, and the `Sample packet` banner. All go to M7 with F2.
 
 ---
 
@@ -384,14 +437,34 @@ Out of scope: automatic resume of interrupted runs.
 
 ---
 
+## W2-A also: AppShell connectivity truth
+
+Found in the W1 browser review. W2-A owns `AppShell.tsx`, so these ride along with it.
+
+| # | Problem (on `integrate` @ `80164ee`) | Change |
+| --- | --- | --- |
+| A1 | `hydrate` loads `/health`, `/settings` and `/jobs` in one `Promise.all` and sets `apiReachable = false` when **any** of them throws (`AppShell.tsx:83-115`). A 500 on `/settings` makes the global banner say `This page can't reach the local API…` while the Vault page, on the same screen, says `internal error (HTTP 500)`. | Reachability comes from `/health` alone, classified with `describeApiError`: `offline`/`timeout` → disconnected; any HTTP response → connected. A failing `/settings` or `/jobs` must not flip reachability. They leave their own fields at the unknown value (`—`). |
+| A2 | `apiReachable` starts `false` (`AppShell.tsx:60`), so the `Local IPC disconnected` banner flashes on every page load before `/health` answers. | Tri-state: `unknown` until the first `/health` result. The banner shows only for `disconnected`, never for `unknown`. |
+| A3 | The Vault breadcrumb reads `Vault · 0 files` when the document list failed (`documentCount` starts at `0`, `AppShell.tsx:63`; rendered at `app/nav-config.ts:116`). | `documentCount: number \| null`, `null` until a live list returns. While `null`, the breadcrumb reads just `Vault`. |
+| A4 | `hydrate` runs once on mount (`AppShell.tsx:118`); nothing re-checks `/health`. If the API stops or starts mid-session, the global banner stays wrong until a reload. | Re-check `/health` on the same 30 s idle cycle as the `GET /runs` re-read (section 5, visible tab only) and during a run on every poll. A recovered API clears the banner without a reload. |
+
+Acceptance:
+
+- [ ] Manual, stub API with `/health` OK and 500 everywhere else: no `Local IPC disconnected` banner; the Vault page shows its own `Vault not loaded` danger banner; the breadcrumb reads `Vault`.
+- [ ] Manual, API up: reload any page several times; the disconnected banner never flashes.
+- [ ] Manual, API up, then stopped with the UI open: the disconnected banner appears within 30 s. Start it again: the banner clears within 30 s, no reload.
+
+---
+
 ## Brief split suggestion (for Grok)
 
 | Brief | Branch | Depends on | ALLOWED FILES (core) |
 | --- | --- | --- | --- |
 | W1-A errors | `feat/ui-firstrun-truth` (first commit) | none | `shared/api/client.ts`, new `shared/api/errors.ts` (no new test files until F3) |
 | W1-B first-run | same branch | W1-A | `features/settings/WorkspacePanel.tsx`, `ImportObsidianPanel.tsx`, `features/vault/{VaultPage.tsx,api.ts,types.ts}`, `features/profiles/ProfilesPage.tsx` (1e only) (+ `UploadZone.tsx`, `DocumentTable.tsx` if the prop changes), `shared/ui/OfflineBanner.tsx` |
-| W1-P packet | same branch, or `feat/ui-packet-no-fetch` | none | `features/packet/{PacketSpec,PacketPage,PacketPage.test}.tsx`, `features/queue/jobsApi{,.test}.ts`, both READMEs |
-| W2-A run controller | `feat/ui-run-progress` | W1-A merged | `app/layout/{AppShell,RunningBar,ControlHeader}.tsx`, new `shared/run/*` |
+| W1-P packet | same branch, or `feat/ui-packet-no-fetch` | none | `features/packet/{PacketSpec,PacketPage,PacketPage.test}.tsx`, `features/packet/packet.css` (the unused rule only), `features/queue/jobsApi{,.test}.ts`, both READMEs |
+| Packet errors | `feat/ui-packet-errors` | W1 merged; lands before W2 | `features/packet/PacketPage.tsx` only |
+| W2-A run controller | `feat/ui-run-progress` | W1-A merged | `app/layout/{AppShell,RunningBar,ControlHeader}.tsx`, new `shared/run/*`, `app/nav-config.ts` (A3 only). Includes "W2-A also: AppShell connectivity truth" (A1 to A3) |
 | W2-B workflow | same branch | W2-A | `features/workflow/{WorkflowPage,HeartbeatPanel}.tsx`, `features/workflow/api.ts` |
 | W2-C activity display | same branch | W2-A | `features/activity/RunRow.tsx`, `RunList.tsx`, `types.ts` for the `interrupted` chip and the `completed_with_errors` / `trigger` labels only. Display only, no loader changes (M7). |
 
