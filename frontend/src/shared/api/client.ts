@@ -5,6 +5,12 @@
 
 export const DEFAULT_API_BASE_URL = "http://127.0.0.1:8787";
 
+/**
+ * Purpose: Header the local API requires on every POST/PUT/PATCH/DELETE (CSRF guard).
+ * Does not: carry auth, cookies, or connector secrets.
+ */
+export const APPFLY_HEADERS: Readonly<Record<string, string>> = Object.freeze({ "X-AppFly": "1" });
+
 export type HeartbeatState =
   | "idle"
   | "running"
@@ -131,6 +137,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
   const headers = new Headers(init?.headers);
   if (!headers.has("Accept")) headers.set("Accept", "application/json");
+  if (method !== "GET" && method !== "HEAD" && !headers.has("X-AppFly")) headers.set("X-AppFly", "1");
   /*
    * A FormData body must set its own `multipart/form-data; boundary=...`.
    * Forcing JSON here made the server reject uploads with a 422.

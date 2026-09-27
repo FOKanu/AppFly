@@ -82,9 +82,14 @@ def api_client(api_config: Path, secret_store: SecretStore) -> TestClient:
     Inputs: api_config and secret_store fixtures.
     Returns: TestClient.
     Does not: Bind a real TCP port.
+    Uses trusted host and CSRF header.
     """
 
-    return TestClient(create_app(config_path=api_config, store=secret_store))
+    return TestClient(
+        create_app(config_path=api_config, store=secret_store),
+        base_url="http://127.0.0.1",
+        headers={"X-AppFly": "1"},
+    )
 
 
 @pytest.fixture

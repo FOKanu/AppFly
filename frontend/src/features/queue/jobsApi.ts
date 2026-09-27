@@ -1,4 +1,4 @@
-import { apiBaseUrl } from "../../shared/api/client";
+import { apiBaseUrl, APPFLY_HEADERS } from "../../shared/api/client";
 import { cloneJob, MOCK_JOBS } from "./mockJobs";
 import type { JobDetailResult, JobListResult, JobRecord, JobStatus } from "./types";
 import { JOB_STATUSES } from "./types";
@@ -6,6 +6,7 @@ import { JOB_STATUSES } from "./types";
 const JSON_HEADERS = {
   Accept: "application/json",
   "Content-Type": "application/json",
+  ...APPFLY_HEADERS,
 } as const;
 
 let mockStore: JobRecord[] = MOCK_JOBS.map(cloneJob);

@@ -1,4 +1,4 @@
-import { apiBaseUrl as coreApiBaseUrl } from "../../shared/api/client";
+import { apiBaseUrl as coreApiBaseUrl, APPFLY_HEADERS } from "../../shared/api/client";
 import type {
   SecretName,
   SettingsView,
@@ -283,6 +283,7 @@ export async function putConnectorSecret(name: SecretName, value: string): Promi
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
+      ...APPFLY_HEADERS,
     },
     body: JSON.stringify({ value }),
   });
@@ -301,6 +302,7 @@ export async function putVaultPath(path: string): Promise<void> {
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
+      ...APPFLY_HEADERS,
     },
     body: JSON.stringify({ vault_path: path }),
   });
