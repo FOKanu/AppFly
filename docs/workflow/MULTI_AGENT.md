@@ -2,6 +2,9 @@
 
 Changelog:
 
+- 2026-09-27: §1a — compute modes. **Default** stays the current mixed split. **Optimized**
+  (~75% local implementation) is an optional user choice and the fallback when cloud
+  agents are about to hit the user's token / credit limits. Roles and loop unchanged.
 - 2026-09-27: §9 rewritten as the live, verified 5090 stack (Linux Ollama in WSL on
   `:11436`, Aider in WSL on the 5090, `qwen3-coder:30b`). Flow and loop text updated. The
   Mac tunnel is optional and unused.
@@ -17,9 +20,60 @@ Per-task token log: [TOKEN_LOG.md](TOKEN_LOG.md).
 
 ## 1. Goal
 
-Cut cloud compute. One cloud planner (Grok) does the judgment. All mechanical
-work goes to local models on the RTX 5090, gated by free local checks. Cloud
-tokens are spent only on specs, interfaces, final review, and merge decisions.
+One cloud planner (Grok) owns judgment: specs, interfaces, briefs, final review,
+PR text, and merge handoff to Composer. The RTX 5090 local coder can take mechanical
+implementation, gated by free local checks.
+
+**Default for now:** keep the **current** compute split (section 1a). Do not force
+every edit through the 5090. Cloud may still implement when that is how the wave
+is running (Grok credits out, Cursor temp orchestrator, small Composer fixes, etc.).
+
+**Optional / fallback:** the **optimized** local-heavy split (section 1a) when the
+user chooses it, or when a cloud agent is about to exhaust the user's tokens or
+plan credits.
+
+---
+
+## 1a. Compute modes (default vs optimized)
+
+Shares are **approximate compute units** (tokens × model weight), not lines of code.
+Log which mode you used in [TOKEN_LOG.md](TOKEN_LOG.md).
+
+| Mode | When to use | Local coder | Cloud planner / review | Composer gate | Claude on call |
+| --- | --- | --- | --- | --- | --- |
+| **Default (current)** | Normal operation until the human opts in to optimized | ~40–55% when briefed; skippable | ~45–60% (plan, review, and often implement) | ~5–8% | ~0–3% |
+| **Optimized** | User opts in, **or** cloud is about to hit token / credit limits | **~70–80%** of implementation | **~12–18%** judgment only (briefs + diff review + PR text) | ~5–8% | ~0–3% |
+
+### Default (current) — stay on this unless told otherwise
+
+- Roles and the per-task loop in sections 2–4 still apply when the 5090 is used.
+- Cloud agents may write code, tests, and docs directly when that matches how the
+  wave is already running. Prefer local for large mechanical batches when the 5090
+  is reachable, but do not block the wave on a local-only rule.
+- Composer remains merge / CI / smoke. Claude stays on call for UI design.
+
+### Optimized — optional, and token-limit fallback
+
+Target roughly **3:1 to 4:1 local:cloud** on coding waves.
+
+**User option:** the human asks to run in optimized mode for a wave or epic.
+
+**Automatic fallback:** a cloud planner, temp orchestrator (Cursor), or Composer
+**must** switch into optimized mode when it can see that the next cloud
+implementation pass would exhaust or nearly exhaust the user's remaining tokens,
+Grok Bot credits, or Cursor plan quota. Then:
+
+1. Stop writing bulk code in the cloud. Finish only the brief (or a smaller re-scope).
+2. Hand implementation to the 5090 via [PROMPTS.md](PROMPTS.md) (ALLOWED FILES,
+   invariants, concrete acceptance checks).
+3. Review only `git diff` + local check output. Max 2 local retries, then escalate
+   with a smaller brief — do not burn the last cloud tokens re-implementing.
+4. Note `mode=optimized (token-limit fallback)` in TOKEN_LOG for that task.
+
+Safety under optimized mode is **brief quality + gates**, not model trust: file-bounded
+ALLOWED FILES, named acceptance checks, local pytest / `npm run build`, cloud
+diff review, Composer smoke. Never send crawl-policy, Keychain/secrets, or
+deny-list exceptions to a vague local brief.
 
 ---
 
@@ -129,12 +183,16 @@ critical part itself, or (for UI/UX design questions) consult Claude.
 
 ## 7. Cloud usage principles
 
-- Cloud is for judgment only: specs, interfaces, final review, merge decisions.
+- Under **optimized** mode (section 1a): cloud is for judgment only — specs,
+  interfaces, final review, merge decisions. Under **default** mode, cloud may
+  also implement; prefer local for large mechanical batches when the 5090 is up.
 - Grok reads summaries and diffs, not full files. Ask the local coder for a
-  condensed module summary before reading a large file.
+  condensed module summary before reading a large file when the 5090 is in use.
 - Keep briefs small and file-bounded. One brief = one concern.
-- Log every task in [TOKEN_LOG.md](TOKEN_LOG.md): local vs cloud, and whether
-  it escalated.
+- Log every task in [TOKEN_LOG.md](TOKEN_LOG.md): mode (`default` / `optimized`),
+  local vs cloud, and whether it escalated or fell back for token limits.
+- If about to hit user token / credit limits, switch to **optimized** (section 1a)
+  instead of continuing a large cloud coding pass.
 
 ---
 

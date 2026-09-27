@@ -4,6 +4,11 @@ Grok (Iyeke) ran out of Grok Bot usage credits mid-wave. **Cursor temporarily
 owns the planner / orchestrator loop** until Grok is back. The local-coder path
 (Aider on `MUC-A-3099`) is unchanged when reachable.
 
+**Compute mode:** stay on **default** (current mixed split) unless the human opts
+into **optimized**, or a cloud agent is about to hit token / credit limits — then
+fall back to optimized (5090 briefs, cloud judgment only). See
+[MULTI_AGENT.md §1a](MULTI_AGENT.md).
+
 ## Pickup point
 
 | Item | State |

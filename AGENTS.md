@@ -36,7 +36,7 @@ No parallel forks of `main` while this epic is open.
 
 When an epic opens, name it here and every Cloud Agent prompt includes the Base/Branch/PR block above (generic form uses `integrate/<epic>`).
 
-**Who does what:** Grok opens and closes epics (`integrate/<epic>`), plans tasks, and writes PR text. The RTX 5090 local coder implements. Composer (Cursor) is the merge and CI gate: it runs CI and smoke, then merges. See [docs/workflow/MULTI_AGENT.md](docs/workflow/MULTI_AGENT.md). When Grok Bot usage is exhausted, Cursor may temporarily run the planner loop; log that in [docs/workflow/ORCHESTRATOR_HANDOFF.md](docs/workflow/ORCHESTRATOR_HANDOFF.md).
+**Who does what:** Grok opens and closes epics (`integrate/<epic>`), plans tasks, and writes PR text. The RTX 5090 local coder implements. Composer (Cursor) is the merge and CI gate: it runs CI and smoke, then merges. See [docs/workflow/MULTI_AGENT.md](docs/workflow/MULTI_AGENT.md) (including §1a compute modes: **default** = current mixed split; **optimized** = optional / token-limit fallback). When Grok Bot usage is exhausted, Cursor may temporarily run the planner loop; log that in [docs/workflow/ORCHESTRATOR_HANDOFF.md](docs/workflow/ORCHESTRATOR_HANDOFF.md).
 
 ### Live tip (avoid double work)
 
