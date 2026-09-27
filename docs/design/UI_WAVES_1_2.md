@@ -456,6 +456,38 @@ Acceptance:
 
 ---
 
+## W2-A brief readiness: rules the brief needs
+
+Audit of sections 4 to 6 and A1 to A4 against `integrate` @ `a8b329c`. G1 to G6 would block a
+brief: the coder would have to invent behaviour. G7 to G12 fill in details. Each rule is Claude's
+recommendation; **Grok confirms or overrides** before briefing.
+
+| # | Gap in the spec | Rule |
+| --- | --- | --- |
+| G1 | **The run message has no visible home.** The Heartbeat pill renders only the state word (`running`); its `message` is a tooltip and `aria-label` (`Heartbeat.tsx:21-33`). RunningBar prints the state word and fields, no message (`RunningBar.tsx:30-64`). Every copy line in sections 4 to 6 would be invisible. | **The message goes in RunningBar**, as a new field right after the state LED. It takes the flexible space (replacing `running-bar__spacer`), one line, with an ellipsis and the full text in `title`. The pill is unchanged: state word, `title` = message. Below 1024 px the bar already scrolls horizontally (`index.css:613-617`); keep that. |
+| G1a | RunningBar is `role="status" aria-live="polite"`. A message with a ticking `{elapsed}` would be announced every second. | Move `aria-live` off the bar onto a visually hidden span that holds the message **without** `{elapsed}` and changes only on a UI state change (section 4 table rows). The visible field keeps the ticking text. |
+| G2 | `POST /runs` failures aren't in the state table. | `starting` → on `offline`, `rejected` or `server`: back to `idle`, toast = section 1 message with `{action}` = `Starting the run`. On `timeout` (60 s): the run may have started, so read `GET /runs` once. Attach if an active row exists, otherwise `idle` with the timeout toast. |
+| G3 | The 409 says "attach to that id" but not how to get it. | Take the id from `ApiError.detail` (W1-A keeps it) with `/active: (\S+)$/`. If it doesn't match, read `GET /runs` and attach to the active row. If there is none: `idle`, toast `A run is already in progress, but AppFly couldn't find it. Refresh in a moment.` |
+| G4 | The `R` shortcut calls `onRunNow` directly (`AppShell.tsx:173-176`) and ignores the disabled state, so it can double-POST. | `R` runs the same guarded start as the button: a no-op whenever Run now is disabled. |
+| G5 | **Pause nightly is fake and clobbers run state.** It sets the LED to `paused` and toasts `Nightly schedule paused for this session.` (`AppShell.tsx:133-136`); nothing is paused. Mid-run it would overwrite `running`. | Pause nightly no longer touches the run state. Render it **disabled** with title `The nightly schedule runs from launchd; pausing it from the app isn't supported yet.` (Product rule: don't pretend a control works.) Keep the button so the header layout doesn't move. `HeartbeatState` keeps `paused` (unused) because `client.ts` isn't in W2-A's files. |
+| G6 | ControlHeader has no props for the Stop label or the button titles, and the spec marked it "only if threaded". | ControlHeader **is** in scope. Add `stopLabel` (`Stop` / `Stopping…`), `stopTitle` and `runTitle`, passed straight to the buttons. |
+| G7 | Run now has no disabled title. | While `starting` / `queued` / `running` / `cancelling` / `already active` / `run from elsewhere`: `A run is already in progress.` While `lost contact`: `Waiting for the local API to answer.` |
+| G8 | When a terminal message goes away isn't defined. | A terminal line (`cancelled`, `completed`, `finished with problems`, `failed`, `interrupted`) stays until the next run starts or the page reloads. No auto-clear timer. The 30 s idle re-read replaces it only when it finds a new active run. After a reload with no active run the state is `idle`. |
+| G9 | Leftover copy. `hydrate` sets `API live — idle`, `fallbackMessage` (`AppShell.tsx:305-318`) and the old `startPipeline` carry em-dash strings and `review drafts in the vault`, and `onStop` fakes `Run stopped`. | Delete `startPipeline`, `fallbackMessage` and the fake `onStop`. The idle line is always `Idle · no run in progress`; offline is shown by the global banner and the bar's IPC field, not the idle line. `grep -n "API live\|fallbackMessage\|timed out\|Run stopped" frontend/src/app` returns nothing. |
+| G10 | The run types are too thin. `RunResponse` (`client.ts:66-73`) lacks `started`, `finished`, `skipped`, `write_skipped` and the B1 to B4 fields, and there's no type for `GET /runs` rows. `client.ts` isn't in W2-A's files. | Put the types in `shared/run/types.ts`: the `GET /runs/{id}` shape (`routes/runs.py` `AsyncRunStatus`, plus optional `stage`, `write_cap`, `interrupted`, `trigger`) and the `GET /runs` row (`RunLogSummary`: `id`, `status`, `started_at`, `counts`, `error_count`, `path`, plus optional `interrupted`, `trigger`). Leave `RunResponse` in `client.ts` alone. |
+| G11 | W2-B needs a fixed interface, but the spec leaves it to Grok. | The W2-A brief must pin it, because W2-B depends on it. Recommendation: a React context provided by AppShell, read with `useRun()`, returning `{ ui, runId, message, counts, runDisabled, runTitle, stopDisabled, stopLabel, stopTitle, start(), stop() }`. `start()` and `stop()` carry every rule in sections 4 and 5, so WorkflowPage just calls them. |
+| G12 | RunningBar field mapping isn't spelled out. | `run` = `#{id5}` (a link to Activity after 60 s, section 5), `window` = `{elapsed}`. scout / match / write = the counts (`—` while unknown, section 4). `write` shows `{w}/{cap}` only with `write_cap` (B1). `writer` = the run's `model` when known, else `—`. `tok` stays `—` (the API doesn't report tokens). All fields reset to `—` when a new run starts. |
+
+Acceptance additions for W2-A:
+
+- [ ] Manual: during a run, the RunningBar message field shows the section 4 line and truncates with an ellipsis; hovering shows the full text. The pill still shows only the state word.
+- [ ] Manual (screen reader or the accessibility tree): the live region changes once per state change, not every second.
+- [ ] Manual: press `R` twice quickly → exactly one `POST /runs`. Press `R` during a run → no request.
+- [ ] Manual: Pause nightly is disabled with the G5 title, and clicking it never changes the LED.
+- [ ] Manual, API stopped: Run now → back to idle with the `Starting the run` offline toast.
+
+---
+
 ## Brief split suggestion (for Grok)
 
 | Brief | Branch | Depends on | ALLOWED FILES (core) |
