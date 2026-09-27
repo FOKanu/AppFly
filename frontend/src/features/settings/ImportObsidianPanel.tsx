@@ -12,6 +12,11 @@ interface ImportObsidianPanelProps {
   onSaved: () => void;
 }
 
+/** Purpose: English count labels for the import toast (`1 job` / `2 jobs`). */
+function countLabel(n: number, singular: string): string {
+  return `${n} ${n === 1 ? singular : `${singular}s`}`;
+}
+
 /**
  * Purpose: The Obsidian vault folder — persist it, and optionally copy it into
  *          AppFly's own storage once.
@@ -61,7 +66,7 @@ export function ImportObsidianPanel({
     try {
       const report = await importObsidianVault(source);
       setImported(true);
-      let message = `Imported ${report.jobs} jobs, ${report.letters} letters and ${report.documents} documents from ${report.source}. This was a one-time copy; later edits in Obsidian won't appear here.`;
+      let message = `Imported ${countLabel(report.jobs, "job")}, ${countLabel(report.letters, "letter")} and ${countLabel(report.documents, "document")} from ${report.source}. This was a one-time copy; later edits in Obsidian won't appear here.`;
       if (report.errors.length > 0) {
         message += ` ${report.errors.length} item(s) were skipped; see the API terminal.`;
       }

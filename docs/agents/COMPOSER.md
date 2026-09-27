@@ -57,11 +57,11 @@ For each PR into `integrate/<epic>`:
 
    ```bash
    cd backend  && python -m pytest        # ~63 tests at time of writing
+   cd frontend && npm test                # vitest (F3)
    cd frontend && npm run build           # tsc --noEmit && vite build
    ```
 
-   `ruff`, a lint script, and a frontend `test` script do not exist yet. Frontend
-   `*.test.*` files exist but vitest is **not** wired; do not claim they gate CI.
+   `ruff` and a frontend lint script do not exist yet. Frontend `npm test` gates CI.
 3. Smoke-check the behaviour the PR claims (see section 4).
 4. Branch is rebased on the integrate tip. If not, ask Grok for a rebase.
 5. Merge with a merge commit (`--no-ff` or GitHub merge commit).

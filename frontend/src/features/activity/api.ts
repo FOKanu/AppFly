@@ -1,6 +1,6 @@
 import { resolveMockPolicy, tryApiGet, type MockPolicyLoad } from "../../shared/api/mockPolicy";
 import { knownCounts } from "../../shared/run/progress";
-import { redactError, redactSecrets } from "./redact";
+import { redactError, redactSecrets } from "../../shared/api/redact";
 import type { ActivityView, FunnelView, RunFunnel, RunSummary } from "./types";
 
 const JOB_STATUSES = ["inbox", "shortlist", "draft", "approved", "applied", "skipped"] as const;

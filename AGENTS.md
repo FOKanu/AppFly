@@ -15,7 +15,7 @@ Cursor rule: `.cursor/rules/branch-strategy.mdc` (always apply).
 | Branch | Purpose |
 |---|---|
 | `main` | Shippable. No direct commits. Hotfixes that cannot wait for an epic. |
-| `integrate/<epic>` | Inbox for that epic (all stacks). **Current MVP epic: `integrate/mvp-v1`.** Closed: `prototype-v1`, `ui-v1`, `storage-v1` (all on `main`). |
+| `integrate/<epic>` | Inbox for that epic (all stacks). **No epic open.** Closed: `mvp-v1`, `prototype-v1`, `ui-v1`, `storage-v1` (all on `main`). |
 | `feat/<area>-<slug>` | One concern, one PR. Examples: `feat/backend-doc-extract`, `feat/ui-cv-picker`. |
 | `fix/<slug>` | Bug fix against shipped `main`. |
 | `chore/<slug>` | Tooling, docs, layout. |
@@ -28,35 +28,27 @@ Names: lowercase, hyphens, no author names. Retarget `cursor/…` Cloud Agent de
 2. No epic: branch from `main`; PR into `main`.
 3. Do not start parallel agents from stale `main` while an epic is open.
 
-While **mvp-v1** is open, every Cloud Agent prompt includes:
-
-> Base: `integrate/mvp-v1`. Branch: `feat/<area>-<slug>`. Touch only owned paths. Do not recreate `backend/pyproject.toml` or `frontend/package.json`. PR into `integrate/mvp-v1`. Rebase before merge.
-
-No parallel forks of `main` while this epic is open.
-
-When an epic opens, name it here and every Cloud Agent prompt includes the Base/Branch/PR block above (generic form uses `integrate/<epic>`).
-
 **Who does what:** Grok opens and closes epics (`integrate/<epic>`), plans tasks, and writes PR text. The RTX 5090 local coder implements. Composer (Cursor) is the merge and CI gate: it runs CI and smoke, then merges. See [docs/workflow/MULTI_AGENT.md](docs/workflow/MULTI_AGENT.md) (including §1a compute modes: **default** = current mixed split; **optimized** = optional / token-limit fallback). When Grok Bot usage is exhausted, Cursor may temporarily run the planner loop; log that in [docs/workflow/ORCHESTRATOR_HANDOFF.md](docs/workflow/ORCHESTRATOR_HANDOFF.md).
 
 ### Live tip (avoid double work)
 
-- **Base every MVP PR on** `origin/integrate/mvp-v1` (tip as of 2026-09-27: `fffed5b`, M7 mock honesty / #59). `git fetch origin` before cutting a branch.
-- **Do not** reopen closed `cursor/*` or continue `integrate/prototype-v1` feature PRs; prototype closed on `main` via #48.
-- **Next:** M8 `feat/privacy-pass-m8` (Composer). Sequence: [docs/workflow/MVP_SEQUENCE.md](docs/workflow/MVP_SEQUENCE.md).
+- **No epic open.** Base PRs on `origin/main` (tip as of 2026-09-27: `5a5adc9`, mvp-v1 close / #61). `git fetch origin` before cutting a branch.
+- **Do not** reopen closed `cursor/*` or continue closed integrate feature PRs.
+- **Next:** F3 Vitest (`feat/ui-vitest-f3`) and remaining [FOLLOW_UPS](docs/design/FOLLOW_UPS.md). Sequence archive: [docs/workflow/MVP_SEQUENCE.md](docs/workflow/MVP_SEQUENCE.md).
 - **5090 briefs:** slice large features; mandatory cloud check-in between slices. Rule: [`.cursor/rules/local-coder-bulk.mdc`](.cursor/rules/local-coder-bulk.mdc).
 - **Claude:** Mac install only (not Cursor Claude agent); richer context OK; check-in before coding. Rule: [`.cursor/rules/claude-handoff.mdc`](.cursor/rules/claude-handoff.mdc).
-- Prefer integrate while the epic is open; `main` lags until Composer merges `integrate/mvp-v1` → `main`.
 
 ### Closed epics
 
+- **mvp-v1** — M1–M8 (extract, run CV, picker, cache, Neutralino, setup wizard, mock honesty, privacy). Landed on `main` 2026-09-27 (#61).
 - **prototype-v1** — Stage 1 solid prototype (runs, UI waves, Agentur, Gemini 3.8). Landed on `main` 2026-09-27 (#48).
 - **ui-v1** — app chrome, Tonight/Workflow, Queue/Packet, Memory/Activity, Settings, mobile reflow. Landed on `main`.
 - **storage-v1** — native SQLite store, Documents/Workspace APIs, Vault UI, Obsidian demoted to one-shot import. Landed on `main`.
 
 ### Cursor Cloud specific instructions
 
-- Clone from **`integrate/mvp-v1`**, not `main`, for this epic.
-- PR against `integrate/mvp-v1`. Backend work goes under `backend/`; UI under `frontend/`. Do not add a second `src/jobhunt` tree.
+- Clone from **`main`** until the next epic is announced.
+- PR against `main` (or the open `integrate/<epic>` when one exists). Backend work goes under `backend/`; UI under `frontend/`. Do not add a second `src/jobhunt` tree.
 - Do not force-push `main` or `integrate/*`. Do not commit `.env`, vault notes, or API keys.
 
 ## Agent roles and playbooks

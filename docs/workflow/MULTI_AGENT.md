@@ -190,10 +190,9 @@ Only commands that exist in the repo today are listed as required.
 | Frontend | `cd frontend && npm run build` | Exists. Script is `tsc --noEmit && vite build`, so it already type-checks. |
 | Frontend | separate `tsc --noEmit` script | Not needed; covered by `npm run build`. |
 | Frontend | `npm run lint` | If/when added. No lint script or ESLint config today. |
-| Frontend | `npm test` | If/when added. `frontend/src/**/*.test.*` files exist, but vitest is not a dependency and there is no `test` script, so they do not run. |
+| Frontend | `npm test` | Exists (`vitest run`). Wired in F3; CI runs it before `npm run build`. |
 
-CI (`.github/workflows/ci.yml`) runs the same two gates: backend `pytest`,
-frontend `npm ci` + `npm run build`.
+CI (`.github/workflows/ci.yml`) runs backend `pytest`, frontend `npm ci` + `npm test` + `npm run build`.
 
 ---
 

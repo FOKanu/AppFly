@@ -2,7 +2,7 @@
  * Purpose: Typed fetch wrapper against the local Jobhunt HTTP API.
  * Does not: store, request, or type connector API keys or vault secrets.
  */
-import { redactSecrets } from "../../features/activity/redact";
+import { redactSecrets } from "./redact";
 
 export const DEFAULT_API_BASE_URL = "http://127.0.0.1:8787";
 

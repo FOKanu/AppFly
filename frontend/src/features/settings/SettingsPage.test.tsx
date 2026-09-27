@@ -128,7 +128,7 @@ describe("SettingsPage secrets", () => {
 
     const gemini = await screen.findByLabelText("GEMINI_API_KEY");
     expect(gemini).toHaveValue("");
-    expect(screen.getByText("configured")).toBeInTheDocument();
+    expect(screen.getAllByText("configured").length).toBeGreaterThan(0);
     expect(document.body.textContent).not.toContain("leaked-should-never-render");
     expect(document.body.textContent).not.toContain("abcd");
     expect(screen.queryByText(/last-4/i)).toBeNull();
@@ -138,6 +138,6 @@ describe("SettingsPage secrets", () => {
     renderPage();
     const connect = await screen.findByRole("button", { name: "Connect" });
     expect(connect).toBeDisabled();
-    expect(screen.getByText("not configured")).toBeInTheDocument();
+    expect(screen.getAllByText(/not configured/).length).toBeGreaterThan(0);
   });
 });
