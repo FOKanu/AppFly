@@ -1,13 +1,15 @@
 """Gemini cover-letter writer from a sealed one-job packet.
 
 Purpose: Draft letters for shortlisted jobs using only packet text.
-Inputs: Vault notes, CV slice, voice samples, Gemini key from env.
+Inputs: Vault notes, CV slice, voice samples, Gemini key from the Keychain
+(``gemini``) or ``GEMINI_API_KEY``; optional ``gemini_api_base``.
 Returns: Write stats; letters land in ``Letters/``.
 Does not: Submit applications, include a second job, or crawl listing URLs.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from jobhunt.config import AppConfig
@@ -20,24 +22,41 @@ Match the language of the job posting when possible (German or English).
 Follow the tone instructions. Keep the letter under 350 words.
 Return Markdown with a Subject line, then the letter body. No preamble."""
 
+MISSING_KEY_MESSAGE = (
+    "Gemini API key is not set. Save it in Settings "
+    "(Keychain entry 'gemini') or set GEMINI_API_KEY."
+)
 
-def write_letters(config: AppConfig, vault: Vault) -> dict[str, int]:
+
+def write_letters(
+    config: AppConfig,
+    vault: Vault,
+    should_stop: Callable[[], bool] | None = None,
+    on_letter: Callable[[int, int], None] | None = None,
+) -> dict[str, Any]:
     """Write up to ``letter_cap`` letters for shortlisted jobs.
 
     Purpose: CLI ``jobhunt write`` pipeline step.
-    Inputs: Config (model, cap, excerpt length) and vault; needs ``GEMINI_API_KEY``.
-    Returns: ``written`` / ``skipped`` / ``capped`` counts.
-    Does not: Overwrite jobs that already have a letter or ``gemini: false``.
+    Inputs: Config (model, cap, excerpt length) and vault; key from the Keychain
+    (``gemini``) or ``GEMINI_API_KEY``; optional ``should_stop`` checked before each letter;
+    optional ``on_letter(written, skipped)`` called after each letter attempt (B1 live counts).
+    Returns: ``written`` / ``skipped`` / ``capped`` / ``failed`` counts and ``errors``
+    (one string per failed job); ``stopped`` (True when cancelled between letters).
+    Does not: Overwrite jobs that already have a letter or ``gemini: false``; stop the
+    batch when one Gemini call fails (the missing-key case still raises).
     """
 
     if not config.gemini_api_key:
-        raise RuntimeError("GEMINI_API_KEY is not set. Add it to .env.")
+        raise RuntimeError(MISSING_KEY_MESSAGE)
 
     requirements = vault.load_requirements()
     cv_text = _cv_slice(vault.read_cv())
     samples = vault.read_voice_samples()
     written = 0
     skipped = 0
+    failed = 0
+    stopped = False
+    errors: list[str] = []
 
     candidates: list[Job] = []
     for post in vault.iter_job_notes():
@@ -52,6 +71,9 @@ def write_letters(config: AppConfig, vault: Vault) -> dict[str, int]:
         candidates.append(vault.job_from_note(post))
 
     for job in candidates[: config.letter_cap]:
+        if should_stop is not None and should_stop():
+            stopped = True
+            break
         company_note = vault.read_company_body(job.company)
         packet = build_packet(
             job,
@@ -61,7 +83,14 @@ def write_letters(config: AppConfig, vault: Vault) -> dict[str, int]:
             requirements=requirements,
             excerpt_chars=config.jd_excerpt_chars,
         )
-        letter, tokens_in, tokens_out = _call_gemini(config, packet)
+        try:
+            letter, tokens_in, tokens_out = _call_gemini(config, packet)
+        except Exception as exc:  # noqa: BLE001 - one failed letter must not stop the batch
+            failed += 1
+            errors.append(f"{job.company} - {job.title}: {type(exc).__name__}: {exc}")
+            if on_letter is not None:
+                on_letter(written, skipped)
+            continue
         vault.write_letter(
             job,
             letter,
@@ -70,7 +99,16 @@ def write_letters(config: AppConfig, vault: Vault) -> dict[str, int]:
             tokens_out=tokens_out,
         )
         written += 1
-    return {"written": written, "skipped": skipped, "capped": max(0, len(candidates) - config.letter_cap)}
+        if on_letter is not None:
+            on_letter(written, skipped)
+    return {
+        "written": written,
+        "skipped": skipped,
+        "capped": max(0, len(candidates) - config.letter_cap),
+        "failed": failed,
+        "stopped": stopped,
+        "errors": errors,
+    }
 
 
 def regenerate_letter_for_job(config: AppConfig, vault: Any, job: Job) -> str:
@@ -83,7 +121,7 @@ def regenerate_letter_for_job(config: AppConfig, vault: Any, job: Job) -> str:
     """
 
     if not config.gemini_api_key:
-        raise RuntimeError("GEMINI_API_KEY is not set. Add it in Settings or .env.")
+        raise RuntimeError(MISSING_KEY_MESSAGE)
     requirements = vault.load_requirements()
     cv_text = _cv_slice(vault.read_cv())
     samples = vault.read_voice_samples()
@@ -162,8 +200,16 @@ def _cv_slice(cv_text: str, limit: int = 3500) -> str:
 
 def _call_gemini(config: AppConfig, packet: str) -> tuple[str, int, int]:
     from google import genai
+    from google.genai import types
 
-    client = genai.Client(api_key=config.gemini_api_key)
+    base_url = config.gemini_base_url
+    if base_url:
+        client = genai.Client(
+            api_key=config.gemini_api_key,
+            http_options=types.HttpOptions(base_url=base_url),
+        )
+    else:
+        client = genai.Client(api_key=config.gemini_api_key)
     response = client.models.generate_content(
         model=config.gemini_model,
         contents=f"{WRITER_SYSTEM}\n\n{packet}",

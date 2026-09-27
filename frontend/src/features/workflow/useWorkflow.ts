@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { fetchWorkflow } from "./api";
 import type { DataSource, PreviewState, WorkflowSnapshot } from "./types";
 import { MOCK_FAILED, MOCK_RATE_LIMITED, MOCK_RUNNING } from "./mock";
@@ -30,18 +30,30 @@ export function previewSnapshot(preview: PreviewState): WorkflowSnapshot | null 
 }
 
 /**
- * Load Workflow data once on mount.
+ * Load Workflow data on mount, and again on reload() (after a run ends).
  */
 export function useWorkflow(): {
   snapshot: WorkflowSnapshot | null;
   source: DataSource;
   loading: boolean;
+  reload: () => void;
 } {
   const [snapshot, setSnapshot] = useState<WorkflowSnapshot | null>(null);
   const [source, setSource] = useState<DataSource>("mock");
   const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
+  const reload = useCallback(() => setReloadKey((key) => key + 1), []);
 
   useEffect(() => {
+    // Review fixtures: ?preview=running|failed|rate_limited replaces the API snapshot (mock source).
+    const preview = readPreview(window.location.search);
+    const fixture = preview ? previewSnapshot(preview) : null;
+    if (fixture) {
+      setSnapshot(fixture);
+      setSource("mock");
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     fetchWorkflow()
       .then((result) => {
@@ -55,7 +67,7 @@ export function useWorkflow(): {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
-  return { snapshot, source, loading };
+  return { snapshot, source, loading, reload };
 }

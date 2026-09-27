@@ -8,9 +8,12 @@ Does not: Reimplement matching/scraping, crawl deny-listed hosts, or submit appl
 
 from __future__ import annotations
 
+import threading
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from jobhunt.config import AppConfig
 from jobhunt.features.match import match_jobs
@@ -19,6 +22,9 @@ from jobhunt.features.write import write_letters
 from jobhunt.runlog import format_run_note
 from jobhunt.store import get_store
 from jobhunt.vault import Vault
+
+# B1: called with keyword changes, e.g. stage="scout", scouted=3, written=1, write_skipped=0.
+ProgressFn = Callable[..., None]
 
 
 @dataclass
@@ -41,18 +47,18 @@ class PipelineResult:
     run_path: Path = Path()
     home_path: Path = Path()
     model: str = ""
+    failed: int = 0
+    cancelled: bool = False
 
 
-def run_all(config: AppConfig, vault: Vault | None = None) -> PipelineResult:
-    """Scout, match, write, refresh Home.md, and append today's run note.
+def _run_pipeline(
+    config: AppConfig,
+    store: Any,
+    cancel: threading.Event | None,
+    on_progress: ProgressFn | None = None,
+) -> PipelineResult:
+    """Run the stages on an already-open store; report stage and counts through ``on_progress``."""
 
-    Purpose: One local pass over the store, identical to ``jobhunt run``.
-    Inputs: Loaded ``AppConfig``; optional legacy ``Vault`` (markdown only).
-    Returns: ``PipelineResult`` with step counts, error strings, and note paths.
-    Does not: Crawl deny-listed job boards, unseal other jobs' packets, or auto-submit.
-    """
-
-    store = vault if vault is not None else get_store(config)
     store.ensure_dirs()
     started = datetime.now().astimezone()
     errors: list[str] = []
@@ -62,26 +68,59 @@ def run_all(config: AppConfig, vault: Vault | None = None) -> PipelineResult:
     written = 0
     write_skipped = 0
 
+    failed = 0
+    cancelled = False
+
+    def _stop() -> bool:
+        return cancel is not None and cancel.is_set()
+
+    def _emit(**changes: Any) -> None:
+        if on_progress is not None:
+            on_progress(**changes)
+
     try:
-        requirements = store.load_requirements()
-        jobs = collect_jobs(config, store, requirements)
-        for job in jobs:
-            store.upsert_job(job)
-        scouted = len(jobs)
+        if _stop():
+            cancelled = True
+        else:
+            _emit(stage="scout")
+            requirements = store.load_requirements()
+            jobs = collect_jobs(config, store, requirements)
+            for job in jobs:
+                store.upsert_job(job)
+            scouted = len(jobs)
+            _emit(scouted=scouted)
     except Exception as exc:  # noqa: BLE001 — run should continue
         errors.append(f"scout: {exc}")
 
     try:
-        stats = match_jobs(config, store)
-        shortlisted = stats["shortlisted"]
-        skipped = stats["skipped"]
+        if cancelled or _stop():
+            cancelled = True
+        else:
+            _emit(stage="match")
+            stats = match_jobs(config, store)
+            shortlisted = stats["shortlisted"]
+            skipped = stats["skipped"]
+            _emit(shortlisted=shortlisted, skipped=skipped)
     except Exception as exc:  # noqa: BLE001
         errors.append(f"match: {exc}")
 
     try:
-        write_stats = write_letters(config, store)
-        written = write_stats["written"]
-        write_skipped = write_stats["skipped"]
+        if cancelled or _stop():
+            cancelled = True
+        else:
+            _emit(stage="write")
+            write_stats = write_letters(
+                config,
+                store,
+                should_stop=_stop,
+                on_letter=lambda done, skip: _emit(written=done, write_skipped=skip),
+            )
+            written = write_stats["written"]
+            write_skipped = write_stats["skipped"]
+            errors.extend(f"write: {msg}" for msg in write_stats.get("errors", []))
+            failed = write_stats.get("failed", 0)
+            if write_stats.get("stopped"):
+                cancelled = True
     except Exception as exc:  # noqa: BLE001
         errors.append(f"write: {exc}")
 
@@ -109,4 +148,34 @@ def run_all(config: AppConfig, vault: Vault | None = None) -> PipelineResult:
         run_path=run_path,
         home_path=home_path,
         model=config.gemini_model,
+        failed=failed,
+        cancelled=cancelled,
     )
+
+
+def run_all(
+    config: AppConfig,
+    vault: Vault | None = None,
+    *,
+    cancel: threading.Event | None = None,
+    on_progress: ProgressFn | None = None,
+) -> PipelineResult:
+    """Scout, match, write, refresh Home.md, and append today's run note.
+
+    Purpose: One local pass over the store, identical to ``jobhunt run``.
+    Inputs: Loaded ``AppConfig``; optional injected store (reused, not closed); optional
+    ``cancel`` event checked before scout, match, write and before each letter; optional
+    ``on_progress(**changes)`` told the stage as it starts and the counts as they change (B1).
+    Returns: ``PipelineResult`` with step counts, error strings, note paths, ``cancelled``.
+    Does not: Crawl deny-listed job boards, unseal other jobs' packets, or auto-submit.
+    """
+
+    if vault is not None:
+        return _run_pipeline(config, vault, cancel, on_progress)
+    store = get_store(config)
+    try:
+        return _run_pipeline(config, store, cancel, on_progress)
+    finally:
+        close = getattr(store, "close", None)
+        if callable(close):
+            close()

@@ -1,17 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { headerKicker, headerTitle } from "../nav-config";
 import { ROUTES } from "../../routes";
 import {
   apiGet,
-  apiPost,
-  type HeartbeatResponse,
-  type HeartbeatState,
   type HealthResponse,
   type JobSummary,
-  type RunResponse,
   type SystemStatusResponse,
 } from "../../shared/api/client";
+import { describeApiError, isUnreachable } from "../../shared/api/errors";
 import { OfflineBanner } from "../../shared/ui/OfflineBanner";
 import { Toast, useToast } from "../../shared/ui/Toast";
 import { useBreakpoint } from "../../shared/useBreakpoint";
@@ -22,6 +19,9 @@ import { listDocuments } from "../../features/vault/api";
 import { ControlHeader } from "./ControlHeader";
 import { RunningBar, type RunTelemetry } from "./RunningBar";
 import { Sidebar } from "./Sidebar";
+import { RunContext } from "../../shared/run/RunContext";
+import { id5 } from "../../shared/run/format";
+import { useRunController } from "../../shared/run/useRunController";
 
 /** App version printed under the brand mark. */
 const APP_VERSION = "0.4.2";
@@ -29,17 +29,15 @@ const APP_VERSION = "0.4.2";
 /** Statuses that count toward the Queue badge. */
 const ACTIVE_QUEUE = new Set(["inbox", "shortlist", "draft", "approved"]);
 
-const STUB_HEARTBEAT: HeartbeatResponse = {
-  state: "idle",
-  message: "Idle — no run in progress",
-};
-
 const STUB_STATUS: SystemStatusResponse = {
   ipc: "unknown",
   ollama: "unknown",
   gemini: "unknown",
-  vaultPath: "—",
+  vaultPath: "\u2014",
 };
+
+/** A2: reachability is unknown until the first /health answer; the banner shows only for "disconnected". */
+type Connectivity = "unknown" | "connected" | "disconnected";
 
 /**
  * Purpose: Persistent desktop chrome — sidebar rail, control header, scrolling
@@ -54,14 +52,15 @@ export function AppShell() {
 
   const searchRef = useRef<HTMLInputElement>(null);
   const [searchValue, setSearchValue] = useState("");
-  const [heartbeat, setHeartbeat] = useState<HeartbeatResponse>(STUB_HEARTBEAT);
   const [status, setStatus] = useState<SystemStatusResponse>(STUB_STATUS);
   const [queueCount, setQueueCount] = useState(0);
-  const [apiReachable, setApiReachable] = useState(false);
-  const [telemetry, setTelemetry] = useState<RunTelemetry>({ nextNightly: "02:00" });
+  const [connectivity, setConnectivity] = useState<Connectivity>("unknown");
   const [profiles, setProfiles] = useState<HuntProfile[]>([]);
-  const [documentCount, setDocumentCount] = useState(0);
+  const [documentCount, setDocumentCount] = useState<number | null>(null);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
+  /** Post-B1 pass item 4: bumped when connectivity goes disconnected -> connected, so hydrate runs once more. */
+  const [hydrateKey, setHydrateKey] = useState(0);
+  const lastConnectivity = useRef<Connectivity>("unknown");
 
   const activeProfile =
     profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0] ?? null;
@@ -75,43 +74,61 @@ export function AppShell() {
   });
   const title = headerTitle(location.pathname);
 
+  /** A1: reachability comes from /health alone. Any HTTP answer means the API is there. */
+  const checkHealth = useCallback(async () => {
+    try {
+      const health = await apiGet<HealthResponse>("/health");
+      setConnectivity("connected");
+      setStatus((prev) => ({ ...prev, ipc: health.ok ? "ok" : "down" }));
+    } catch (error) {
+      const unreachable = isUnreachable(describeApiError(error, "Checking the local API").kind);
+      setConnectivity(unreachable ? "disconnected" : "connected");
+      setStatus((prev) => ({ ...prev, ipc: "down" }));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (lastConnectivity.current === "disconnected" && connectivity === "connected") {
+      setHydrateKey((key) => key + 1);
+    }
+    lastConnectivity.current = connectivity;
+  }, [connectivity]);
+
   useEffect(() => {
     let cancelled = false;
 
     async function hydrate() {
+      await checkHealth();
+      // A1: /settings and /jobs load on their own; a failure leaves only their fields unknown.
       try {
-        const [health, settings, jobs] = await Promise.all([
-          apiGet<HealthResponse>("/health"),
-          apiGet<SettingsPayload>("/settings"),
-          apiGet<JobSummary[]>("/jobs"),
-        ]);
+        const settings = await apiGet<SettingsPayload>("/settings");
         if (cancelled) return;
         const profile = profileFromSettings(settings);
-        setHeartbeat({
-          state: "idle",
-          message: health.ok ? "API live — idle" : "Idle — no run in progress",
-        });
-        setStatus({
-          ipc: health.ok ? "ok" : "down",
+        setStatus((prev) => ({
+          ...prev,
           ollama: "unknown",
           ollamaDetail: "not probed",
           gemini: settings.secrets.gemini ? "ok" : "down",
           geminiDetail: settings.secrets.gemini ? "key set" : "no key",
-          vaultPath: settings.vault_path || "—",
-        });
-        setQueueCount(jobs.filter((job) => ACTIVE_QUEUE.has(job.status)).length);
+          vaultPath: settings.vault_path || "\u2014",
+        }));
         setProfiles([profile]);
         setActiveProfileId((current) => current ?? profile.id);
-        setApiReachable(health.ok);
         // Seed the local version ledger so Memory has a baseline to diff against.
         recordProfileSnapshot(profile, "loaded");
-        // The Vault breadcrumb needs a count; a missing store just reads zero.
-        const vault = await listDocuments().catch(() => null);
-        if (!cancelled && vault?.availability === "live") {
-          setDocumentCount(vault.documents.length);
-        }
       } catch {
-        if (!cancelled) setApiReachable(false);
+        // Settings unavailable: gemini and the vault path stay unknown.
+      }
+      try {
+        const jobs = await apiGet<JobSummary[]>("/jobs");
+        if (!cancelled) setQueueCount(jobs.filter((job) => ACTIVE_QUEUE.has(job.status)).length);
+      } catch {
+        // Jobs unavailable: the queue badge keeps its last value.
+      }
+      // A3: the Vault breadcrumb shows a count only after a live list.
+      const vault = await listDocuments().catch(() => null);
+      if (!cancelled && vault?.availability === "live") {
+        setDocumentCount(vault.documents.length);
       }
     }
 
@@ -119,25 +136,10 @@ export function AppShell() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [checkHealth, hydrateKey]);
 
-  const applyState = useCallback((state: HeartbeatState, message?: string) => {
-    setHeartbeat({ state, message: message ?? fallbackMessage(state) });
-  }, []);
-
-  const onRunNow = useCallback(() => {
-    applyState("running", "Running nightly pipeline");
-    void startPipeline(applyState, setTelemetry);
-  }, [applyState]);
-
-  const onPauseNightly = useCallback(() => {
-    applyState("paused", "Nightly paused");
-    toast.show("Nightly schedule paused for this session.");
-  }, [applyState, toast]);
-
-  const onStop = useCallback(() => {
-    applyState("stopped", "Run stopped");
-  }, [applyState]);
+  /** G11: the one run controller; RunContext hands it to Workflow (W2-B). A4: each poll and idle cycle re-checks /health. */
+  const run = useRunController({ notify: toast.show, onTick: checkHealth });
 
   const onCopyVaultPath = useCallback(() => {
     const path = activeProfile?.vaultPath || status.vaultPath;
@@ -172,19 +174,27 @@ export function AppShell() {
       if (isTypingTarget(event.target)) return;
       if (event.key === "r" || event.key === "R") {
         event.preventDefault();
-        onRunNow();
+        if (!run.runDisabled) run.start();
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onRunNow]);
+  }, [run.runDisabled, run.start]);
 
-  const runTelemetry = useMemo<RunTelemetry>(
-    () => ({ nextNightly: "02:00", ...telemetry }),
-    [telemetry],
-  );
+  // G12: run #id5, window = elapsed, counts unknown until known, writer = model, tok stays a dash.
+  const runTelemetry: RunTelemetry = {
+    runId: run.runId ? `#${id5(run.runId)}` : undefined,
+    window: run.elapsed || undefined,
+    scouted: run.counts.scouted,
+    matched: run.counts.matched,
+    written: run.counts.written,
+    writeCap: run.counts.writeCap,
+    writer: run.model || undefined,
+    nextNightly: "02:00",
+  };
 
   return (
+    <RunContext.Provider value={run}>
     <div className="app-shell" data-breakpoint={breakpoint}>
       <Sidebar
         queueCount={queueCount}
@@ -200,22 +210,24 @@ export function AppShell() {
         <ControlHeader
           kicker={kicker}
           title={title}
-          heartbeat={heartbeat.state}
-          heartbeatMessage={heartbeat.message}
+          heartbeat={run.led}
+          heartbeatMessage={run.message}
           searchValue={searchValue}
           searchRef={searchRef}
           onSearchChange={setSearchValue}
           onSearchSubmit={onSearchSubmit}
-          onRunNow={onRunNow}
-          onPauseNightly={onPauseNightly}
-          onStop={onStop}
-          runDisabled={heartbeat.state === "running"}
-          stopDisabled={heartbeat.state !== "running"}
+          onRunNow={run.start}
+          onStop={run.stop}
+          runDisabled={run.runDisabled}
+          runTitle={run.runTitle}
+          stopDisabled={run.stopDisabled}
+          stopLabel={run.stopLabel}
+          stopTitle={run.stopTitle}
         />
         <main className="app-main" id="main">
           <OfflineBanner
             connectivity={{
-              localIpc: apiReachable ? "connected" : "disconnected",
+              localIpc: connectivity === "disconnected" ? "disconnected" : "connected",
               remoteBridge: "connected",
             }}
           />
@@ -224,60 +236,18 @@ export function AppShell() {
       </div>
 
       <RunningBar
-        state={heartbeat.state}
+        state={run.led}
+        message={run.message}
+        liveMessage={run.liveMessage}
         telemetry={runTelemetry}
-        ipcConnected={apiReachable}
+        runLink={run.linkToActivity}
+        ipcConnected={connectivity !== "disconnected"}
       />
 
       <Toast message={toast.message} onDismiss={toast.dismiss} />
     </div>
+    </RunContext.Provider>
   );
-}
-
-/**
- * Purpose: POST /runs (async); poll until complete. Keep chrome live if the API is down.
- * Does not: start Apify actors or scrape deny-listed hosts.
- */
-async function startPipeline(
-  applyState: (state: HeartbeatState, message?: string) => void,
-  setTelemetry: (next: RunTelemetry) => void,
-): Promise<void> {
-  try {
-    const accepted = await apiPost<RunResponse>("/runs");
-    const runId = accepted.id;
-    if (!runId) {
-      applyState("stopped", "Run accepted without id");
-      return;
-    }
-    applyState("running", "Pipeline running…");
-    for (let i = 0; i < 120; i += 1) {
-      await new Promise((r) => window.setTimeout(r, 500));
-      const status = await apiGet<RunResponse>(`/runs/${runId}`);
-      if (status.status === "running" || status.status === "queued") continue;
-      setTelemetry({
-        scouted: status.scouted ?? 0,
-        matched: status.shortlisted ?? 0,
-        written: status.written ?? 0,
-        nextNightly: "02:00",
-      });
-      if ((status.written ?? 0) > 0) {
-        applyState("waiting-for-you", "Waiting for you — review drafts in Queue");
-        return;
-      }
-      if (status.errors && status.errors.length > 0) {
-        applyState("stopped", status.errors[0]);
-        return;
-      }
-      applyState(
-        "idle",
-        `Run complete. Scouted ${status.scouted ?? 0}, shortlisted ${status.shortlisted ?? 0}.`,
-      );
-      return;
-    }
-    applyState("stopped", "Run timed out — check Activity");
-  } catch {
-    applyState("stopped", "Run failed — API unreachable");
-  }
 }
 
 /**
@@ -300,21 +270,6 @@ function formatToday(): string {
     day: "numeric",
     month: "short",
   }).format(new Date());
-}
-
-function fallbackMessage(state: HeartbeatState): string {
-  switch (state) {
-    case "running":
-      return "Running nightly pipeline";
-    case "waiting-for-you":
-      return "Waiting for you — review drafts in the vault";
-    case "paused":
-      return "Nightly paused";
-    case "stopped":
-      return "Run stopped";
-    default:
-      return "Idle — no run in progress";
-  }
 }
 
 function isTypingTarget(target: EventTarget | null): boolean {

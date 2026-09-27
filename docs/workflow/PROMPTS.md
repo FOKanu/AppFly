@@ -26,8 +26,8 @@ Read summaries and diffs, not whole files. Ask the local coder for a module summ
 One brief = one concern, file-bounded.
 
 # Loop per task
-1. Write brief. 2. Run local coder on the Mac in /Users/franciskanu/Projects/AppFly,
-   pointed at LOCAL_LLM_BASE_URL, restricted to ALLOWED FILES, auto-commits off.
+1. Write brief. 2. Run Aider in WSL on the 5090 host in ~/work/AppFly via ~/work/.logs/aider-run.sh
+   (Ollama 127.0.0.1:11436, qwen3-coder:30b), restricted to ALLOWED FILES, auto-commits off.
 3. Run local checks (backend: cd backend && python -m pytest; frontend: cd frontend && npm run build).
 4. Local coder fixes its own failures, max 2 retries.
 5. Review only diff + check output + its self-review. Accept, send back, or escalate.
@@ -136,7 +136,7 @@ Keep it short. Do not write large code patches unless Grok asks.
 ```text
 You are the local coder on AppFly. Implement ONLY the brief below. No planning essays.
 
-REPO: FOKanu/AppFly (local checkout: /Users/franciskanu/Projects/AppFly)
+REPO: FOKanu/AppFly (local checkout: ~/work/AppFly in WSL on the 5090 host)
 BRANCH: <feat/ui-… or feat/backend-… already checked out>
 
 ALLOWED FILES:

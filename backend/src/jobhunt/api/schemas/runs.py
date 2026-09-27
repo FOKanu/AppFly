@@ -35,11 +35,13 @@ class RunResponse(BaseModel):
 
 
 class RunLogSummary(BaseModel):
-    """One day's run note for GET /runs.
+    """One row of GET /runs: a pipeline run or a legacy day note.
 
-    Purpose: List vault run logs without dumping the whole Runs folder as raw files.
-    Inputs: A ``Runs/YYYY-MM-DD.md`` note.
-    Returns: Date, path, short preview, and whether errors were recorded.
+    Purpose: Activity list with one row per run id (live state wins over stored state).
+    Inputs: In-memory runner records, the store ``runs`` table, ``Runs/YYYY-MM-DD.md`` notes.
+    Returns: Legacy ``date``/``path``/``preview``/``has_errors`` plus id, kind, status,
+    timestamps, ``counts`` (scouted/matched/written where known) and ``error_count`` and ``interrupted`` (B3: settled as stale)
+    and ``stage`` (B1: current stage while running).
     Does not: Include API keys or job description full text.
     """
 
@@ -49,3 +51,12 @@ class RunLogSummary(BaseModel):
     path: str
     preview: str
     has_errors: bool = False
+    id: str = ""
+    kind: str = "run"
+    status: str = ""
+    started_at: str = ""
+    finished_at: str = ""
+    counts: dict[str, int] = Field(default_factory=dict)
+    error_count: int = 0
+    interrupted: bool = False
+    stage: str | None = None

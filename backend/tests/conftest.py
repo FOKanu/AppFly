@@ -8,6 +8,7 @@ Does not: Call Gemini, Agentur, or Apify, or touch the OS Keychain.
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -82,9 +83,14 @@ def api_client(api_config: Path, secret_store: SecretStore) -> TestClient:
     Inputs: api_config and secret_store fixtures.
     Returns: TestClient.
     Does not: Bind a real TCP port.
+    Uses trusted host and CSRF header.
     """
 
-    return TestClient(create_app(config_path=api_config, store=secret_store))
+    return TestClient(
+        create_app(config_path=api_config, store=secret_store),
+        base_url="http://127.0.0.1",
+        headers={"X-AppFly": "1"},
+    )
 
 
 @pytest.fixture
@@ -99,3 +105,23 @@ def api_vault(api_config: Path) -> Path:
 
     raw = yaml.safe_load(api_config.read_text(encoding="utf-8"))
     return Path(raw["vault_path"])
+
+
+@pytest.fixture(autouse=True)
+def _isolate_async_runs() -> Iterator[None]:
+    """Start and end every test with no in-memory pipeline runs.
+
+    Purpose: The async runner is module-global and allows one active run at a time.
+    Inputs: None.
+    Returns: None (joins leftover ``run-*`` worker threads, then clears state).
+    Does not: Touch any store on disk.
+    """
+
+    from jobhunt.api import runner
+
+    runner.reset_runs()
+    yield
+    for thread in threading.enumerate():
+        if thread.name.startswith("run-"):
+            thread.join(timeout=5)
+    runner.reset_runs()

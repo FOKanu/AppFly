@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { apiBaseUrl } from "../../shared/api/client";
-import { getJob, patchJobStatus, requestListingFetch } from "../queue/jobsApi";
+import { apiBaseUrl, apiPost, apiPut } from "../../shared/api/client";
+import { describeApiError } from "../../shared/api/errors";
+import { getJob, patchJobStatus } from "../queue/jobsApi";
 import type { JobRecord, JobStatus } from "../queue/types";
 import { ApproveStrip } from "./ApproveStrip";
 import { CvTweaks } from "./CvTweaks";
 import { LetterWorkbench } from "./LetterWorkbench";
 import { PacketSpec } from "./PacketSpec";
 import "./packet.css";
+
+/** 404 sentence for save and regenerate (UI spec, W1 follow-up). */
+const JOB_GONE = "This job is no longer in the store. Go back to Queue and refresh.";
 
 /**
  * Purpose: Sealed writer packet — one job, its letter, and the approval step.
@@ -68,6 +72,7 @@ export function PacketPage() {
       if (!job) return;
       setBusy(true);
       setFeedback(null);
+      setError(null);
       try {
         const updated = await patchJobStatus(job.source_id, status);
         setJob({
@@ -88,12 +93,6 @@ export function PacketPage() {
     [job],
   );
 
-  const onFetchListing = useCallback(async () => {
-    if (!job) return;
-    const result = await requestListingFetch(job.source_id, job.crawl_allowed);
-    setFeedback(result.message);
-  }, [job]);
-
   const onSave = useCallback(
     async (text: string) => {
       if (!job || usingMock) {
@@ -101,20 +100,15 @@ export function PacketPage() {
         return;
       }
       setBusy(true);
+      setError(null);
+      setFeedback(null);
       try {
-        const res = await fetch(
-          new URL(`/jobs/${encodeURIComponent(job.source_id)}/letter`, apiBaseUrl()),
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ body: text }),
-          },
-        );
-        if (!res.ok) throw new Error(await res.text());
+        await apiPut<unknown>(`/jobs/${encodeURIComponent(job.source_id)}/letter`, { body: text });
         setLetterBody(text);
         setFeedback("Letter saved to the local store.");
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Save failed");
+        const failure = describeApiError(err, "Saving the letter", JOB_GONE);
+        if (!failure.aborted) setError(failure.message);
       } finally {
         setBusy(false);
       }
@@ -128,17 +122,17 @@ export function PacketPage() {
       return;
     }
     setBusy(true);
+    setError(null);
+    setFeedback(null);
     try {
-      const res = await fetch(
-        new URL(`/jobs/${encodeURIComponent(job.source_id)}/letter/regenerate`, apiBaseUrl()),
-        { method: "POST" },
+      const data = await apiPost<{ body?: string }>(
+        `/jobs/${encodeURIComponent(job.source_id)}/letter/regenerate`,
       );
-      if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as { body?: string };
-      if (data.body) setLetterBody(data.body);
+      if (data?.body) setLetterBody(data.body);
       setFeedback("Letter regenerated.");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Regenerate failed");
+      const failure = describeApiError(err, "Regenerating the letter", JOB_GONE);
+      if (!failure.aborted) setError(failure.message);
     } finally {
       setBusy(false);
     }
@@ -159,7 +153,7 @@ export function PacketPage() {
 
       {job ? (
         <div className="packet-page__panes">
-          <PacketSpec job={job} onFetchListing={() => void onFetchListing()} />
+          <PacketSpec job={job} />
 
           <div className="packet-page__work">
             <LetterWorkbench

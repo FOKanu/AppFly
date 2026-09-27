@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "../../shared/ui/Button";
 import { importObsidianVault } from "../vault/api";
 import { putVaultPath } from "./settingsApi";
+import { describeApiError } from "../../shared/api/errors";
 
 interface ImportObsidianPanelProps {
   /** `vault_path` from config.yaml, the folder this panel edits. */
@@ -54,14 +55,25 @@ export function ImportObsidianPanel({
   }
 
   async function onImport() {
-    if (!path.trim()) return;
+    const source = path.trim();
+    if (!source) return;
     setImporting(true);
     try {
-      await importObsidianVault(path.trim());
+      const report = await importObsidianVault(source);
       setImported(true);
-      onToast("Vault imported into AppFly storage.");
-    } catch {
-      onToast("Import failed — /workspace/import/obsidian is not serving yet.");
+      let message = `Imported ${report.jobs} jobs, ${report.letters} letters and ${report.documents} documents from ${report.source}. This was a one-time copy; later edits in Obsidian won't appear here.`;
+      if (report.errors.length > 0) {
+        message += ` ${report.errors.length} item(s) were skipped; see the API terminal.`;
+      }
+      onToast(message);
+    } catch (error) {
+      onToast(
+        describeApiError(
+          error,
+          "Import",
+          `No Obsidian vault found at ${source}. Check the folder and try again.`,
+        ).message,
+      );
     } finally {
       setImporting(false);
     }

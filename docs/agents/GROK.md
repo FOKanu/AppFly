@@ -15,7 +15,8 @@ call for UI/UX design calls ([CLAUDE.md](CLAUDE.md)).
 Operating model: [docs/workflow/MULTI_AGENT.md](../workflow/MULTI_AGENT.md).
 Prompts and brief template: [docs/workflow/PROMPTS.md](../workflow/PROMPTS.md).
 
-Repo: `FOKanu/AppFly`. Local checkout: `/Users/franciskanu/Projects/AppFly`.
+Repo: `FOKanu/AppFly`. Local checkout: `/Users/franciskanu/Projects/AppFly` (Mac).
+Local coder runs use `~/work/AppFly` in WSL on the 5090 host ([MULTI_AGENT.md](../workflow/MULTI_AGENT.md) section 9).
 
 ---
 

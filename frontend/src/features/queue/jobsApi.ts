@@ -1,4 +1,4 @@
-import { apiBaseUrl } from "../../shared/api/client";
+import { apiBaseUrl, APPFLY_HEADERS } from "../../shared/api/client";
 import { cloneJob, MOCK_JOBS } from "./mockJobs";
 import type { JobDetailResult, JobListResult, JobRecord, JobStatus } from "./types";
 import { JOB_STATUSES } from "./types";
@@ -6,6 +6,7 @@ import { JOB_STATUSES } from "./types";
 const JSON_HEADERS = {
   Accept: "application/json",
   "Content-Type": "application/json",
+  ...APPFLY_HEADERS,
 } as const;
 
 let mockStore: JobRecord[] = MOCK_JOBS.map(cloneJob);
@@ -146,34 +147,5 @@ export async function patchJobStatus(sourceId: string, status: JobStatus): Promi
     if (index < 0) throw new Error(`Job ${sourceId} not found`);
     mockStore[index] = { ...mockStore[index], status };
     return cloneJob(mockStore[index]);
-  }
-}
-
-/**
- * Ask the local API to fetch an allowed listing. Never GETs the listing URL
- * from the browser (that would crawl deny-listed hosts).
- */
-export async function requestListingFetch(
-  sourceId: string,
-  crawlAllowed: boolean,
-): Promise<{ ok: boolean; message: string }> {
-  if (!crawlAllowed) {
-    return {
-      ok: false,
-      message: "Crawl denied. Clip the listing into _inbox/ yourself.",
-    };
-  }
-  try {
-    const res = await fetch(jobsUrl(`/jobs/${encodeURIComponent(sourceId)}/fetch`), {
-      method: "POST",
-      headers: JSON_HEADERS,
-    });
-    if (!res.ok) throw new Error(String(res.status));
-    return { ok: true, message: "Fetch requested from the local scout." };
-  } catch {
-    return {
-      ok: false,
-      message: "Scout is not available. This UI does not fetch listing HTML.",
-    };
   }
 }

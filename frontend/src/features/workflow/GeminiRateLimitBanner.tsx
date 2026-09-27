@@ -1,27 +1,29 @@
+import { Banner } from "../../shared/ui/Banner";
+import { Button } from "../../shared/ui/Button";
+
 /**
- * Gemini 429 banner. Retry calls the local write API only — never scrapes.
+ * Purpose: Gemini 429 banner (preview fixture only; the real API never reports rate_limited), built from the shared
+ *          Banner (tone warning) and Button (variant quiet).
+ *          Run again starts a new full run through the shared run controller (spec H5).
+ * Does not: post /runs itself, retry a single stage, or fetch anything from job boards.
  */
 export function GeminiRateLimitBanner({
-  onRetry,
-  busy,
-  message,
+  onRunAgain,
+  disabled,
+  title,
 }: {
-  onRetry: () => void;
-  busy: boolean;
-  message: string | null;
+  onRunAgain: () => void;
+  disabled: boolean;
+  title: string;
 }) {
   return (
-    <div className="gemini-banner" role="status">
-      <div>
-        <p className="banner-title">Gemini rate-limited</p>
-        <p className="muted">
-          Writer paused at the API. Retry Gemini talks to the copilot only — no job-board fetch.
-        </p>
-        {message ? <p className="banner-msg">{message}</p> : null}
-      </div>
-      <button type="button" className="retry-btn" onClick={onRetry} disabled={busy}>
-        {busy ? "Retrying…" : "Retry Gemini"}
-      </button>
-    </div>
+    <Banner tone="warning" title="Gemini rate-limited">
+      <p>
+        The last run hit Gemini's rate limit. Run again starts a new full run; nothing is fetched from job boards.
+      </p>
+      <Button variant="quiet" onClick={onRunAgain} disabled={disabled} title={title || undefined}>
+        Run again
+      </Button>
+    </Banner>
   );
 }

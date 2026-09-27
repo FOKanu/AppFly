@@ -12,14 +12,19 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from jobhunt.api.security import (
+    ALLOWED_HOSTS,
+    CSRF_HEADER,
+    CSRFMiddleware,
+    allowed_origins,
+)
 from jobhunt.config import AppConfig, load_config
 from jobhunt.features.secrets.store import SecretStore, get_store
 from jobhunt.store import get_store as get_app_store_for_config
 from jobhunt.store.protocol import AppStore
 from jobhunt.vault import Vault
-
-_LOCAL_ORIGIN_REGEX = r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
 
 
 def get_config(request: Request) -> AppConfig:
@@ -90,14 +95,17 @@ def create_app(
     application.state.config_path = config_path
     application.state.secret_store = store if store is not None else get_store()
     application.state.app_store = None
+
+    origins = allowed_origins()
+    application.add_middleware(CSRFMiddleware, allowed_origins=origins)
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=[],
-        allow_origin_regex=_LOCAL_ORIGIN_REGEX,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_origins=origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Accept", "Content-Type", CSRF_HEADER],
     )
+    application.add_middleware(TrustedHostMiddleware, allowed_hosts=list(ALLOWED_HOSTS))
     application.include_router(health_router)
     application.include_router(jobs_router)
     application.include_router(runs_router)

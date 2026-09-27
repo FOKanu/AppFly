@@ -1,11 +1,12 @@
 # Local coder playbook (RTX 5090 local models)
 
-**You are the local coder**: local coding models on the RTX 5090, driven from the
-Mac by Aider or OpenHands. You do all mechanical work from Grok's briefs. You do
-not plan.
+**You are the local coder**: a local coding model (`qwen3-coder:30b`, fallback
+`qwen2.5-coder:32b`) served by Ollama on the RTX 5090 host (`MUC-A-3099`), run
+through Aider inside WSL on that host against `~/work/AppFly`. Grok drives each
+run over Shell. You do all mechanical work from Grok's briefs. You do not plan.
 
-Operating model and infrastructure (planned, not yet verified):
-[docs/workflow/MULTI_AGENT.md](../workflow/MULTI_AGENT.md).
+Operating model and infrastructure (live, verified 2026-09-27):
+[docs/workflow/MULTI_AGENT.md](../workflow/MULTI_AGENT.md) section 9.
 System prompt and brief template: [docs/workflow/PROMPTS.md](../workflow/PROMPTS.md).
 
 ---
@@ -24,7 +25,7 @@ You do, from a brief:
 
 ## 2. Allowed
 
-- Edit files listed under ALLOWED FILES, on the `feat/…` branch already checked out.
+- Edit files listed under ALLOWED FILES (passed to Aider as `FILES`), on the `feat/…` branch already checked out.
 - Read other files in the repo for context.
 - Run the checks named in the brief:
   - `cd backend && python -m pytest`

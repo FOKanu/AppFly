@@ -32,10 +32,15 @@ def _client(store: SecretStore | None = None) -> tuple[TestClient, SecretStore]:
     """HTTP client with a mocked Keychain.
 
     Purpose: tests never talk to macOS Keychain or the file fallback.
+    Uses trusted host and CSRF header.
     """
 
     store = store or SecretStore(MemoryKeychain())
-    return TestClient(create_app(store=store)), store
+    return TestClient(
+        create_app(store=store),
+        base_url="http://127.0.0.1",
+        headers={"X-AppFly": "1"},
+    ), store
 
 
 def test_put_then_get_settings_shows_configured_without_secret() -> None:
@@ -91,7 +96,11 @@ def test_get_settings_does_not_call_get_for_runtime() -> None:
         raise AssertionError("GET /settings must not call get_for_runtime")
 
     store.get_for_runtime = boom  # type: ignore[method-assign]
-    client = TestClient(create_app(store=store))
+    client = TestClient(
+        create_app(store=store),
+        base_url="http://127.0.0.1",
+        headers={"X-AppFly": "1"},
+    )
     res = client.get("/settings")
     assert res.status_code == 200
     assert res.json()["secrets"]["gemini"] is True

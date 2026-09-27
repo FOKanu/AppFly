@@ -62,9 +62,8 @@ export function isActive(document: VaultDocument): boolean {
 }
 
 /**
- * Whether the documents API is actually serving. The endpoints are specified
- * but not yet built, so the UI must be able to say so rather than silently
- * dropping an upload.
+ * Kept so existing readers (AppShell) compile. listDocuments now throws on any
+ * failure, so a snapshot that exists is always "live".
  */
 export type VaultAvailability = "live" | "unavailable";
 
@@ -87,4 +86,18 @@ export interface WorkspaceStatus {
   has_gemini: boolean;
   has_keywords: boolean;
   job_count: number;
+}
+
+/**
+ * What POST /workspace/import/obsidian returns.
+ * Mirrors the report dict from the backend Obsidian importer.
+ */
+export interface ObsidianImportReport {
+  source: string;
+  jobs: number;
+  letters: number;
+  documents: number;
+  runs: number;
+  errors: string[];
+  imported_at: string;
 }

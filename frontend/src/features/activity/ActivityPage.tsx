@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { loadActivity } from "./api";
-import { ExecutionLog, type LogEvent } from "./ExecutionLog";
+import { ExecutionLog, type LogEvent, type LogLevel } from "./ExecutionLog";
 import { FunnelSummary } from "./FunnelSummary";
 import { PolicyRefusals, type PolicyRefusal } from "./PolicyRefusals";
 import { RunList } from "./RunList";
+import { outcomeOf } from "./RunRow";
 import type { ActivityView, RunSummary } from "./types";
+import { ACTIVE_UI, id5 } from "../../shared/run/format";
+import { useRun } from "../../shared/run/RunContext";
 import "./activity.css";
 
 /** The funnel and refusal cards report on this window. */
@@ -18,6 +21,17 @@ const WINDOW_DAYS = 30;
 export function ActivityPage() {
   const [view, setView] = useState<ActivityView | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { ui } = useRun();
+  const [reloadKey, setReloadKey] = useState(0);
+  const previousUi = useRef(ui);
+
+  // C6: re-load once each time the shared run leaves an active state, so a run that finishes while
+  // this page is open stops reading `running`.
+  useEffect(() => {
+    const wasActive = ACTIVE_UI.has(previousUi.current);
+    previousUi.current = ui;
+    if (wasActive && !ACTIVE_UI.has(ui)) setReloadKey((key) => key + 1);
+  }, [ui]);
 
   useEffect(() => {
     document.title = "AppFly · Activity";
@@ -35,7 +49,7 @@ export function ActivityPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   const runs = view?.runs ?? [];
   const events = useMemo(() => eventsFrom(runs), [runs]);
@@ -126,29 +140,29 @@ function eventsFrom(runs: RunSummary[]): LogEvent[] {
         id: `${run.id}-core`,
         time,
         channel: "core",
-        level: run.ok ? "info" : "error",
-        message: `run ${run.id} ${run.ok ? "finished" : "failed"} · ${run.model || "writer —"}`,
+        level: coreLevel(run),
+        message: coreMessage(run),
       },
       {
         id: `${run.id}-scout`,
         time,
         channel: "scout",
         level: "info",
-        message: `scouted ${run.scouted} listings`,
+        message: `scouted ${count(run.scouted)} listings`,
       },
       {
         id: `${run.id}-match`,
         time,
         channel: "match",
         level: "info",
-        message: `shortlisted ${run.shortlisted} · skipped ${run.skipped}`,
+        message: `shortlisted ${count(run.shortlisted)} \u00b7 skipped ${count(run.skipped)}`,
       },
       {
         id: `${run.id}-write`,
         time,
         channel: "write",
-        level: run.writeSkipped > 0 ? "warn" : "info",
-        message: `wrote ${run.written} letters${run.writeSkipped > 0 ? `, ${run.writeSkipped} fell back to local` : ""}`,
+        level: (run.writeSkipped ?? 0) > 0 ? "warn" : "info",
+        message: `wrote ${count(run.written)} letters${(run.writeSkipped ?? 0) > 0 ? `, ${run.writeSkipped} fell back to local` : ""}`,
       },
     ];
 
@@ -179,8 +193,34 @@ function refusalsFrom(runs: RunSummary[]): PolicyRefusal[] {
   );
 }
 
+/** Purpose: Core log level; run rows follow the chip (failed -> error, finished with problems -> warn). */
+function coreLevel(run: RunSummary): LogLevel {
+  if (run.kind !== "run") return run.ok ? "info" : "error";
+  const { label } = outcomeOf(run);
+  if (label === "failed") return "error";
+  if (label === "finished with problems") return "warn";
+  return "info";
+}
+
+/**
+ * Purpose: Core log line. Run rows read `run #{id5} {chip label}`, plus ` \u00b7 {model}` only when the
+ *          model is known; day-note and mock rows keep their wording.
+ */
+function coreMessage(run: RunSummary): string {
+  if (run.kind !== "run") {
+    return `run ${run.id} ${run.ok ? "finished" : "failed"} \u00b7 ${run.model || "writer \u2014"}`;
+  }
+  const model = run.model && run.model !== "\u2014" ? ` \u00b7 ${run.model}` : "";
+  return `run #${id5(run.id)} ${outcomeOf(run).label}${model}`;
+}
+
 function isPolicy(message: string): boolean {
   return /refus|banned|deny|policy/i.test(message);
+}
+
+/** Purpose: A count for a log line, or a dash when the row does not carry it. */
+function count(value: number | null): string {
+  return value === null ? "\u2014" : String(value);
 }
 
 function clock(value: string): string {
