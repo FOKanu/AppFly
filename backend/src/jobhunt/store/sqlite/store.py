@@ -12,6 +12,7 @@ import json
 import re
 import shutil
 import sqlite3
+import threading
 import uuid
 from datetime import date
 from pathlib import Path
@@ -46,6 +47,53 @@ _JOB_COLUMNS = frozenset(
 )
 
 
+class _Rows:
+    """Materialized query result (rows fetched while the store lock was held)."""
+
+    def __init__(self, rows: list[sqlite3.Row]) -> None:
+        self._rows = rows
+
+    def fetchall(self) -> list[sqlite3.Row]:
+        return list(self._rows)
+
+    def fetchone(self) -> sqlite3.Row | None:
+        return self._rows[0] if self._rows else None
+
+    def __iter__(self):
+        return iter(self._rows)
+
+
+class _LockedConnection:
+    """Serialize every use of one sqlite3 connection across threads.
+
+    Purpose: FastAPI worker threads and the background run thread share one store.
+    Inputs: An open ``sqlite3.Connection`` and a ``threading.RLock``.
+    Returns: ``execute`` results as ``_Rows``; ``commit`` / ``rollback`` / ``close``.
+    Does not: Make multi-statement sequences atomic across threads.
+    """
+
+    def __init__(self, conn: sqlite3.Connection, lock: threading.RLock) -> None:
+        self._conn = conn
+        self._lock = lock
+
+    def execute(self, sql: str, params: Any = ()) -> _Rows:
+        with self._lock:
+            cursor = self._conn.execute(sql, params)
+            return _Rows(cursor.fetchall())
+
+    def commit(self) -> None:
+        with self._lock:
+            self._conn.commit()
+
+    def rollback(self) -> None:
+        with self._lock:
+            self._conn.rollback()
+
+    def close(self) -> None:
+        with self._lock:
+            self._conn.close()
+
+
 class SqliteStore:
     """AppStore backed by ``appfly.sqlite`` and files under the data root.
 
@@ -61,9 +109,13 @@ class SqliteStore:
         self._root = ensure_native_layout(root)
         self._db_path = sqlite_path(self._root)
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(self._db_path, check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
-        migrate(self._conn)
+        self._lock = threading.RLock()
+        raw = sqlite3.connect(self._db_path, check_same_thread=False, timeout=5.0)
+        raw.row_factory = sqlite3.Row
+        raw.execute("PRAGMA journal_mode=WAL")
+        raw.execute("PRAGMA busy_timeout=5000")
+        migrate(raw)
+        self._conn = _LockedConnection(raw, self._lock)
 
     def ensure_dirs(self) -> None:
         """Create native layout directories under the data root.
@@ -916,6 +968,18 @@ class SqliteStore:
             ),
         )
         self._conn.commit()
+
+    def journal_mode(self) -> str:
+        """Return the SQLite journal mode (``wal`` when WAL is active).
+
+        Purpose: Diagnostics and tests.
+        Inputs: None.
+        Returns: Lower-case journal mode string.
+        Does not: Change the mode.
+        """
+
+        row = self._conn.execute("PRAGMA journal_mode").fetchone()
+        return str(row[0]).lower() if row else ""
 
     def close(self) -> None:
         """Close the SQLite connection.

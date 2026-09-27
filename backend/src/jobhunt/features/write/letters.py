@@ -9,6 +9,7 @@ Does not: Submit applications, include a second job, or crawl listing URLs.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from jobhunt.config import AppConfig
@@ -27,14 +28,18 @@ MISSING_KEY_MESSAGE = (
 )
 
 
-def write_letters(config: AppConfig, vault: Vault) -> dict[str, Any]:
+def write_letters(
+    config: AppConfig,
+    vault: Vault,
+    should_stop: Callable[[], bool] | None = None,
+) -> dict[str, Any]:
     """Write up to ``letter_cap`` letters for shortlisted jobs.
 
     Purpose: CLI ``jobhunt write`` pipeline step.
     Inputs: Config (model, cap, excerpt length) and vault; key from the Keychain
-    (``gemini``) or ``GEMINI_API_KEY``.
+    (``gemini``) or ``GEMINI_API_KEY``; optional ``should_stop`` checked before each letter.
     Returns: ``written`` / ``skipped`` / ``capped`` / ``failed`` counts and ``errors``
-    (one string per failed job).
+    (one string per failed job); ``stopped`` (True when cancelled between letters).
     Does not: Overwrite jobs that already have a letter or ``gemini: false``; stop the
     batch when one Gemini call fails (the missing-key case still raises).
     """
@@ -48,6 +53,7 @@ def write_letters(config: AppConfig, vault: Vault) -> dict[str, Any]:
     written = 0
     skipped = 0
     failed = 0
+    stopped = False
     errors: list[str] = []
 
     candidates: list[Job] = []
@@ -63,6 +69,9 @@ def write_letters(config: AppConfig, vault: Vault) -> dict[str, Any]:
         candidates.append(vault.job_from_note(post))
 
     for job in candidates[: config.letter_cap]:
+        if should_stop is not None and should_stop():
+            stopped = True
+            break
         company_note = vault.read_company_body(job.company)
         packet = build_packet(
             job,
@@ -91,6 +100,7 @@ def write_letters(config: AppConfig, vault: Vault) -> dict[str, Any]:
         "skipped": skipped,
         "capped": max(0, len(candidates) - config.letter_cap),
         "failed": failed,
+        "stopped": stopped,
         "errors": errors,
     }
 
