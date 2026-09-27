@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ROUTES } from "../../routes";
 import { getWorkspace } from "../vault/api";
@@ -13,50 +13,50 @@ import {
  * Inputs: Children under BrowserRouter; `GET /workspace/status`.
  * Returns: Children unchanged after the gate settles.
  * Does not: Redirect when the API is down, or when the user dismissed setup.
+ *
+ * StrictMode-safe: no one-shot ref. Cleanup cancels the in-flight probe; the
+ * remounted effect starts a fresh probe and always settles `ready`.
  */
 export function SetupGate({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [ready, setReady] = useState(false);
-  const ran = useRef(false);
 
   useEffect(() => {
-    if (ran.current) return;
-    ran.current = true;
-
-    if (location.pathname === ROUTES.setup) {
-      setReady(true);
-      return;
-    }
-
-    if (typeof localStorage !== "undefined" && localStorage.getItem(SETUP_DISMISSED_KEY) === "1") {
-      setReady(true);
-      return;
-    }
-
     let cancelled = false;
 
-    async function probe(): Promise<boolean> {
+    async function run() {
+      if (location.pathname === ROUTES.setup) {
+        if (!cancelled) setReady(true);
+        return;
+      }
+
+      if (
+        typeof localStorage !== "undefined" &&
+        localStorage.getItem(SETUP_DISMISSED_KEY) === "1"
+      ) {
+        if (!cancelled) setReady(true);
+        return;
+      }
+
       const deadline = Date.now() + SETUP_GATE_RETRY_MS;
       while (!cancelled && Date.now() <= deadline) {
         try {
           const status = await getWorkspace();
-          if (!status.has_gemini || !status.has_cv) {
+          if (!cancelled && (!status.has_gemini || !status.has_cv)) {
             navigate(ROUTES.setup, { replace: true });
           }
-          return true;
+          break;
         } catch {
           await new Promise((r) => setTimeout(r, SETUP_GATE_POLL_MS));
         }
       }
-      // Persistent failure: stay on current route (desktop API may still be starting).
-      return false;
+
+      // Persistent API failure: stay on current route (desktop may still be spawning).
+      if (!cancelled) setReady(true);
     }
 
-    void probe().finally(() => {
-      if (!cancelled) setReady(true);
-    });
-
+    void run();
     return () => {
       cancelled = true;
     };
