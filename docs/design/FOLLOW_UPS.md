@@ -4,21 +4,21 @@ Source: decisions of 2026-09-27 in [UI_WAVES_1_2.md](UI_WAVES_1_2.md).
 Baseline: `integrate/prototype-v1` @ `bd43eee`.
 
 > **Reminder: when `feat/ui-firstrun-truth` and `feat/ui-run-progress` have merged into
-> `integrate/prototype-v1`, implement backend tasks B1 to B4 below** (you, via Cursor; prompt
-> at the bottom). The UI already reads the new fields if they're present, so each task lights up
-> in the UI as soon as it merges. After all four merge, remove the UI fallbacks
-> (see "Compatibility rule" in the spec).
+> `integrate/prototype-v1`, implement backend tasks B1 to B4 below** (local coder under Grok
+> briefs; the contract prompt is at the bottom). The UI already reads the new fields if they're
+> present, so each task lights up in the UI as soon as it merges. The UI fallbacks are removed in
+> two passes, after B1 and after B4 (see "Compatibility rule" in the spec).
 
 | ID | What | When | Owner |
 | --- | --- | --- | --- |
-| B1 | Run stage + live counts | After the UI waves | You, via Cursor |
-| B2 | `completed_with_errors` status | After the UI waves | You, via Cursor |
-| B3 | `interrupted` flag | After the UI waves | You, via Cursor |
-| B4 | Nightly / CLI runs visible, one lock across processes | After the UI waves, **before prototype close (P7)** because D-7 says the prototype needs it | You, via Cursor |
+| B1 | Run stage + live counts | After the UI waves | Local coder under Grok briefs |
+| B2 | `completed_with_errors` status | After the UI waves | Local coder under Grok briefs |
+| B3 | `interrupted` flag | After the UI waves | Local coder under Grok briefs |
+| B4 | Nightly / CLI runs visible (including `jobhunt scout\|match\|write`), one lock across processes | After the UI waves, **before prototype close (P7)** because D-7 says the prototype needs it | Local coder under Grok briefs |
 | F1 | Fetch listing (server-side, allowed hosts only) | Post-MVP, after a policy review | Decide then |
 | F2 | Mock-data rule for Tonight / Workflow / Activity loaders | M7 (`integrate/mvp-v1`) | Grok plans, local coder |
 | F3 | Vitest + Testing Library + `test` script | When you allow `package.json` / lockfile changes | Composer (CI area) |
-| F4 | Nightly plist points at an old checkout | With B4 | You |
+| F4 | Nightly plist points at an old checkout | With B4 | Local coder under Grok briefs |
 
 ---
 
@@ -63,8 +63,9 @@ keeps the counts reached so far.
 | Requirement | Detail |
 | --- | --- |
 | Record every run | `jobhunt run` writes a run record to the native store with the same transitions as API runs (`queued` → `running` → terminal), including B1 progress |
-| `trigger` field | `"api"`, `"cli"` or `"nightly"`, on `GET /runs/{id}` and list rows. `jobhunt run --trigger nightly` sets `nightly`; the default is `cli` |
-| One active run across processes | API and CLI share one lock: `POST /runs` → `409` (detail includes the active id) while a CLI or nightly run is active. `jobhunt run` exits non-zero with a clear message while any run is active. The lock must release if the owning process dies |
+| Stage commands too | `jobhunt scout`, `jobhunt match` and `jobhunt write` write to the same store since #22 (`cli.py:126-179`), so they are runs as well. Each one takes the cross-process lock and records a run with `trigger: "cli"` and `stage` set to `"scout"`, `"match"` or `"write"` for its whole duration, plus the counts its stage produces. The terminal status follows B2 |
+| `trigger` field | `"api"`, `"cli"` or `"nightly"`, on `GET /runs/{id}` and list rows. `jobhunt run --trigger nightly` sets `nightly`; the default is `cli` (stage commands are always `cli`) |
+| One active run across processes | API and CLI share one lock: `POST /runs` → `409` (detail includes the active id) while a CLI or nightly run, **or a stage command**, is active. `jobhunt run`, `scout`, `match` and `write` each exit non-zero with a clear message while any run is active. The lock must release if the owning process dies |
 | Liveness, not "in my RAM" | Active runs carry an owner and a heartbeat (updated at least every 10 s). A run is stale (→ B3 interrupted) only when its heartbeat is older than 60 s. **This replaces the current rule** in `routes/runs.py` (`_settle_stale`), which would otherwise mark a live CLI run as interrupted |
 | Cross-process cancel | `POST /runs/{id}/cancel` works for a run owned by another process (for example a cancel request persisted in the store, checked at the same checkpoints). `404` only if the id is unknown everywhere |
 | Storage scope | Native backend only. Under `storage_backend: markdown`, keep today's behaviour and document the limit |
@@ -81,9 +82,10 @@ F4: `launchd/com.jobhunt.nightly.plist:13` runs `/Users/franciskanu/Projects/Job
 
 ---
 
-## Cursor prompt (B1 to B4)
+## Contract prompt (B1 to B4)
 
-Paste this into Cursor. It's ASCII-only so it survives any shell pipe.
+Reference for Grok's local-coder briefs (decision 1 below); it is no longer pasted into Cursor.
+It's ASCII-only so it survives any shell pipe.
 
 ```text
 You are implementing backend tasks B1-B4 for AppFly (repo FOKanu/AppFly).
@@ -98,7 +100,8 @@ Branching:
   1. feat/backend-run-outcome   (B2 completed_with_errors + B3 interrupted flag)
   2. feat/backend-run-progress  (B1 stage + live counts + write_cap)
   3. feat/backend-run-visibility (B4 CLI/nightly run records, trigger, cross-process lock,
-     heartbeat-based staleness, cross-process cancel; F4 plist template + README note)
+     heartbeat-based staleness, cross-process cancel; the lock and a trigger "cli" run record
+     with stage set also for jobhunt scout / match / write; F4 plist template + README note)
 - PR into integrate/prototype-v1. Do not merge; Composer gates and merges.
 
 Scope:
@@ -129,7 +132,8 @@ Tests (pytest, temp dirs, conftest keychain backends, mocked LLM; no network):
 - B4: a run recorded by a second process (simulate with a separate store handle and heartbeat)
   -> POST /runs returns 409 with its id; GET /runs lists it with trigger cli and not interrupted;
   heartbeat older than 60 s -> interrupted; cancel via API sets the cross-process flag and the
-  owner stops at the next checkpoint.
+  owner stops at the next checkpoint; jobhunt scout/match/write each record a run with
+  trigger cli and their stage, and exit non-zero while another run holds the lock.
 
 Gates before each PR (report exact commands and final lines):
   cd backend && uv run python -m pytest -q
@@ -140,17 +144,18 @@ PR body: what changed, which contract items it covers, the exact commands run an
 and anything you could not verify. Do not claim anything you did not run.
 ```
 
-Note: the playbooks make Composer (Cursor) the merge and CI gate, not an implementer. Running this
-prompt in Cursor is your call as the human and overrides that for these four tasks. Keep the
-implementing session separate from the one that gates the PRs.
+Note: Composer (Cursor) stays the merge and CI gate for these PRs, not the implementer.
 
 ## Decisions delegated to Grok (2026-09-27 06:27, user asleep)
 
 The user delegated these calls to Grok. Where they conflict with the sections above, they win.
 
 1. **Who implements B1-B4.** The RTX 5090 local coder implements B1-B4 under Grok briefs. The
-   user does not do them in Cursor. This overrides the "You, via Cursor" owner in the table above;
-   the Cursor prompt stays as a reference for the contract, not as the execution path.
+   user does not do them in Cursor. The owner column above now says so; the contract prompt
+   stays as a reference for the contract, not as the execution path.
+5. **B4 scope (2026-09-27, audit correction 1).** B4 also covers `jobhunt scout|match|write`:
+   they take the cross-process lock and record a run with `trigger: "cli"` and the stage set.
+   Written into the B4 contract above.
 2. **Order.** W1, then W2 (with the spec fallbacks), then B2 + B3, then B1, then a small UI pass
    that replaces the fallbacks with the real fields, then B4 together with F4.
 3. **D-6 stands.** No vitest and no `package.json` / lockfile changes. The vitest proposal (F3)
