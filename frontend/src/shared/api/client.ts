@@ -2,6 +2,7 @@
  * Purpose: Typed fetch wrapper against the local Jobhunt HTTP API.
  * Does not: store, request, or type connector API keys or vault secrets.
  */
+import { redactSecrets } from "../../features/activity/redact";
 
 export const DEFAULT_API_BASE_URL = "http://127.0.0.1:8787";
 
@@ -71,17 +72,37 @@ export interface RunResponse {
   model?: string;
 }
 
+/** Purpose: Extra fields for ApiError. Does not: carry response bodies for 5xx. */
+export interface ApiErrorOptions {
+  /** Redacted, truncated `detail` from a 4xx JSON body; "" when there is none. */
+  detail?: string;
+  /** True only when apiFetch's own timeout timer fired. */
+  timeout?: boolean;
+  /** The timeout that applied to this request, in milliseconds. */
+  timeoutMs?: number;
+  /** True when a caller-passed `init.signal` aborted the request. Not a timeout. */
+  aborted?: boolean;
+}
+
 /**
  * Purpose: Typed HTTP/network failure from the local API client.
  * Does not: include secret material from the response body.
  */
 export class ApiError extends Error {
   readonly status: number;
+  readonly detail: string;
+  readonly timeout: boolean;
+  readonly timeoutMs: number;
+  readonly aborted: boolean;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, options: ApiErrorOptions = {}) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.detail = options.detail ?? "";
+    this.timeout = options.timeout ?? false;
+    this.timeoutMs = options.timeoutMs ?? 0;
+    this.aborted = options.aborted ?? false;
   }
 }
 
@@ -129,12 +150,23 @@ export function apiPut<T>(path: string, body?: unknown, init?: RequestInit): Pro
 /**
  * Purpose: Shared fetch with a short GET timeout and a longer POST timeout.
  * Does not: retry scrape/crawl endpoints or log response bodies.
+ * A caller's `init.signal` is chained to our own timer, so the timeout still applies.
  */
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController();
   const method = (init?.method ?? "GET").toUpperCase();
   const timeoutMs = method === "POST" ? 60_000 : method === "PUT" ? 10_000 : 2500;
-  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  let timedOut = false;
+  const timer = window.setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  const callerSignal = init?.signal ?? null;
+  const onCallerAbort = () => controller.abort();
+  if (callerSignal) {
+    if (callerSignal.aborted) controller.abort();
+    else callerSignal.addEventListener("abort", onCallerAbort, { once: true });
+  }
   const headers = new Headers(init?.headers);
   if (!headers.has("Accept")) headers.set("Accept", "application/json");
   if (method !== "GET" && method !== "HEAD" && !headers.has("X-AppFly")) headers.set("X-AppFly", "1");
@@ -151,10 +183,11 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     const response = await fetch(`${apiBaseUrl()}${path}`, {
       ...init,
       headers,
-      signal: init?.signal ?? controller.signal,
+      signal: controller.signal,
     });
     if (!response.ok) {
-      throw new ApiError(`HTTP ${response.status} for ${path}`, response.status);
+      const detail = response.status >= 500 ? "" : await readDetail(response);
+      throw new ApiError(`HTTP ${response.status} for ${path}`, response.status, { detail, timeoutMs });
     }
     if (response.status === 204) {
       return undefined as T;
@@ -162,8 +195,53 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     return (await response.json()) as T;
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    throw new ApiError(error instanceof Error ? error.message : "Network error", 0);
+    if (timedOut) {
+      throw new ApiError(`Timed out after ${timeoutMs} ms for ${path}`, 0, { timeout: true, timeoutMs });
+    }
+    if (callerSignal?.aborted) {
+      throw new ApiError(`Request aborted for ${path}`, 0, { aborted: true, timeoutMs });
+    }
+    throw new ApiError(error instanceof Error ? error.message : "Network error", 0, { timeoutMs });
   } finally {
     window.clearTimeout(timer);
+    callerSignal?.removeEventListener("abort", onCallerAbort);
+  }
+}
+
+const DETAIL_MAX = 160;
+
+/** Purpose: Redact and cap a detail string. Does not: keep secret material. */
+function cleanDetail(text: string): string {
+  const redacted = redactSecrets(text.trim());
+  return redacted.length > DETAIL_MAX ? `${redacted.slice(0, DETAIL_MAX)}\u2026` : redacted;
+}
+
+/**
+ * Purpose: Pull a display-safe `detail` out of a 4xx response body.
+ * Does not: read 5xx bodies (the caller never calls it for status >= 500).
+ */
+async function readDetail(response: Response): Promise<string> {
+  let text = "";
+  try {
+    text = await response.text();
+  } catch {
+    return "";
+  }
+  if (!text) return "";
+  try {
+    const body = JSON.parse(text) as { detail?: unknown };
+    const detail = body?.detail;
+    if (typeof detail === "string") return cleanDetail(detail);
+    if (Array.isArray(detail)) {
+      const joined = detail
+        .map((item) => (item && typeof item === "object" ? (item as { msg?: unknown }).msg : undefined))
+        .filter((msg): msg is string => typeof msg === "string")
+        .join("; ");
+      return joined ? cleanDetail(joined) : "";
+    }
+    return "";
+  } catch {
+    // Not JSON (e.g. a plain-text 400 "Invalid host header"): keep it as the detail.
+    return cleanDetail(text);
   }
 }

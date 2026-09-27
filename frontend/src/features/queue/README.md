@@ -20,6 +20,6 @@ Master-detail job queue for Jobhunt Copilot (desktop 1440).
 ## Policy
 
 - `Open listing` is a human link. This UI never fetches listing HTML.
-- If `crawl_allowed` is false, the detail pane does not offer crawl / fetch listing.
+- The detail pane never offers an on-demand listing fetch. Allowed sources are ingested by the scout.
 
 Selecting a job updates `/queue/:sourceId`. **Open packet** goes to the sealed writer packet for that one job.

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { apiBaseUrl, APPFLY_HEADERS } from "../../shared/api/client";
-import { getJob, patchJobStatus, requestListingFetch } from "../queue/jobsApi";
+import { getJob, patchJobStatus } from "../queue/jobsApi";
 import type { JobRecord, JobStatus } from "../queue/types";
 import { ApproveStrip } from "./ApproveStrip";
 import { CvTweaks } from "./CvTweaks";
@@ -88,12 +88,6 @@ export function PacketPage() {
     [job],
   );
 
-  const onFetchListing = useCallback(async () => {
-    if (!job) return;
-    const result = await requestListingFetch(job.source_id, job.crawl_allowed);
-    setFeedback(result.message);
-  }, [job]);
-
   const onSave = useCallback(
     async (text: string) => {
       if (!job || usingMock) {
@@ -159,7 +153,7 @@ export function PacketPage() {
 
       {job ? (
         <div className="packet-page__panes">
-          <PacketSpec job={job} onFetchListing={() => void onFetchListing()} />
+          <PacketSpec job={job} />
 
           <div className="packet-page__work">
             <LetterWorkbench

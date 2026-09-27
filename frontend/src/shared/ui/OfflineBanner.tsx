@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Banner } from "./Banner";
+import { apiBaseUrl } from "../api/client";
 import styles from "./OfflineBanner.module.css";
 
 /**
@@ -41,14 +42,12 @@ export function OfflineBanner({ connectivity }: OfflineBannerProps) {
   const banners = [
     !status.browserOnline ? (
       <Banner key="offline" tone="danger" title="You’re offline" role="alert">
-        Scout and Gemini need a network. The Obsidian vault on this machine is
-        still readable. Nothing is submitted automatically.
+        Scout and the letter writer need a network. Your files on this machine are unaffected. Nothing is submitted automatically.
       </Banner>
     ) : null,
     status.localIpc === "disconnected" ? (
       <Banner key="ipc" tone="warning" title="Local IPC disconnected">
-        This UI cannot reach the jobhunt process on your Mac. Start the local
-        copilot; do not paste job-board cookies to “fix” it.
+        {`This page can't reach the local API at ${apiBaseUrl()}. Start it with python -m jobhunt.api. Never paste job-board cookies to work around this.`}
       </Banner>
     ) : null,
     status.remoteBridge === "disconnected" ? (

@@ -1,6 +1,6 @@
-import { ApiError, apiBaseUrl, apiFetch, apiGet } from "../../shared/api/client";
+import { apiBaseUrl, apiFetch, apiGet } from "../../shared/api/client";
 import { activeFlagFor } from "./types";
-import type { DocumentKind, VaultDocument, VaultSnapshot, WorkspaceStatus } from "./types";
+import type { DocumentKind, ObsidianImportReport, VaultDocument, VaultSnapshot, WorkspaceStatus } from "./types";
 
 /**
  * Purpose: Client for the native document store.
@@ -9,75 +9,14 @@ import type { DocumentKind, VaultDocument, VaultSnapshot, WorkspaceStatus } from
  *           Vault table, Memory, or Profiles.
  */
 
-/** Shown wherever the store is specified but not yet serving. */
-export const STORE_UNAVAILABLE_NOTE =
-  "The document store is not serving yet — /documents returns 404. This is sample metadata; uploads and edits are disabled until the endpoint lands.";
-
-/** Sample rows so the table's shape is reviewable before the API exists. */
-const SAMPLE_DOCUMENTS: VaultDocument[] = [
-  {
-    id: "sample-cv-1",
-    kind: "cv",
-    label: "CV — Software Engineer.md",
-    mime: "text/markdown",
-    word_count: 1_180,
-    updated_at: "2026-09-18T20:12:00Z",
-    active_cv: true,
-  },
-  {
-    id: "sample-cv-2",
-    kind: "cv",
-    label: "CV — Platform focus.md",
-    mime: "text/markdown",
-    word_count: 1_044,
-    updated_at: "2026-09-11T09:40:00Z",
-    active_cv: false,
-  },
-  {
-    id: "sample-voice-1",
-    kind: "voice",
-    label: "Voice samples.md",
-    mime: "text/markdown",
-    word_count: 470,
-    updated_at: "2026-09-16T18:02:00Z",
-    active_voice: true,
-  },
-  {
-    id: "sample-cert-1",
-    kind: "cert",
-    label: "AWS Solutions Architect.pdf",
-    mime: "application/pdf",
-    updated_at: "2026-08-02T11:25:00Z",
-  },
-  {
-    id: "sample-portfolio-1",
-    kind: "portfolio",
-    label: "Payments platform case study.pdf",
-    mime: "application/pdf",
-    updated_at: "2026-07-21T15:48:00Z",
-  },
-];
-
-/** A 404 means "not built yet"; anything else is a real failure worth showing. */
-function isMissingEndpoint(error: unknown): boolean {
-  return error instanceof ApiError && error.status === 404;
-}
-
 /**
- * Purpose: List stored documents, falling back to sample metadata while the
- *          endpoint is still being built.
- * Returns: The rows plus whether they came from a live store.
+ * Purpose: List stored documents.
+ * Does not: fall back to sample rows. Any failure, including a 404, throws, and the
+ *           caller classifies it with describeApiError.
  */
 export async function listDocuments(): Promise<VaultSnapshot> {
-  try {
-    const documents = await apiGet<VaultDocument[]>("/documents");
-    return { documents, availability: "live" };
-  } catch (error) {
-    if (isMissingEndpoint(error)) {
-      return { documents: SAMPLE_DOCUMENTS, availability: "unavailable" };
-    }
-    throw error;
-  }
+  const documents = await apiGet<VaultDocument[]>("/documents");
+  return { documents, availability: "live" };
 }
 
 /**
@@ -85,22 +24,7 @@ export async function listDocuments(): Promise<VaultSnapshot> {
  * Does not: create the directory — `initWorkspace` does that on request.
  */
 export async function getWorkspace(): Promise<WorkspaceStatus> {
-  try {
-    return await apiGet<WorkspaceStatus>("/workspace/status");
-  } catch (error) {
-    if (isMissingEndpoint(error)) {
-      return {
-        storage_backend: "native",
-        data_path: defaultWorkspacePath(),
-        has_cv: false,
-        has_voice: false,
-        has_gemini: false,
-        has_keywords: false,
-        job_count: 0,
-      };
-    }
-    throw error;
-  }
+  return apiGet<WorkspaceStatus>("/workspace/status");
 }
 
 /**
@@ -115,8 +39,8 @@ export async function initWorkspace(): Promise<WorkspaceStatus> {
  * Purpose: Copy an existing Obsidian vault into AppFly's own storage, once.
  * Does not: keep the two in sync — this is a one-way import, not a mount.
  */
-export async function importObsidianVault(path: string): Promise<WorkspaceStatus> {
-  return apiFetch<WorkspaceStatus>("/workspace/import/obsidian", {
+export async function importObsidianVault(path: string): Promise<ObsidianImportReport> {
+  return apiFetch<ObsidianImportReport>("/workspace/import/obsidian", {
     method: "POST",
     body: JSON.stringify({ vault_path: path }),
   });
@@ -181,11 +105,6 @@ export async function documentText(id: string): Promise<string> {
     `/documents/${encodeURIComponent(id)}/text`,
   );
   return result.text;
-}
-
-/** Best guess at the native location before the API can report it. */
-function defaultWorkspacePath(): string {
-  return "~/Library/Application Support/AppFly";
 }
 
 /** Purpose: Human file size. Does not: round to a misleading precision. */
