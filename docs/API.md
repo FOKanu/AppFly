@@ -21,7 +21,7 @@ Local FastAPI app (`jobhunt.api.app:app`), default bind `http://127.0.0.1:8787`.
 | GET | `/jobs/{id}/letter` | Full letter body | path | `{ body, model, … }` | CV body |
 | PUT | `/jobs/{id}/letter` | Save edited letter | `{ body }` | Saved letter | Auto-submit |
 | POST | `/jobs/{id}/letter/regenerate` | Force Gemini rewrite | none | New letter body | Include other jobs |
-| GET | `/runs/{id}` | Run status (memory, then store; survives restart) | path | counts, errors, status | Secrets |
+| GET | `/runs/{id}` | Run status (memory, then store; survives restart) | path | counts, errors, status, `interrupted` | Secrets |
 | POST | `/runs/{id}/cancel` | Cooperative cancel (checked between stages and letters) | path | `{ cancelled }`; `404` if the run is not in this process | Kill Gemini mid-call |
 | GET/POST | `/documents` | List / upload Vault docs | multipart on POST | metadata only | CV body in list |
 | GET/PATCH/DELETE | `/documents/{id}` | Meta / update / delete | patch fields | metadata | Echo originals in PATCH |
@@ -58,7 +58,8 @@ The gateway must speak the Gemini REST API (`google-genai` sends `/{api_version}
 `POST /runs` is asynchronous from the UI's point of view: it must not block the browser on embedding-model download without returning a run id. Errors from scout (including crawl denial) are recorded on the run, not swallowed.
 
 - **No body.** `POST /runs` always runs scout → match → write. Only one run may be `queued` or `running` per server process; a second `POST /runs` returns `409` with the active run id in `detail`. The CLI (`jobhunt run`) and the nightly job call the pipeline directly and are not covered by this lock.
-- **Statuses:** `queued` → `running` → `completed` | `failed` | `cancelled`. Every transition is written to the store (`runs` table, native backend). A crash inside the pipeline is recorded as `failed` with `"<ExceptionType>: <message>"` in `errors`. A stored run left `queued`/`running` by a previous process is reported as `failed` with an `interrupted: …` error.
+- **Statuses:** `queued` → `running` → `completed` | `completed_with_errors` | `failed` | `cancelled`. `completed`: the pipeline returned with no errors. `completed_with_errors`: it returned normally but recorded errors (a failing letter, a scout source error, a crawl denial). `failed`: the pipeline raised (recorded with `"<ExceptionType>: <message>"` in `errors`) or the run was interrupted. Every transition is written to the store (`runs` table, native backend). Rows stored before this change are not migrated. The CLI still exits 1 when a run has errors.
+- **Interrupted:** a stored run left `queued`/`running` by a previous process is reported as `failed` with `interrupted: true` and the legacy `interrupted: …` string in `errors` (kept for older clients). `interrupted` is on `GET /runs/{id}` and every `GET /runs` row (`false` otherwise).
 - **Cancel** sets a flag the pipeline checks before scout, match and write and before each letter; the run then ends as `cancelled`. A Gemini call already in flight finishes first.
 - **`GET /runs`** returns one row per run id (live in-memory state wins over the stored row), newest first. Day notes (`Runs/YYYY-MM-DD.md`) are listed only for days without a stored run. Legacy fields `date`, `path`, `preview`, `has_errors` are unchanged; new fields:
 
@@ -70,6 +71,7 @@ The gateway must speak the Gemini REST API (`google-genai` sends `/{api_version}
 | `started_at` / `finished_at` | ISO timestamps (empty when unknown) |
 | `counts` | `{ scouted, matched, written }` for runs; `{}` for day notes |
 | `error_count` | Number of recorded error strings |
+| `interrupted` | `true` when a stored run was settled as stale (status `failed`); `false` otherwise |
 
 ### Settings secrets
 

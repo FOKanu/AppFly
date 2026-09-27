@@ -23,7 +23,7 @@ from jobhunt.features.write import letters
 from jobhunt.store.sqlite.store import SqliteStore
 from jobhunt.store.types import RunRecord, utc_now
 
-TERMINAL = {"completed", "failed", "cancelled"}
+TERMINAL = {"completed", "completed_with_errors", "failed", "cancelled"}
 
 
 @pytest.fixture
@@ -85,6 +85,7 @@ def test_failure_is_persisted_and_visible_after_restart(
     data = _wait(client, run_id)
     assert data["status"] == "failed"
     assert data["errors"] == ["RuntimeError: pipeline exploded"]
+    assert data["interrupted"] is False
 
     restarted = _restart(native_config, secret_store)
     after = restarted.get(f"/runs/{run_id}")
@@ -96,6 +97,7 @@ def test_failure_is_persisted_and_visible_after_restart(
     assert len(rows) == 1
     assert rows[0]["status"] == "failed"
     assert rows[0]["error_count"] == 1
+    assert rows[0]["interrupted"] is False
 
 
 def test_second_run_returns_409_while_one_is_active(
@@ -227,6 +229,7 @@ def test_list_runs_has_one_row_per_run_with_status(
         assert row["counts"] == {"scouted": 3, "matched": 2, "written": 1}
         assert row["error_count"] == 0
         assert row["started_at"] and row["finished_at"]
+        assert row["interrupted"] is False
         today = datetime.now().astimezone().date().isoformat()
         assert today not in ids
         assert "2020-01-01" in ids
@@ -245,9 +248,37 @@ def test_stale_stored_run_is_reported_as_failed(
     seed.close()
     client = _client(native_config, secret_store)
     data = client.get("/runs/stalerun0001").json()
+    # B3: settled as stale -> status stays "failed", flag set, legacy error string kept.
     assert data["status"] == "failed"
-    assert any("interrupted" in err for err in data["errors"])
+    assert data["interrupted"] is True
+    assert any(err.startswith("interrupted:") for err in data["errors"])
+    rows = [row for row in client.get("/runs").json() if row["id"] == "stalerun0001"]
+    assert len(rows) == 1
+    assert rows[0]["status"] == "failed"
+    assert rows[0]["interrupted"] is True
     assert client.post("/runs/stalerun0001/cancel").status_code == 404
+
+
+def test_run_with_errors_is_completed_with_errors_after_restart(
+    native_config: Path, secret_store: SecretStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def partial(config: Any, vault: Any = None, **_kwargs: Any) -> PipelineResult:
+        return _result(scouted=2, shortlisted=1, written=1, errors=["write: letter for job 7 failed"])
+
+    monkeypatch.setattr("jobhunt.api.runner.run_all", partial)
+    client = _client(native_config, secret_store)
+    run_id = client.post("/runs").json()["id"]
+    data = _wait(client, run_id)
+    # B2: a normal return with errors.
+    assert data["status"] == "completed_with_errors"
+    assert data["interrupted"] is False
+    assert data["errors"] == ["write: letter for job 7 failed"]
+    _join_workers()
+    restarted = _restart(native_config, secret_store)
+    assert restarted.get(f"/runs/{run_id}").json()["status"] == "completed_with_errors"
+    rows = [row for row in restarted.get("/runs").json() if row["id"] == run_id]
+    assert rows[0]["status"] == "completed_with_errors"
+    assert rows[0]["error_count"] == 1
 
 
 def test_sqlite_store_uses_wal_and_is_thread_safe(tmp_path: Path) -> None:

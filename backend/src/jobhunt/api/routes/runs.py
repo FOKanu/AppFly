@@ -58,6 +58,7 @@ class AsyncRunStatus(BaseModel):
     errors: list[str] = []
     model: str = ""
     preview: str = ""
+    interrupted: bool = False
 
 
 def _status_out(rec: RunRecord) -> AsyncRunStatus:
@@ -74,6 +75,7 @@ def _status_out(rec: RunRecord) -> AsyncRunStatus:
         errors=list(rec.errors),
         model=rec.model,
         preview=rec.preview,
+        interrupted=rec.interrupted,
     )
 
 
@@ -87,10 +89,16 @@ def _is_day_note(rec: RunRecord) -> bool:
 
 
 def _settle_stale(rec: RunRecord) -> RunRecord:
-    """A stored run still queued/running from a previous process is reported as failed."""
+    """A stored run still queued/running from a previous process is reported as failed.
+
+    Purpose: B3 - mark it ``interrupted`` and keep the legacy ``interrupted: ...`` error for older clients.
+    Inputs: A stored ``RunRecord`` (never a live in-memory one).
+    Returns: The record unchanged, or a copy with status ``failed``, ``interrupted=True`` and the error appended.
+    Does not: Write the settled state back to the store.
+    """
 
     if rec.status in ACTIVE_STATUSES:
-        return replace(rec, status="failed", errors=[*rec.errors, _INTERRUPTED])
+        return replace(rec, status="failed", errors=[*rec.errors, _INTERRUPTED], interrupted=True)
     return rec
 
 
@@ -113,6 +121,7 @@ def _summary(rec: RunRecord, *, path: str) -> RunLogSummary:
         finished_at=rec.finished,
         counts=counts,
         error_count=len(rec.errors),
+        interrupted=rec.interrupted,
     )
 
 
