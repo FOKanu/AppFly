@@ -497,13 +497,13 @@ but not what the panel shows. H1 to H4 change behaviour; H5 to H7 are details.
 
 | # | Gap | Rule |
 | --- | --- | --- |
-| H1 | **HeartbeatPanel has its own seven-step vocabulary** (`asleep` … `error`, `HeartbeatPanel.tsx:5-13`), and nothing maps the shared run state onto it. Today "running" always lights `hunting`, which claims a stage the API doesn't report before B1. | Map `useRun().ui` to one active step plus the big label (`heartbeat-panel__now`). The panel takes `activeStep: HeartbeatStateName \| null` and `label: string`; `data-state` = the active step, or `hunting` when none is lit and a run is active, or `error` for lost contact. See the H1 table below. Delete `heartbeatFor` and its `rateLimited → "writing"` shortcut. |
-| H2 | **The detail line has no rules for the live states**, and today's idle line is wrong for real rows (H6). | Use the H2 table below. |
+| H1 | **HeartbeatPanel has its own seven-step vocabulary** (`asleep` … `error`, `HeartbeatPanel.tsx:5-13`), and nothing maps the shared run state onto it. Today "running" always lights `hunting`, which claims a stage the API doesn't report before B1. | Map `useRun().ui` to one active step plus the big label (`heartbeat-panel__now`). The panel takes `activeStep: HeartbeatStateName \| null` and `label: string`; `data-state` = the active step, or `hunting` when none is lit and a run is active, or `error` for lost contact. See the H1 table below. `heartbeatFor` goes; the fixture-only `rateLimited → writing` survives only while idle (H1 table). |
+| H2 | **The detail line has no rules for the live states**, and today's idle line is wrong for real rows (H6). | Use the H2 table below. The link needs a new panel prop `detailLink: boolean` (= `useRun().linkToActivity`) that renders `Watch in Activity →` as a `Link` to `ROUTES.activity` after the detail text. |
 | H3 | **The panel's own Run now and Stop** must behave exactly like the header's. | Run now: `start()`, `disabled = runDisabled`, `title = runTitle`. Stop: `stop()`, `disabled = stopDisabled`, `title = stopTitle`, label `Stop current run`, or `Stopping…` while `ui === "cancelling"`. The `heartbeat-panel__flight` text reads `run in flight` while a run is active, else `nothing in flight`. Delete the local `running` state, the `onRunNow` toast (`WorkflowPage.tsx:145-159`), the `stopReason` prop and the hard-coded `disabled` on Stop. |
 | H4 | **The Nightly schedule switch shows a made-up value.** `nightlyOn` comes from the hard-coded `DEFAULT_PLAN` (Wednesdays), and the switch is disabled with the config note. It claims the nightly run is on. | Same product rule as G5. Replace the switch with the text `Nightly schedule · set in launchd`, with `title` = the G5 sentence. Drop `nightlyOn`, `onNightly` and `nightlyReason` from the panel's props. |
-| H5 | **The rate-limit banner's Retry** (`retryGemini`, `workflow/api.ts:157-173`) posts `/runs` itself, checks for a 429 the API never sends, and calls a full run "Write stage re-queued". | Button label `Run again`, `onClick = start()`, `disabled = runDisabled`, `title = runTitle`. Body: `The last run hit Gemini's rate limit. Run again starts a new full run; nothing is fetched from job boards.` Delete the message line and the busy label; the shared controller's toasts cover 409 and failures. Delete `retryGemini`. |
+| H5 | **The rate-limit banner's Retry** (`retryGemini`, `workflow/api.ts:157-173`) posts `/runs` itself, checks for a 429 the API never sends, and calls a full run "Write stage re-queued". | Button label `Run again`, `onClick = start()`, `disabled = runDisabled`, `title = runTitle`. Body: `The last run hit Gemini's rate limit. Run again starts a new full run; nothing is fetched from job boards.` Drop the `message` prop and the busy label; the shared controller's toasts cover 409 and failures. `retryGemini` stays exported in `api.ts` but is no longer called (the dormant `api.test.ts` imports it; remove both in F3). The banner appears only with the `?preview=rate_limited` fixture, because the real API never reports `rate_limited`. |
 | H6 | **The loader parses every real `GET /runs` row as a legacy day note.** Rows always carry `date`, so `runFromLog` (`workflow/api.ts:33-58`) takes the day-note branch: the id becomes the row's `path` (the data dir, or `async:<id>`), the counts become 0, and the stages become `done`. | Rows with `kind === "run"` parse as runs: `id` = `row.id`; keep the API `status` word; counts from `row.counts` (`scouted`, `matched`, `written`); anything the row doesn't carry stays unknown (`—`), never 0. Only `kind === "day_note"` rows use the day-note branch. The mock fallback rule itself is unchanged (M7). |
-| H7 | **The snapshot goes stale after a run.** `useWorkflow` loads once on mount. | `useWorkflow` exposes `reload()`. WorkflowPage calls it once each time `useRun().ui` moves from an active state (`starting`, `queued`, `running`, `cancelling`, `lost-contact`) to any other state. The caption `state machine · emitted by jobhunt CLI over IPC` (`HeartbeatPanel.tsx:105-107`) isn't true; it becomes `state · from the local API run status`. |
+| H7 | **The caption isn't true.** `state machine · emitted by jobhunt CLI over IPC` (`HeartbeatPanel.tsx:105-107`); nothing is emitted over IPC. | It becomes `state · from the local API run status`. (The snapshot refresh after a run is **deferred** by Grok to the post-B1 pass; until then the idle detail after a run comes from the shared controller, which still holds the finished run, H2.) |
 
 H1 mapping:
 
@@ -513,8 +513,9 @@ H1 mapping:
 | `starting`, `queued` | `waking` | `waking` |
 | `running` with B1 `stage` `scout` / `match` / `write` | `hunting` / `matching` / `writing` | the step name |
 | `running` without `stage` (before B1) | none | `running` |
-| `cancelling` | none | `stopping` |
-| `lost-contact` | none | `lost contact` |
+| `cancelling` | the step that was lit when Stop was pressed (none before B1) | `stopping` |
+| `lost-contact` | none (the run may still be going, so not `error`) | `lost contact` |
+| `idle` and the fixture `rateLimited` flag (preview only) | `writing` | `writing` |
 | `completed`, `problems` | `waiting-for-you` | `waiting-for-you` |
 | `completed-empty`, `cancelled` | `asleep` | `asleep` |
 | `failed`, `interrupted` | `error` | `error` |
@@ -529,19 +530,20 @@ H2 detail line:
 | `queued` | `run #{id5} queued` |
 | `running` | `run #{id5} in flight · {elapsed}`. After 60 s (`linkToActivity`) append the link `Watch in Activity →` to `ROUTES.activity` |
 | `cancelling` | `stopping run #{id5} · finishing the current step` |
-| `lost-contact` | `run #{id5} · lost contact with the local API` |
+| `lost-contact` | `useRun().message` (`Lost contact with the local API. Run #… may still be going; retrying…`) |
 | `interrupted` | `run #{id5} interrupted · the process stopped mid-run` (section 6) |
-| any other terminal state | `useRun().liveMessage` (the full sentence, without elapsed time) |
+| any other terminal state | `useRun().message` (for terminal states it equals `liveMessage`: no elapsed time) |
+| `running`, under 60 s | `run #{id5} in flight · {elapsed}`, no link (`detailLink` false) |
 
 W2-B ALLOWED FILES: `features/workflow/{WorkflowPage,HeartbeatPanel,GeminiRateLimitBanner}.tsx`,
 `features/workflow/{api,useWorkflow,types}.ts`. Not `SchedulePanel.tsx` (its made-up plan is F2 / M7).
 
 Acceptance:
 
-- [ ] `grep -rn "no cancel endpoint\|Run finished —\|retryGemini\|Retry Gemini\|emitted by jobhunt CLI" frontend/src/features/workflow` returns nothing.
+- [ ] `grep -rn "no cancel endpoint\|Run finished —\|Retry Gemini\|emitted by jobhunt CLI" frontend/src/features/workflow` returns nothing, and `grep -n "retryGemini" frontend/src/features/workflow/*.tsx` returns nothing (the export in `api.ts` stays until F3).
 - [ ] Manual, API up: Run now on Workflow → the header and the panel show the same run id and state. The panel reads `waking`, then `running` with no step lit (before B1), and the detail `run #… in flight · 12s`.
 - [ ] Manual: Stop current run on Workflow → `Stopping…`, then `asleep` with the stopped sentence. The header agrees.
-- [ ] Manual: after the run ends, the idle detail names the same run id (`last run #…`), not a path.
+- [ ] Manual: after the run ends, the detail shows the finished run's sentence with the same `#…` id as the header. After a reload, the idle detail reads `last run #… {word} · …`, with an id and never a path.
 - [ ] Manual: the Nightly schedule control is text only, with the G5 tooltip.
 
 ---
@@ -616,6 +618,7 @@ Added 2026-09-27 (W2-A review, ruled by Grok). They join the first fallback-remo
 (compatibility rule, top of this doc).
 
 - **Poll HTTP errors** (`useRunController.ts`, `tick`). A `404` on `GET /runs/{id}` means the run is unknown to the API: go to `idle`, toast `That run is no longer known to the API.` A `5xx` keeps polling at the current interval, and doesn't count toward `lost contact`. Other 4xx: treat like a 404.
+- **Workflow snapshot refresh** (deferred from W2-B H7 by Grok). `useWorkflow` exposes `reload()`; WorkflowPage calls it once each time `useRun().ui` moves from an active state to any other state, so `last run #…`, drafts and the queued list update without a reload. Same trigger as W2-C C6 and W2-D D4.
 - **Re-hydrate on reconnect** (`AppShell.tsx`, `hydrate`). When connectivity moves from `disconnected` to `connected`, re-run `hydrate` once, so the profile, the Gemini status, the queue badge and the Vault count load without a reload.
 
 ---
@@ -629,7 +632,7 @@ Added 2026-09-27 (W2-A review, ruled by Grok). They join the first fallback-remo
 | W1-P packet | same branch, or `feat/ui-packet-no-fetch` | none | `features/packet/{PacketSpec,PacketPage,PacketPage.test}.tsx`, `features/packet/packet.css` (the unused rule only), `features/queue/jobsApi{,.test}.ts`, both READMEs |
 | Packet errors | `feat/ui-packet-errors` | W1 merged; lands before W2 | `features/packet/PacketPage.tsx` only |
 | W2-A run controller | `feat/ui-run-progress` | W1-A merged | `app/layout/{AppShell,RunningBar,ControlHeader}.tsx`, new `shared/run/*`, `app/nav-config.ts` (A3 only), `app/layout/Heartbeat.tsx` only if its `title` handling changes (G1 needs no change there), `index.css` (the RunningBar message field only, G1). Includes "W2-A also: AppShell connectivity truth" (A1 to A4) and "W2-A brief readiness" (G1 to G12) |
-| W2-B workflow | same branch | W2-A | `features/workflow/{WorkflowPage,HeartbeatPanel,GeminiRateLimitBanner}.tsx`, `features/workflow/{api,useWorkflow,types}.ts`. Rules H1 to H7 |
+| W2-B workflow | `feat/ui-w2b-run-progress` | W2-A merged | `features/workflow/{WorkflowPage,HeartbeatPanel,GeminiRateLimitBanner}.tsx`, `features/workflow/{api,useWorkflow,types}.ts`. Rules H1 to H7 |
 | W2-C activity display | same branch | W2-A | `features/activity/{RunRow,RunList,ActivityPage}.tsx`, `features/activity/types.ts`, `features/activity/api.ts` (`normalizeRun` mapping only, C1; the mock rule stays M7). Rules C1 to C6 |
 | W2-D tonight | same branch | W2-A | `features/tonight/{TonightPage,TonightHero,PipelineOrganism}.tsx`, `features/tonight/{api,useTonight,types}.ts`, `index.css` (`.kv::before` only), `tonight.css` if a pill tone is needed. Rules D1 to D8 |
 
