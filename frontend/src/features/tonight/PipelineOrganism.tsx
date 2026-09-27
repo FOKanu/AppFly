@@ -174,11 +174,11 @@ function num(value: number | undefined): string {
   return value === undefined ? "—" : value.toLocaleString();
 }
 
+/** Letters written; `{w} / {cap} cap` only when the run reports a cap (the live run), else `{w}`. */
 function writeRatio(run: Run | null): string {
   if (!run || run.written === undefined) return "\u2014";
-  if (run.write_skipped === undefined) return String(run.written);
-  const cap = run.written + run.write_skipped;
-  return cap > 0 ? `${run.written} / ${cap} cap` : String(run.written);
+  const cap = run.write_cap;
+  return typeof cap === "number" ? `${run.written} / ${cap} cap` : String(run.written);
 }
 
 function sourceMix(run: Run | null): string {

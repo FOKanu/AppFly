@@ -63,6 +63,8 @@ export interface Run {
   skipped?: number;
   written?: number;
   write_skipped?: number;
+  /** Letter cap for the live run (from useRun counts); API rows carry none. Null or undefined means unknown. */
+  write_cap?: number | null;
   errors: string[];
   /** False when the row carries no error strings (every GET /runs row), so refusals are unknown. */
   errorsKnown?: boolean;

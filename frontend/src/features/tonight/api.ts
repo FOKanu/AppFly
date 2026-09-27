@@ -156,6 +156,7 @@ export function liveRun(
     scouted: counts.scouted,
     shortlisted: counts.matched,
     written: counts.written,
+    write_cap: counts.writeCap,
     errors: [],
     errorsKnown: false,
     stages: activeStages(queued ? "queued" : "running", stage),
