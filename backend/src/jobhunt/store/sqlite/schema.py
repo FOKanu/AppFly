@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import sqlite3
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _STATEMENTS: list[str] = [
     """
@@ -80,7 +80,11 @@ _STATEMENTS: list[str] = [
         write_skipped INTEGER NOT NULL DEFAULT 0,
         errors_json TEXT NOT NULL DEFAULT '[]',
         model TEXT NOT NULL DEFAULT '',
-        preview TEXT NOT NULL DEFAULT ''
+        preview TEXT NOT NULL DEFAULT '',
+        trigger TEXT NOT NULL DEFAULT 'api',
+        owner TEXT NOT NULL DEFAULT '',
+        heartbeat TEXT NOT NULL DEFAULT '',
+        cancel_requested INTEGER NOT NULL DEFAULT 0
     )
     """,
     """
@@ -111,6 +115,23 @@ def migrate(conn: sqlite3.Connection) -> None:
     row = conn.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()
     current = int(row[0]) if row else 0
     if current < SCHEMA_VERSION:
+        # Add new columns for schema version 2
+        if current < 2:
+            # Check for missing columns and add them
+            table_info = conn.execute("PRAGMA table_info(runs)").fetchall()
+            existing_columns = {col[1] for col in table_info}
+
+            new_columns = [
+                ("trigger", "TEXT NOT NULL DEFAULT 'api'"),
+                ("owner", "TEXT NOT NULL DEFAULT ''"),
+                ("heartbeat", "TEXT NOT NULL DEFAULT ''"),
+                ("cancel_requested", "INTEGER NOT NULL DEFAULT 0")
+            ]
+
+            for col_name, col_def in new_columns:
+                if col_name not in existing_columns:
+                    conn.execute(f"ALTER TABLE runs ADD COLUMN {col_name} {col_def}")
+
         conn.execute(
             "INSERT INTO meta(key, value) VALUES('schema_version', ?) "
             "ON CONFLICT(key) DO UPDATE SET value = excluded.value",

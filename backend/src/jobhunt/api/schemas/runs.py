@@ -32,6 +32,7 @@ class RunResponse(BaseModel):
     run_path: str
     home_path: str
     model: str = ""
+    trigger: str = "api"
 
 
 class RunLogSummary(BaseModel):
@@ -60,3 +61,4 @@ class RunLogSummary(BaseModel):
     error_count: int = 0
     interrupted: bool = False
     stage: str | None = None
+    trigger: str = "api"

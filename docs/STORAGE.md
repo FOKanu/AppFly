@@ -37,6 +37,10 @@ Protocols: `JobStore`, `LetterStore`, `DocumentStore`, `RunStore`, `Requirements
 
 `get_store(config)` selects the backend. Scout, match, write, and the HTTP API go through the store (or a thin façade), not raw paths.
 
+## Runs table (native, schema v2)
+
+SQLite `runs` rows hold async/CLI pipeline status. B4 columns: `trigger` (`api`|`cli`|`nightly`), `owner`, `heartbeat` (ISO), `cancel_requested`. Cross-process lock uses a fresh heartbeat (≤60 s). Markdown backend does not participate in that lock.
+
 ## Documents (Vault UI)
 
 Kinds: `cv`, `voice`, `cert`, `portfolio`, `inbox`, `other`.
