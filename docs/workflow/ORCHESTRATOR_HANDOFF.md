@@ -8,9 +8,9 @@ Compute mode: **default** unless opt-in / token-limit → **optimized** ([MULTI_
 | Item | State |
 | --- | --- |
 | `main` | **`ff61b86`** — Stage 1 via #48 |
-| Open epic | **`integrate/mvp-v1` @ `2fedb3c`** (M4 cache #56) |
-| Next | **M5** `feat/desktop-shell` — Neutralino + spawn API (Composer-owned) |
-| After M5 | **M6** wizard (Mac Claude first) → **M7** mock honesty → **M8** privacy (Composer) |
+| Open epic | **`integrate/mvp-v1` @ `759b508`** (M5 desktop #57) |
+| Next | **M6** `feat/ui-firstrun-wizard` — Claude decision done; implementing |
+| After M6 | **M7** mock honesty → **M8** privacy (Composer) |
 | Claude | Mac only when gated (M6/M7). Rule: `.cursor/rules/claude-handoff.mdc` |
 | 5090 | Slice briefs; check-ins. Rule: `.cursor/rules/local-coder-bulk.mdc` |
 

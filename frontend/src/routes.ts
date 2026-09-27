@@ -13,6 +13,8 @@ export const ROUTES = {
   memory: "/memory",
   activity: "/activity",
   settings: "/settings",
+  /** M6 first-launch wizard (outside AppShell). */
+  setup: "/setup",
 } as const;
 
 export type RoutePath = (typeof ROUTES)[keyof typeof ROUTES];
