@@ -20,8 +20,9 @@ Shared product law:
 - [ARCHITECTURE.md](../ARCHITECTURE.md), [API.md](../API.md), [STORAGE.md](../STORAGE.md), [FEATURES.md](../FEATURES.md)
 - `.cursor/rules/branch-strategy.mdc`, `.cursor/rules/crawl-safety.mdc`
 
-**Ship tip:** `origin/main` (ui-v1 + storage-v1 landed).
-**Open epic:** `integrate/prototype-v1` — all work PRs into that branch, not stale `main`. Grok owns the epic lifecycle; Composer merges.
+**Clone / base tip (prototype epic):** `origin/integrate/prototype-v1` @ `b6a247f` (fetch first). Do **not** start work from stale `main` or from closed `cursor/*` PRs.
+**Open epic:** `integrate/prototype-v1` — all work PRs into that branch. Composer merges; Cursor may temporarily plan while Grok Bot credits are exhausted (see [ORCHESTRATOR_HANDOFF.md](../workflow/ORCHESTRATOR_HANDOFF.md)).
+**In flight:** [PR #38](https://github.com/FOKanu/AppFly/pull/38) (Post-B1 B UI). **Next:** B4 `feat/backend-run-visibility` (see [FOLLOW_UPS.md](../design/FOLLOW_UPS.md)).
 
 Hard invariants: crawl deny-list; sealed packets; Keychain-only secrets; no CV
 bodies in list UIs; no auto-submit; one concern → one `feat/…` PR.

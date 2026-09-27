@@ -36,7 +36,14 @@ No parallel forks of `main` while this epic is open.
 
 When an epic opens, name it here and every Cloud Agent prompt includes the Base/Branch/PR block above (generic form uses `integrate/<epic>`).
 
-**Who does what:** Grok opens and closes epics (`integrate/<epic>`), plans tasks, and writes PR text. The RTX 5090 local coder implements. Composer (Cursor) is the merge and CI gate: it runs CI and smoke, then merges. See [docs/workflow/MULTI_AGENT.md](docs/workflow/MULTI_AGENT.md).
+**Who does what:** Grok opens and closes epics (`integrate/<epic>`), plans tasks, and writes PR text. The RTX 5090 local coder implements. Composer (Cursor) is the merge and CI gate: it runs CI and smoke, then merges. See [docs/workflow/MULTI_AGENT.md](docs/workflow/MULTI_AGENT.md). When Grok Bot usage is exhausted, Cursor may temporarily run the planner loop; log that in [docs/workflow/ORCHESTRATOR_HANDOFF.md](docs/workflow/ORCHESTRATOR_HANDOFF.md).
+
+### Live tip (avoid double work)
+
+- **Base every prototype PR on** `origin/integrate/prototype-v1` (tip as of 2026-09-27: `b6a247f`, Post-B1 A / #37). `git fetch origin` before cutting a branch.
+- **Do not** reopen or continue closed `cursor/*` PRs (#1–#10 era); that UI already landed via `feat/ui-*`.
+- **In flight:** PR #38 (`feat/ui-post-b1-pages`) → integrate. **Next:** B4 / F4 `feat/backend-run-visibility` ([docs/design/FOLLOW_UPS.md](docs/design/FOLLOW_UPS.md)).
+- `main` may lag the epic until Composer merges `integrate/prototype-v1` → `main`. Prefer integrate while the epic is open.
 
 ### Closed epics
 
