@@ -54,11 +54,11 @@ export function buildFunnel(runs: RunSummary[], jobsPayload: unknown): FunnelVie
   }
   const pipeline = runs.reduce<RunFunnel>(
     (acc, run) => ({
-      scouted: acc.scouted + run.scouted,
-      shortlisted: acc.shortlisted + run.shortlisted,
-      skipped: acc.skipped + run.skipped,
-      written: acc.written + run.written,
-      writeSkipped: acc.writeSkipped + run.writeSkipped,
+      scouted: acc.scouted + (run.scouted ?? 0),
+      shortlisted: acc.shortlisted + (run.shortlisted ?? 0),
+      skipped: acc.skipped + (run.skipped ?? 0),
+      written: acc.written + (run.written ?? 0),
+      writeSkipped: acc.writeSkipped + (run.writeSkipped ?? 0),
     }),
     { scouted: 0, shortlisted: 0, skipped: 0, written: 0, writeSkipped: 0 },
   );
@@ -136,13 +136,20 @@ export const MOCK_ACTIVITY: ActivityView = {
 
 function normalizeRun(item: unknown, index: number): RunSummary {
   const row = asRecord(item);
+  const kind = asString(row.kind) === "run" ? "run" : "day_note";
+  const status = asString(row.status);
+  const counts = asRecord(row.counts);
+  // Spec sections 4 and 6: before B1 the counts of an active or interrupted run are unknown, not 0.
+  const countsUnknown =
+    kind === "run" && (status === "queued" || status === "running" || row.interrupted === true);
   const started = asString(row.started ?? row.started_at ?? row.date);
   const date = asString(row.date, started.slice(0, 10) || `run-${index + 1}`);
+  // C3: a run row's `preview` is never an error line; only real error strings are shown.
   const errorsRaw = Array.isArray(row.errors)
     ? row.errors
     : row.error
       ? [row.error]
-      : row.has_errors && typeof row.preview === "string"
+      : kind === "day_note" && row.has_errors && typeof row.preview === "string"
         ? [row.preview]
         : [];
   const errors = errorsRaw.map((entry) => redactError(entry)).filter(Boolean);
@@ -151,15 +158,20 @@ function normalizeRun(item: unknown, index: number): RunSummary {
     date,
     started,
     finished: asString(row.finished ?? row.finished_at),
-    scouted: asNumber(row.scouted),
-    shortlisted: asNumber(row.shortlisted),
-    skipped: asNumber(row.skipped),
-    written: asNumber(row.written),
-    writeSkipped: asNumber(row.write_skipped ?? row.writeSkipped),
-    model: redactSecrets(asString(row.model, "—")),
+    scouted: countsUnknown ? null : countOf(row.scouted ?? counts.scouted),
+    shortlisted: countsUnknown ? null : countOf(row.shortlisted ?? counts.matched),
+    skipped: countOf(row.skipped),
+    written: countsUnknown ? null : countOf(row.written ?? counts.written),
+    writeSkipped: countOf(row.write_skipped ?? row.writeSkipped),
+    model: redactSecrets(asString(row.model, "\u2014")),
     errors,
     path: asString(row.path, date ? `Runs/${date}.md` : ""),
-    ok: errors.length === 0 && !row.has_errors && asString(row.status).toLowerCase() !== "error",
+    ok: errors.length === 0 && !row.has_errors && status.toLowerCase() !== "error",
+    kind,
+    status,
+    errorCount: countOf(row.error_count) ?? errors.length,
+    interrupted: row.interrupted === true,
+    trigger: asString(row.trigger),
   };
 }
 
@@ -202,6 +214,13 @@ function asNumber(value: unknown, fallback = 0): number {
     if (Number.isFinite(parsed)) return parsed;
   }
   return fallback;
+}
+
+/** Purpose: A count the row carries, else null (unknown). */
+function countOf(value: unknown): number | null {
+  if (value === undefined || value === null) return null;
+  const parsed = asNumber(value, Number.NaN);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function compareStamp(left: string, right: string): number {
