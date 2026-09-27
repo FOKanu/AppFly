@@ -42,6 +42,15 @@ export function useWorkflow(): {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Review fixtures: ?preview=running|failed|rate_limited replaces the API snapshot (mock source).
+    const preview = readPreview(window.location.search);
+    const fixture = preview ? previewSnapshot(preview) : null;
+    if (fixture) {
+      setSnapshot(fixture);
+      setSource("mock");
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     fetchWorkflow()
       .then((result) => {

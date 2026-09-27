@@ -15,7 +15,7 @@ export interface Stage {
   id: StageId;
   label: string;
   status: StageStatus;
-  count: number;
+  count?: number;
   detail: string;
 }
 
@@ -34,13 +34,19 @@ export interface Run {
   id: string;
   started_at: string;
   finished_at?: string;
-  status: "ok" | "running" | "failed" | "empty";
-  scouted: number;
-  shortlisted: number;
-  skipped: number;
-  written: number;
-  write_skipped: number;
+  /** API status word, e.g. "completed", "completed_with_errors", "failed", "cancelled", "running". */
+  status: string;
+  /** Counts are unknown (undefined) when the row does not carry them - never 0. */
+  scouted?: number;
+  shortlisted?: number;
+  skipped?: number;
+  written?: number;
+  write_skipped?: number;
   errors: string[];
+  /** `run` for a pipeline run, `day_note` for a legacy Runs/YYYY-MM-DD.md note. */
+  kind?: "run" | "day_note";
+  /** Number of errors the API recorded for the run. */
+  error_count?: number;
   gemini?: "ok" | "rate_limited" | "down";
   stages?: Record<StageId, StageStatus>;
 }
