@@ -245,7 +245,8 @@ export function useRunController({ notify, onTick }: RunControllerOptions): RunC
       timer = window.setTimeout(() => void tick(), nextDelay());
     }
 
-    timer = window.setTimeout(() => void tick(), nextDelay());
+    // First status at once on attach; later polls follow nextDelay().
+    timer = window.setTimeout(() => void tick(), 0);
     return () => {
       stopped = true;
       window.clearTimeout(timer);
