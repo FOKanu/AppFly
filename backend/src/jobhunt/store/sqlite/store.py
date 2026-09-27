@@ -618,13 +618,14 @@ class SqliteStore:
         mime: str,
         raw: bytes,
         extracted_text: str = "",
+        extract_status: str = "empty",
         active_cv: bool = False,
         active_voice: bool = False,
     ) -> DocumentMeta:
         """Store uploaded bytes and index metadata in SQLite.
 
         Purpose: POST /documents multipart upload.
-        Inputs: Kind, label, mime, raw bytes, optional extracted text.
+        Inputs: Kind, label, mime, raw bytes, optional extracted text and status.
         Returns: New ``DocumentMeta``.
         Does not: Crawl URLs embedded in uploads.
         """
@@ -638,13 +639,24 @@ class SqliteStore:
         (folder / f"original{suffix}").write_bytes(raw)
 
         text = extracted_text
+        status = extract_status if extract_status in {"ok", "empty", "unsupported", "error"} else "empty"
         if not text and (mime.startswith("text/") or suffix.lower() in {".md", ".txt"}):
             try:
                 text = raw.decode("utf-8")
+                status = "ok" if text.strip() else "empty"
             except UnicodeDecodeError:
                 text = ""
+                status = "error"
         if text:
             (folder / "extracted.txt").write_text(text, encoding="utf-8")
+        elif status in {"ok", "empty", "error"} and (
+            mime.startswith("text/")
+            or suffix.lower() in {".md", ".txt", ".pdf", ".docx"}
+            or "pdf" in mime
+            or "wordprocessingml" in mime
+        ):
+            # Record an empty extract file so callers know extract was attempted.
+            (folder / "extracted.txt").write_text("", encoding="utf-8")
 
         words = len(text.split()) if text else 0
         now = utc_now()
@@ -658,8 +670,8 @@ class SqliteStore:
             """
             INSERT INTO documents (
                 id, kind, label, mime, word_count, active_cv, active_voice,
-                original_name, rel_dir, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                original_name, rel_dir, created_at, updated_at, extract_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 doc_id,
@@ -673,6 +685,7 @@ class SqliteStore:
                 rel_dir,
                 now,
                 now,
+                status,
             ),
         )
         self._conn.commit()
@@ -687,6 +700,7 @@ class SqliteStore:
             created_at=now,
             updated_at=now,
             original_name=original_name,
+            extract_status=status,  # type: ignore[arg-type]
         )
 
     def patch_document(self, doc_id: str, **updates: object) -> DocumentMeta | None:
@@ -1204,6 +1218,10 @@ class SqliteStore:
 
 
 def _document_row_to_meta(row: sqlite3.Row) -> DocumentMeta:
+    keys = set(row.keys())
+    status = str(row["extract_status"] or "empty") if "extract_status" in keys else "empty"
+    if status not in {"ok", "empty", "unsupported", "error"}:
+        status = "empty"
     return DocumentMeta(
         id=str(row["id"]),
         kind=row["kind"],  # type: ignore[arg-type]
@@ -1215,6 +1233,7 @@ def _document_row_to_meta(row: sqlite3.Row) -> DocumentMeta:
         created_at=str(row["created_at"] or ""),
         updated_at=str(row["updated_at"] or ""),
         original_name=str(row["original_name"] or ""),
+        extract_status=status,  # type: ignore[arg-type]
     )
 
 

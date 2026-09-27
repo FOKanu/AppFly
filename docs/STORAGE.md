@@ -45,8 +45,9 @@ SQLite `runs` rows hold async/CLI pipeline status. B4 columns: `trigger` (`api`|
 
 Kinds: `cv`, `voice`, `cert`, `portfolio`, `inbox`, `other`.
 
-- `GET /documents` — metadata only (no bodies, no original bytes).
-- `POST /documents` — multipart upload; extract text for cv/voice when possible.
+- `GET /documents` — metadata only (no bodies, no original bytes). Includes `extract_status` (`ok` \| `empty` \| `unsupported` \| `error`).
+- `POST /documents` — multipart upload; extract `.md`/`.txt` always; PDF/DOCX when optional extras are installed (`pip install 'jobhunt[extract]'` → `pypdf`, `python-docx`).
+- `extracted.txt` lives under `files/documents/{id}/` when extract is attempted; list APIs never return that text.
 - Active CV / voice flags drive match and write packet slices in-process.
 - Never put connector secrets in documents. Size limits apply. Uploaded URLs are not crawled.
 

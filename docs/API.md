@@ -23,9 +23,9 @@ Local FastAPI app (`jobhunt.api.app:app`), default bind `http://127.0.0.1:8787`.
 | POST | `/jobs/{id}/letter/regenerate` | Force Gemini rewrite | none | New letter body | Include other jobs |
 | GET | `/runs/{id}` | Run status (memory, then store; survives restart) | path | counts (live while running), errors, status, `interrupted`, `stage`, `write_cap` | Secrets |
 | POST | `/runs/{id}/cancel` | Cooperative cancel (checked between stages and letters) | path | `{ cancelled }`; `404` if the run is not in this process | Kill Gemini mid-call |
-| GET/POST | `/documents` | List / upload Vault docs | multipart on POST | metadata only | CV body in list |
+| GET/POST | `/documents` | List / upload Vault docs | multipart on POST | metadata only (incl. `extract_status`) | CV body / file bytes in list |
 | GET/PATCH/DELETE | `/documents/{id}` | Meta / update / delete | patch fields | metadata | Echo originals in PATCH |
-| GET | `/documents/{id}/text` | Extracted text | path | plain text | Meant for engine; UI must not show CV in Memory |
+| GET | `/documents/{id}/text` | Extracted text | path | plain text; `404` when extract empty/unsupported | Meant for engine; UI must not show CV in Memory |
 | GET | `/documents/{id}/file` | Download original | path | file bytes | Crawl URLs inside file |
 | GET/POST | `/workspace/status` `/workspace/init` | Readiness / ensure native store | none | checklist + data_path | Create Obsidian sync |
 | POST | `/workspace/import/obsidian` | One-shot Obsidian import | `{ vault_path }` | import report | Dual-write / live sync |

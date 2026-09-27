@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Any, Literal
 
 DocumentKind = Literal["cv", "voice", "cert", "portfolio", "inbox", "other"]
+ExtractStatus = Literal["ok", "empty", "unsupported", "error"]
 
 
 @dataclass
@@ -35,6 +36,7 @@ class DocumentMeta:
     created_at: str = ""
     updated_at: str = ""
     original_name: str = ""
+    extract_status: ExtractStatus = "empty"
 
 
 @dataclass

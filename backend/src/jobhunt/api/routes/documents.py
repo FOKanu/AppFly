@@ -36,6 +36,7 @@ class DocumentOut(BaseModel):
     created_at: str = ""
     updated_at: str = ""
     original_name: str = ""
+    extract_status: str = "empty"
 
 
 class DocumentPatch(BaseModel):
@@ -61,6 +62,7 @@ def _out(meta: DocumentMeta) -> DocumentOut:
         created_at=meta.created_at,
         updated_at=meta.updated_at,
         original_name=meta.original_name,
+        extract_status=meta.extract_status,
     )
 
 
@@ -95,12 +97,9 @@ async def upload_document(
         raise HTTPException(status_code=413, detail="File exceeds 8 MiB limit")
     name = file.filename or "upload.bin"
     mime = file.content_type or "application/octet-stream"
-    extracted = ""
-    if mime.startswith("text/") or name.lower().endswith((".md", ".txt")):
-        try:
-            extracted = raw.decode("utf-8")
-        except UnicodeDecodeError:
-            extracted = ""
+    from jobhunt.features.documents import extract_document_text
+
+    result = extract_document_text(filename=name, mime=mime, raw=raw)
     store = get_app_store(request)
     meta = store.add_document(
         kind=kind,  # type: ignore[arg-type]
@@ -108,7 +107,8 @@ async def upload_document(
         original_name=name,
         mime=mime,
         raw=raw,
-        extracted_text=extracted,
+        extracted_text=result.text,
+        extract_status=result.status,
         active_cv=active_cv,
         active_voice=active_voice,
     )
