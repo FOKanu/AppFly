@@ -36,7 +36,11 @@ def native_config(api_config: Path, tmp_path: Path) -> Path:
 
 
 def _client(config_path: Path, secret_store: SecretStore) -> TestClient:
-    return TestClient(create_app(config_path=config_path, store=secret_store))
+    return TestClient(
+        create_app(config_path=config_path, store=secret_store),
+        base_url="http://127.0.0.1",
+        headers={"X-AppFly": "1"},
+    )
 
 
 def _result(**overrides: Any) -> PipelineResult:
