@@ -46,12 +46,13 @@ export function TonightHero({
   );
 }
 
-/** D1/D8: `Tonight \u00b7 run #{id5} ...`; a live run reads `in flight` or `lost contact`. */
+/** D1/D8/2b: `Tonight \u00b7 run #{id5} ...`; a live run reads `queued`, `in flight`, `stopping` or `lost contact`. */
 function kicker(run: Run | null): string {
   if (!run) return "Tonight \u00b7 no run recorded";
   const shortId = run.id ? ` #${id5(run.id)}` : "";
   if (run.status === "lost-contact") return `Tonight \u00b7 run${shortId} \u00b7 lost contact`;
   if (run.status === "stopping") return `Tonight \u00b7 run${shortId} stopping`;
+  if (run.status === "queued") return `Tonight \u00b7 run${shortId} queued`;
   if (isActive(run)) return `Tonight \u00b7 run${shortId} in flight`;
   const finished = run.finished_at ? clock(run.finished_at) : null;
   return finished

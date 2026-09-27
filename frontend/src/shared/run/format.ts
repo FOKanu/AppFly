@@ -154,7 +154,7 @@ export function runMessage(input: RunMessageInput): { text: string; live: string
       base = `Stopping run #${id}\u2026 finishing the current ${s?.stage === "write" ? "letter" : "step"}`;
       text = base;
       if (input.cancellingMs > 30000 && s?.stage === "write") {
-        text += " \u00b7 the current letter is still being written";
+        text += " \u00b7 the writer is still answering";
       }
       live = base;
       break;

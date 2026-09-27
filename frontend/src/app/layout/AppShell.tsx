@@ -58,7 +58,7 @@ export function AppShell() {
   const [profiles, setProfiles] = useState<HuntProfile[]>([]);
   const [documentCount, setDocumentCount] = useState<number | null>(null);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
-  /** Post-B1 pass item 4: bumped when connectivity goes disconnected -> connected, so hydrate runs once more. */
+  /** Bumped when connectivity goes disconnected -> connected, so hydrate runs once more. */
   const [hydrateKey, setHydrateKey] = useState(0);
   const lastConnectivity = useRef<Connectivity>("unknown");
 

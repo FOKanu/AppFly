@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ROUTES } from "../../routes";
 import { Toast, useToast } from "../../shared/ui/Toast";
@@ -25,7 +25,7 @@ export function TonightPage() {
   const navigate = useNavigate();
   const toast = useToast();
   const preview = readPreview(search);
-  const { snapshot, loading } = useTonight();
+  const { snapshot, loading, reload } = useTonight();
 
   // Approve/deny write through to the API, so the list has to update locally.
   const [decided, setDecided] = useState<Record<string, JobStatus>>({});
@@ -36,11 +36,16 @@ export function TonightPage() {
   }, []);
 
   const shared = useRun();
-  // D1: while a run is active Tonight reads the shared controller, not the loader. D4: no reload afterwards;
-  // the loaded snapshot shows again once the run ends.
+  // D1: while a run is active Tonight reads the shared controller, not the loader.
   const active = ACTIVE_UI.has(shared.ui);
+  // D4: reload the snapshot once each time the run leaves an active state, so the finished run shows.
+  const wasActive = useRef(false);
+  useEffect(() => {
+    if (wasActive.current && !active) reload();
+    wasActive.current = active;
+  }, [active, reload]);
   const run = active
-    ? liveRun(shared.runId, shared.ui, shared.counts)
+    ? liveRun(shared.runId, shared.ui, shared.counts, shared.stage)
     : preview === "empty"
       ? null
       : (snapshot?.lastRun ?? null);
@@ -94,7 +99,8 @@ export function TonightPage() {
         onReviewDrafts={onReviewDrafts}
       />
 
-      <PipelineOrganism run={run} vaultNotes={active ? undefined : snapshot?.shortlist.length} />
+      {/* The API reports no vault-notes count (the shortlist length is not one), so the row reads a dash. */}
+      <PipelineOrganism run={run} vaultNotes={undefined} />
 
       <div className="tonight__lower">
         <NeedsYou
