@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import sqlite3
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 _STATEMENTS: list[str] = [
     """
@@ -64,7 +64,8 @@ _STATEMENTS: list[str] = [
         original_name TEXT NOT NULL DEFAULT '',
         rel_dir TEXT NOT NULL DEFAULT '',
         created_at TEXT NOT NULL DEFAULT '',
-        updated_at TEXT NOT NULL DEFAULT ''
+        updated_at TEXT NOT NULL DEFAULT '',
+        extract_status TEXT NOT NULL DEFAULT 'empty'
     )
     """,
     """
@@ -131,6 +132,15 @@ def migrate(conn: sqlite3.Connection) -> None:
             for col_name, col_def in new_columns:
                 if col_name not in existing_columns:
                     conn.execute(f"ALTER TABLE runs ADD COLUMN {col_name} {col_def}")
+
+        if current < 3:
+            docs_info = conn.execute("PRAGMA table_info(documents)").fetchall()
+            doc_cols = {col[1] for col in docs_info}
+            if "extract_status" not in doc_cols:
+                conn.execute(
+                    "ALTER TABLE documents ADD COLUMN extract_status "
+                    "TEXT NOT NULL DEFAULT 'empty'"
+                )
 
         conn.execute(
             "INSERT INTO meta(key, value) VALUES('schema_version', ?) "
