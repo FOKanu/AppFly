@@ -66,12 +66,14 @@ def request_cancel(run_id: str) -> bool:
 
     Purpose: Set the cooperative cancel event for a RAM-owned run.
     Inputs: Run id.
-    Returns: True if the id is in this process; False otherwise (caller may try the store).
+    Returns: True if the id is queued/running in this process; False otherwise
+    (missing, already terminal, or caller should try the store).
     Does not: Touch the SQLite cancel flag — routes call ``request_run_cancel`` for that.
     """
 
     with _lock:
-        if run_id not in _runs:
+        rec = _runs.get(run_id)
+        if rec is None or rec.status not in ("queued", "running"):
             return False
         event = _cancel_events.get(run_id)
         if event is not None:
