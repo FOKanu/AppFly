@@ -4,6 +4,9 @@ import { Button } from "../../shared/ui/Button";
 import { Input } from "../../shared/ui/Input";
 import { Heartbeat } from "./Heartbeat";
 
+/** G5: nothing in the app can pause launchd yet, so the control is shown disabled. */
+const PAUSE_TITLE = "The nightly schedule runs from launchd; pausing it from the app isn't supported yet.";
+
 interface ControlHeaderProps {
   /** Breadcrumb / context line above the title. */
   kicker: string;
@@ -16,11 +19,16 @@ interface ControlHeaderProps {
   /** Submitting the search jumps to the Queue filtered by the term. */
   onSearchSubmit: () => void;
   onRunNow: () => void;
-  onPauseNightly: () => void;
   onStop: () => void;
   runDisabled?: boolean;
   /** Stop is only live while something is in flight. */
   stopDisabled?: boolean;
+  /** "Stop", or "Stopping..." while a cancel is in flight (G6). */
+  stopLabel?: string;
+  /** Title on Stop, e.g. "No run in progress." (G6). */
+  stopTitle?: string;
+  /** Title on Run now while it is disabled (G7). */
+  runTitle?: string;
 }
 
 /**
@@ -38,10 +46,12 @@ export function ControlHeader({
   onSearchChange,
   onSearchSubmit,
   onRunNow,
-  onPauseNightly,
   onStop,
   runDisabled = false,
   stopDisabled = false,
+  stopLabel = "Stop",
+  stopTitle,
+  runTitle,
 }: ControlHeaderProps) {
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -77,14 +87,21 @@ export function ControlHeader({
           shortcut="R"
           onClick={onRunNow}
           disabled={runDisabled}
+          title={runTitle || undefined}
         >
           Run now
         </Button>
-        <Button variant="quiet" icon="‖" onClick={onPauseNightly}>
+        <Button variant="quiet" icon={"\u2016"} disabled title={PAUSE_TITLE}>
           Pause nightly
         </Button>
-        <Button variant="quiet" icon="■" onClick={onStop} disabled={stopDisabled}>
-          Stop
+        <Button
+          variant="quiet"
+          icon={"\u25a0"}
+          onClick={onStop}
+          disabled={stopDisabled}
+          title={stopTitle || undefined}
+        >
+          {stopLabel}
         </Button>
       </div>
     </header>

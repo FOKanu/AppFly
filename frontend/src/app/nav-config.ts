@@ -88,8 +88,8 @@ export interface HeaderContext {
   profileCount: number;
   /** Already-formatted date, e.g. "Wed 17 Sep". */
   today: string;
-  /** Files AppFly holds, for the Vault breadcrumb. */
-  documentCount: number;
+  /** Files AppFly holds, for the Vault breadcrumb; null until a live list returns. */
+  documentCount: number | null;
 }
 
 /**
@@ -113,7 +113,8 @@ export function headerKicker(pathname: string, context: HeaderContext): string {
     case "workflow":
       return "Workflow · Control plane";
     case "vault":
-      return `Vault · ${context.documentCount} file${context.documentCount === 1 ? "" : "s"}`;
+      if (context.documentCount === null) return "Vault";
+      return `Vault \u00b7 ${context.documentCount} file${context.documentCount === 1 ? "" : "s"}`;
     case "memory":
       return "Memory · career ledger";
     case "activity":

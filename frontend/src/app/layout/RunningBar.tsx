@@ -1,4 +1,6 @@
 import type { HeartbeatState } from "../../shared/api/client";
+import { Link } from "react-router-dom";
+import { ROUTES } from "../../routes";
 
 /** Mono telemetry the running bar prints between the state and the right edge. */
 export interface RunTelemetry {
@@ -19,25 +21,43 @@ export interface RunTelemetry {
 
 interface RunningBarProps {
   state: HeartbeatState;
+  /** Visible run line (spec sections 4 to 6); may tick every second. */
+  message: string;
+  /** The same line without the elapsed time; the only text announced to screen readers (G1a). */
+  liveMessage: string;
   telemetry: RunTelemetry;
+  /** After 60 s of an active run the run field links to Activity (section 5). */
+  runLink: boolean;
   ipcConnected: boolean;
 }
 
 /**
  * Purpose: Persistent 32px mono strip across the bottom of every desktop screen.
  * Does not: stream scout/match/write logs or mutate the vault.
+ * The message field carries the run line; only liveMessage is announced (G1a).
  */
-export function RunningBar({ state, telemetry, ipcConnected }: RunningBarProps) {
+export function RunningBar({ state, message, liveMessage, telemetry, runLink, ipcConnected }: RunningBarProps) {
   return (
-    <div className="running-bar" role="status" aria-live="polite">
+    <div className="running-bar">
       <span className="running-bar__state" data-state={state}>
         <span className="running-bar__led" aria-hidden="true" />
         {state}
       </span>
 
+      <span className="running-bar__message" title={message}>
+        {message}
+      </span>
+      <span className="running-bar__sr" role="status" aria-live="polite">
+        {liveMessage}
+      </span>
+
       <span className="running-bar__field">
-        run {telemetry.runId ?? "—"}
-        {telemetry.window ? ` · ${telemetry.window}` : ""}
+        {runLink && telemetry.runId ? (
+          <Link to={ROUTES.activity}>run {telemetry.runId}</Link>
+        ) : (
+          <>run {telemetry.runId ?? "\u2014"}</>
+        )}
+        {telemetry.window ? ` \u00b7 ${telemetry.window}` : ""}
       </span>
       <span className="running-bar__field">
         scout <b>{format(telemetry.scouted)}</b>
@@ -52,8 +72,6 @@ export function RunningBar({ state, telemetry, ipcConnected }: RunningBarProps) 
       <span className="running-bar__field">
         tok <b>{telemetry.tokens ? telemetry.tokens.toLocaleString() : "—"}</b>
       </span>
-
-      <span className="running-bar__spacer" />
 
       <span className="running-bar__field">next nightly {telemetry.nextNightly ?? "—"}</span>
       <span className="running-bar__link">
