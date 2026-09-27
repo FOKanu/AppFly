@@ -138,7 +138,7 @@ def start_async_run(
         if result.cancelled:
             status = "cancelled"
         elif result.errors:
-            status = "failed"
+            status = "completed_with_errors"
         else:
             status = "completed"
         _update(

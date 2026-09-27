@@ -46,12 +46,14 @@ def test_post_runs_accepts_async_and_completes(
     for _ in range(50):
         status = api_client.get(f"/runs/{run_id}")
         assert status.status_code == 200
-        if status.json()["status"] in {"completed", "failed", "cancelled"}:
+        if status.json()["status"] in {"completed", "completed_with_errors", "failed", "cancelled"}:
             break
         time.sleep(0.05)
     assert status is not None
     data = status.json()
-    assert data["status"] == "failed"
+    # B2: errors from a normal return are "completed_with_errors", not "failed".
+    assert data["status"] == "completed_with_errors"
+    assert data["interrupted"] is False
     assert data["errors"]
     assert "GEMINI_API_KEY" in data["errors"][0]
     listed = api_client.get("/runs")
@@ -81,7 +83,7 @@ def test_post_runs_uses_pipeline_result(
     status = None
     for _ in range(50):
         status = api_client.get(f"/runs/{run_id}")
-        if status.json()["status"] in {"completed", "failed"}:
+        if status.json()["status"] in {"completed", "completed_with_errors", "failed"}:
             break
         time.sleep(0.05)
     assert status is not None
