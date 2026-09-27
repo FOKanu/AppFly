@@ -13,7 +13,7 @@ Sealed writer packet for **one** job (desktop 1440).
 
 - Human submits in their own browser. No Easy Apply automation.
 - **Open listing** is a normal link. This UI never `fetch()`es listing HTML.
-- **Fetch listing** is shown only when `crawl_allowed` is true, and it POSTs to the local API — never to LinkedIn / Indeed / Stepstone / ZipRecruiter / Xing / Glassdoor.
+- There is no on-demand listing fetch. Allowed sources are ingested by the scout; when `crawl_allowed` is false, AppFly never fetches the listing's host.
 
 ## Data
 

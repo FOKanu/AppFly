@@ -52,7 +52,7 @@ describe("PacketPage", () => {
     expect(screen.getByTestId("status-chip")).toHaveAttribute("data-status", "skipped");
   });
 
-  it("hides fetch listing when crawl_allowed is false", async () => {
+  it("shows the policy note and no fetch button when crawl_allowed is false", async () => {
     renderPacket("inbox-clip-linkedin-4f2a");
     await screen.findByRole("heading", { name: "Engineering Manager, Search" });
     expect(screen.queryByRole("button", { name: "Fetch listing" })).not.toBeInTheDocument();
@@ -63,10 +63,12 @@ describe("PacketPage", () => {
     );
   });
 
-  it("offers fetch listing only when crawl is allowed, without loading other jobs", async () => {
+  it("shows Open listing but no Fetch listing button for an allowed job, without loading other jobs", async () => {
     renderPacket("agentur-ref-88112");
     await screen.findByRole("heading", { name: "Staff Platform Engineer" });
-    expect(screen.getByRole("button", { name: "Fetch listing" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Fetch listing" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open listing" })).toBeInTheDocument();
+    expect(screen.queryByTestId("crawl-denied")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Frontend Lead" })).not.toBeInTheDocument();
   });
 });

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getJob, listJobs, patchJobStatus, requestListingFetch, resetMockJobs } from "./jobsApi";
+import * as jobsApi from "./jobsApi";
+import { getJob, listJobs, patchJobStatus, resetMockJobs } from "./jobsApi";
 
 describe("jobsApi", () => {
   beforeEach(() => {
@@ -57,18 +58,15 @@ describe("jobsApi", () => {
     expect(result.job.source_id).toBe("agentur-ref-88112");
   });
 
-  it("does not fetch listing HTML and refuses crawl when crawl_allowed is false", async () => {
-    const fetchMock = vi.fn();
+  it("no code path calls /jobs/{id}/fetch", async () => {
+    expect("requestListingFetch" in jobsApi).toBe(false);
+    const fetchMock = vi.fn().mockRejectedValue(new Error("offline"));
     vi.stubGlobal("fetch", fetchMock);
-    const denied = await requestListingFetch("inbox-clip-linkedin-4f2a", false);
-    expect(denied.ok).toBe(false);
-    expect(fetchMock).not.toHaveBeenCalled();
-
-    fetchMock.mockRejectedValue(new Error("offline"));
-    const allowed = await requestListingFetch("agentur-ref-88112", true);
-    expect(allowed.ok).toBe(false);
-    const requested = String(fetchMock.mock.calls[0]?.[0] ?? "");
-    expect(requested).toContain("/jobs/agentur-ref-88112/fetch");
-    expect(requested).not.toMatch(/linkedin|indeed|stepstone|ziprecruiter/i);
+    await listJobs();
+    await getJob("agentur-ref-88112");
+    await patchJobStatus("agentur-ref-88112", "approved");
+    const urls = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(urls.some((url) => /\/jobs\/[^/]+\/fetch/.test(url))).toBe(false);
+    expect(urls.join(" ")).not.toMatch(/linkedin|indeed|stepstone|ziprecruiter/i);
   });
 });

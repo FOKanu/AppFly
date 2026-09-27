@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { Button } from "../../shared/ui/Button";
 import { Meter } from "../../shared/ui/Meter";
 import { Score } from "../../shared/ui/Score";
 import { Tag } from "../../shared/ui/Tag";
@@ -10,7 +9,6 @@ import type { JobRecord } from "../queue/types";
 
 interface PacketSpecProps {
   job: JobRecord;
-  onFetchListing: () => void;
 }
 
 /**
@@ -19,7 +17,7 @@ interface PacketSpecProps {
  * Does not: fetch the listing URL from the browser; the local scout does that,
  *           and only for allowed sources.
  */
-export function PacketSpec({ job, onFetchListing }: PacketSpecProps) {
+export function PacketSpec({ job }: PacketSpecProps) {
   const score = toTen(job.score);
 
   return (
@@ -51,7 +49,7 @@ export function PacketSpec({ job, onFetchListing }: PacketSpecProps) {
           <p className="posting-card__title">Official posting · {hostOf(job.url)}</p>
           <p className="posting-card__meta">
             {job.crawl_allowed
-              ? "allowed source · fetched via the local scout"
+              ? "allowed source \u00b7 ingested by the scout"
               : "stored from a clip · URL never fetched"}
           </p>
         </div>
@@ -111,14 +109,9 @@ export function PacketSpec({ job, onFetchListing }: PacketSpecProps) {
         <p className="packet-spec__copy">No requirements stored for this listing.</p>
       )}
 
-      {job.crawl_allowed ? (
-        <Button variant="quiet" className="packet-spec__fetch" onClick={onFetchListing}>
-          Fetch listing
-        </Button>
-      ) : (
+      {job.crawl_allowed ? null : (
         <p className="packet-spec__policy" data-testid="crawl-denied">
-          crawl_allowed is false. Fetch listing is hidden so deny-listed hosts are never
-          crawled.
+          crawl_allowed is false, so AppFly never fetches this listing's host.
         </p>
       )}
     </div>
