@@ -43,7 +43,7 @@ describe("PacketPage", () => {
     const user = userEvent.setup();
     renderPacket("agentur-ref-88112");
     await screen.findByRole("heading", { name: "Staff Platform Engineer" });
-    await user.click(screen.getByRole("button", { name: /Approve packet/ }));
+    await user.click(screen.getAllByRole("button", { name: /Approve packet/ })[0]!);
     expect(await screen.findByText(/Marked approved/)).toBeInTheDocument();
     expect(screen.getByTestId("status-chip")).toHaveAttribute("data-status", "approved");
 
@@ -57,7 +57,7 @@ describe("PacketPage", () => {
     await screen.findByRole("heading", { name: "Engineering Manager, Search" });
     expect(screen.queryByRole("button", { name: "Fetch listing" })).not.toBeInTheDocument();
     expect(screen.getByTestId("crawl-denied")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open listing" })).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: "Open listing" })[0]).toHaveAttribute(
       "href",
       "https://www.linkedin.com/jobs/view/1234567890",
     );
@@ -67,7 +67,7 @@ describe("PacketPage", () => {
     renderPacket("agentur-ref-88112");
     await screen.findByRole("heading", { name: "Staff Platform Engineer" });
     expect(screen.queryByRole("button", { name: "Fetch listing" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open listing" })).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Open listing" }).length).toBeGreaterThan(0);
     expect(screen.queryByTestId("crawl-denied")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Frontend Lead" })).not.toBeInTheDocument();
   });

@@ -1,5 +1,5 @@
 import type { HeartbeatState } from "../api/client";
-import { redactSecrets } from "../../features/activity/redact";
+import { redactSecrets } from "../api/redact";
 import type { RunCounts, RunStatus, RunUiState } from "./types";
 import { knownCounts } from "./progress";
 

@@ -16,10 +16,10 @@ Baseline: `integrate/prototype-v1` @ `bd43eee`.
 | B3 | `interrupted` flag | After the UI waves | Local coder under Grok briefs |
 | B4 | Nightly / CLI runs visible (including `jobhunt scout\|match\|write`), one lock across processes | After the UI waves, **before prototype close (P7)** because D-7 says the prototype needs it | Local coder under Grok briefs |
 | F1 | Fetch listing (server-side, allowed hosts only) | Post-MVP, after a policy review | Decide then |
-| F2 | Mock-data rule for Tonight / Workflow / Activity loaders, plus the Queue / Packet loader items from the W1 review | M7 (`integrate/mvp-v1`) | Grok plans, local coder |
-| F3 | Vitest + Testing Library + `test` script | When you allow `package.json` / lockfile changes | Composer (CI area) |
+| F2 | Mock-data rule for Tonight / Workflow / Activity loaders, plus the Queue / Packet loader items from the W1 review | **Done** (M7 #59) | Grok plans, local coder |
+| F3 | Vitest + Testing Library + `test` script | **This PR** (`feat/ui-vitest-f3`) | Composer (CI area) |
 | F4 | Nightly plist points at an old checkout | With B4 | Local coder under Grok briefs |
-| F5 | Low-priority cleanups from the W1 review | Deferred, no date | Grok decides |
+| F5 | Low-priority cleanups from the W1 review | **Partial** (redact → `shared/api/`, Obsidian toast pluralize in F3 PR) | Composer / Grok |
 
 ---
 
@@ -83,8 +83,8 @@ F4: `launchd/com.jobhunt.nightly.plist:13` runs `/Users/franciskanu/Projects/Job
   - **Raw error strings.** `QueuePage.tsx:52` and `ActivityPage.tsx:33` put a thrown `err.message` straight into the page (for Activity, text like `GET {path} failed (500)` from `features/activity/api.ts:170-176`). Use the section 1 messages from `shared/api/errors.ts` instead.
   - **Offline banner spacing.** The global `OfflineBanner` sits directly on the page kicker, with no gap (`w2a-offline-1440.png`). Add a bottom margin on the banner stack (`shared/ui/OfflineBanner.module.css`) equal to the page's normal section gap.
   - **Sample packet banner.** `Sample packet — GET /jobs/{id} is unavailable.` (`PacketPage.tsx`, `data-testid="mock-banner"`) becomes the shared `Sample data` banner from W1 item 3, with `{jobs}` as the noun.
-- **F5 Low-priority cleanups.** (1) `shared/api/client.ts` imports `features/activity/redact.ts`; move `redact.ts` to `shared/` so the shared layer doesn't depend on a feature folder. (2) Pluralize the Obsidian import toast (`Imported 1 jobs` today).
-- **F3 Vitest.** Every acceptance item marked *(deferred, F3)* in the spec becomes a real test once vitest, `@testing-library/react`, `jsdom` and a `test` script exist, plus the CI step. This needs `package.json` + `package-lock.json` changes, which are currently not allowed.
+- **F5 Low-priority cleanups.** (1) ~~`shared/api/client.ts` imports `features/activity/redact.ts`; move `redact.ts` to `shared/`~~ **Done** (`shared/api/redact.ts`). (2) ~~Pluralize the Obsidian import toast~~ **Done** (`countLabel` in `ImportObsidianPanel`). Remaining deferred items from the W1 review stay open until scheduled.
+- **F3 Vitest.** **Wired:** `vitest`, Testing Library, `jsdom`, `npm test`, and CI `npm test` before build. Existing `*.test.*` files run green; fill remaining *(deferred, F3)* acceptance items from the UI waves spec as follow-on PRs.
 
 ---
 

@@ -37,14 +37,15 @@ One row per Cloud Agent package. Sibling agents add folders on parallel branches
 | M6 | First-launch wizard | `/setup` outside AppShell | **This tree** | Claude decision in `briefs/M6-claude-decision.md`. Gate on `has_cv`/`has_gemini`. |
 | M7 | Mock-data honesty | Mock only when offline/timeout | **This tree** | F2: HTTP errors show danger banners; samples only when unreachable. |
 | M8 | Privacy pass | Packaged paths audit + bundle scan | **This tree** | Composer. Report: `briefs/M8-privacy-pass.md`. Activity mock no longer embeds fake AIza keys. |
+| F3 | Frontend Vitest | `npm test` + CI | **This tree** | Vitest + Testing Library; existing `*.test.*` green. |
 
-Backend feature folders that already contain code: `scout`, `match`, `write`, `pipeline`, `secrets` under `backend/src/jobhunt/features/`. Storage lives under `backend/src/jobhunt/store/`. Frontend chrome is in `frontend/src/app/layout/`. Tonight, Workflow, Queue, Packet, Memory, Activity, Settings, and Profiles screens are live, including mobile/tablet edge states. Role playbooks: [docs/agents/](agents/README.md). Epic base: **`integrate/mvp-v1`**.
+Backend feature folders that already contain code: `scout`, `match`, `write`, `pipeline`, `secrets` under `backend/src/jobhunt/features/`. Storage lives under `backend/src/jobhunt/store/`. Frontend chrome is in `frontend/src/app/layout/`. Tonight, Workflow, Queue, Packet, Memory, Activity, Settings, and Profiles screens are live, including mobile/tablet edge states. Role playbooks: [docs/agents/](agents/README.md). **No epic open** — branch from `main` (mvp-v1 closed via #61).
 
 ## Backlog
 
 ### CV upload and per-run picker
 
-Match/write currently always read `CV/Master.md` (or the active native CV document). Word/PDF files without extract are ignored. Planned work (own PRs on **`integrate/mvp-v1`** — M1–M3):
+Match/write currently always read `CV/Master.md` (or the active native CV document). Word/PDF files without extract are ignored. M1–M3 landed on `main`; further CV UX is post-MVP:
 
 1. Accept Word/PDF uploads into `CV/originals/` (or alongside notes). Extract locally into `CV/<variant>.md` with frontmatter `type: cv`, `variant`, `source` filename. Keep the original file.
 2. `GET /cvs` — id, label, filename, word count, last extracted. Never return CV body, `.docx`, or PDF bytes.

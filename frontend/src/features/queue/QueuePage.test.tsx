@@ -40,14 +40,15 @@ describe("QueuePage", () => {
       true,
     );
     expect(screen.getAllByTestId("match-score").length).toBeGreaterThan(0);
-    expect(screen.getByTestId("queue-detail")).toHaveTextContent("Staff Platform Engineer");
+    // Default sort is by score — ML Platform Engineer (0.91) leads the sample set.
+    expect(screen.getByTestId("queue-detail")).toHaveTextContent("ML Platform Engineer");
   });
 
   it("filters by status", async () => {
     const user = userEvent.setup();
     renderQueue();
     await screen.findAllByTestId("job-row");
-    await user.click(screen.getByRole("button", { name: "skipped" }));
+    await user.click(screen.getByRole("button", { name: /^skipped\b/i }));
     const rows = screen.getAllByTestId("job-row");
     expect(rows).toHaveLength(1);
     expect(rows[0]).toHaveTextContent("Frontend Lead");

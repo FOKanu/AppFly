@@ -1,12 +1,12 @@
 # MVP epic sequence (`integrate/mvp-v1`)
 
-Status: **Open** — `integrate/mvp-v1` @ `fffed5b` (2026-09-27, M7 #59). Stage 1 is on `main` (#48). M8 privacy pass in flight.
+Status: **Closed** — landed on `main` @ `5a5adc9` via #61 (2026-09-27). M1–M8 complete.
 
-Owner: Grok (or Cursor as temp planner). Implementer: 5090 local coder under briefs.
-Composer: gate every M* PR; owns M5 and M8. Claude: on call only where noted.
+Owner was Grok (or Cursor as temp planner). Implementer: 5090 local coder under briefs.
+Composer gated every M* PR; owned M5 and M8. Claude: on call only where noted.
 
-Compute mode: **default** (current mixed split) unless the human opts into
-**optimized** or cloud is near token limits — [MULTI_AGENT.md §1a](../workflow/MULTI_AGENT.md).
+Post-MVP work branches from **`main`** until the next `integrate/<epic>` opens.
+See [ORCHESTRATOR_HANDOFF.md](ORCHESTRATOR_HANDOFF.md) and [FOLLOW_UPS.md](../design/FOLLOW_UPS.md) (F3 Vitest in flight).
 
 ---
 

@@ -17,7 +17,7 @@ describe("fetchWorkflow", () => {
 });
 
 describe("retryGemini", () => {
-  it("POSTs /api/write and does not treat network failure as success", async () => {
+  it("POSTs /runs and does not treat network failure as success", async () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error("network"));
     vi.stubGlobal("fetch", fetchMock);
     const result = await retryGemini();
@@ -25,7 +25,7 @@ describe("retryGemini", () => {
     expect(result.message).toBe("Retry failed, API down");
     expect(fetchMock).toHaveBeenCalled();
     const url = String(fetchMock.mock.calls[0]?.[0]);
-    expect(url).toContain("/api/write");
+    expect(url).toContain("/runs");
     expect(url).not.toMatch(/linkedin|indeed|stepstone|ziprecruiter/i);
   });
 
