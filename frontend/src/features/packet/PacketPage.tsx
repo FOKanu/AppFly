@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { apiBaseUrl, apiPost, apiPut } from "../../shared/api/client";
-import { describeApiError } from "../../shared/api/errors";
+import { apiGet, apiPost, apiPut } from "../../shared/api/client";
+import { describeApiError, type ApiFailure } from "../../shared/api/errors";
+import { Banner } from "../../shared/ui/Banner";
+import { SampleDataBanner } from "../../shared/ui/SampleDataBanner";
 import { getJob, patchJobStatus } from "../queue/jobsApi";
 import type { JobRecord, JobStatus } from "../queue/types";
 import { ApproveStrip } from "./ApproveStrip";
@@ -9,6 +11,13 @@ import { CvTweaks } from "./CvTweaks";
 import { LetterWorkbench } from "./LetterWorkbench";
 import { PacketSpec } from "./PacketSpec";
 import "./packet.css";
+
+function asFailure(err: unknown): ApiFailure | null {
+  if (err && typeof err === "object" && "kind" in err && "message" in err) {
+    return err as ApiFailure;
+  }
+  return null;
+}
 
 /** 404 sentence for save and regenerate (UI spec, W1 follow-up). */
 const JOB_GONE = "This job is no longer in the store. Go back to Queue and refresh.";
@@ -47,20 +56,20 @@ export function PacketPage() {
         setLetterBody(extended.letter_body || result.job.letter_excerpt || "");
         if (!result.usingMock) {
           try {
-            const res = await fetch(
-              new URL(`/jobs/${encodeURIComponent(decodedId)}/letter`, apiBaseUrl()),
+            const data = await apiGet<{ body?: string }>(
+              `/jobs/${encodeURIComponent(decodedId)}/letter`,
             );
-            if (res.ok) {
-              const data = (await res.json()) as { body?: string };
-              if (!cancelled && data.body) setLetterBody(data.body);
-            }
+            if (!cancelled && data.body) setLetterBody(data.body);
           } catch {
-            /* keep excerpt */
+            /* keep excerpt — letter endpoint may 404 */
           }
         }
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load packet");
+        if (!cancelled) {
+          const failure = asFailure(err);
+          setError(failure?.message ?? (err instanceof Error ? err.message : "Failed to load packet"));
+        }
       });
     return () => {
       cancelled = true;
@@ -140,15 +149,13 @@ export function PacketPage() {
 
   return (
     <section className="packet-page page-flush" data-testid="packet-page">
-      {usingMock ? (
-        <p className="packet-page__banner" data-testid="mock-banner">
-          Sample packet — GET /jobs/{"{id}"} is unavailable.
-        </p>
-      ) : null}
+      {usingMock ? <SampleDataBanner noun="jobs" /> : null}
       {error ? (
-        <p className="packet-page__banner" data-testid="packet-error">
-          {error}
-        </p>
+        <div data-testid="packet-error">
+          <Banner tone="danger" title="Couldn't load Packet" role="alert">
+            {error}
+          </Banner>
+        </div>
       ) : null}
 
       {job ? (

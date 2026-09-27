@@ -1,13 +1,8 @@
-import { apiBaseUrl, APPFLY_HEADERS } from "../../shared/api/client";
+import { apiBaseUrl, apiGet, apiFetch, APPFLY_HEADERS } from "../../shared/api/client";
+import { describeApiError, isUnreachable } from "../../shared/api/errors";
 import { cloneJob, MOCK_JOBS } from "./mockJobs";
 import type { JobDetailResult, JobListResult, JobRecord, JobStatus } from "./types";
 import { JOB_STATUSES } from "./types";
-
-const JSON_HEADERS = {
-  Accept: "application/json",
-  "Content-Type": "application/json",
-  ...APPFLY_HEADERS,
-} as const;
 
 let mockStore: JobRecord[] = MOCK_JOBS.map(cloneJob);
 
@@ -22,10 +17,6 @@ export function resetMockJobs(): void {
  */
 export function apiBase(): string {
   return apiBaseUrl();
-}
-
-function jobsUrl(path: string): string {
-  return `${apiBase()}${path}`;
 }
 
 function isStatus(value: unknown): value is JobStatus {
@@ -93,59 +84,70 @@ function normalizeList(raw: unknown): JobRecord[] {
 }
 
 /**
- * GET /jobs. Falls back to the sample queue when the API is down.
+ * GET /jobs. Samples only when the API is offline/timeout (M7 / F2).
  * Does not send API keys.
  */
 export async function listJobs(): Promise<JobListResult> {
   try {
-    const res = await fetch(jobsUrl("/jobs"), { headers: { Accept: "application/json" } });
-    if (!res.ok) throw new Error(`GET /jobs ${res.status}`);
-    return { jobs: normalizeList(await res.json()), usingMock: false };
-  } catch {
-    return { jobs: mockStore.map(cloneJob), usingMock: true };
+    const raw = await apiGet<unknown>("/jobs");
+    return { jobs: normalizeList(raw), usingMock: false };
+  } catch (error) {
+    const failure = describeApiError(error, "Loading jobs");
+    if (isUnreachable(failure.kind)) {
+      return { jobs: mockStore.map(cloneJob), usingMock: true };
+    }
+    throw failure;
   }
 }
 
 /**
  * GET /jobs/{source_id} — sealed: one job, not the vault.
- * Falls back to the matching mock row when the API is down.
+ * Samples only when the API is offline/timeout.
  */
 export async function getJob(sourceId: string): Promise<JobDetailResult> {
   try {
-    const res = await fetch(jobsUrl(`/jobs/${encodeURIComponent(sourceId)}`), {
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) throw new Error(`GET /jobs/${sourceId} ${res.status}`);
-    const job = normalizeJob(await res.json());
+    const raw = await apiGet<unknown>(`/jobs/${encodeURIComponent(sourceId)}`);
+    const job = normalizeJob(raw);
     if (!job.source_id) throw new Error("empty job");
     return { job, usingMock: false };
-  } catch {
-    const found = mockStore.find((job) => job.source_id === sourceId);
-    if (!found) {
-      throw new Error(`Job ${sourceId} not found`);
+  } catch (error) {
+    const failure = describeApiError(error, "Loading job", `Job ${sourceId} not found`);
+    if (isUnreachable(failure.kind)) {
+      const found = mockStore.find((job) => job.source_id === sourceId);
+      if (!found) {
+        throw failure;
+      }
+      return { job: cloneJob(found), usingMock: true };
     }
-    return { job: cloneJob(found), usingMock: true };
+    throw failure;
   }
 }
 
 /**
  * PATCH /jobs/{source_id} with `{ status }` only.
- * Updates the mock store when the live API is down.
+ * Updates the mock store only when the live API is unreachable.
  */
 export async function patchJobStatus(sourceId: string, status: JobStatus): Promise<JobRecord> {
   try {
-    const res = await fetch(jobsUrl(`/jobs/${encodeURIComponent(sourceId)}`), {
+    const raw = await apiFetch<unknown>(`/jobs/${encodeURIComponent(sourceId)}`, {
       method: "PATCH",
-      headers: JSON_HEADERS,
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        ...APPFLY_HEADERS,
+      },
       body: JSON.stringify({ status }),
     });
-    if (!res.ok) throw new Error(`PATCH /jobs/${sourceId} ${res.status}`);
-    const job = normalizeJob(await res.json());
+    const job = normalizeJob(raw);
     return job.source_id ? job : { ...((await getJob(sourceId)).job), status };
-  } catch {
-    const index = mockStore.findIndex((job) => job.source_id === sourceId);
-    if (index < 0) throw new Error(`Job ${sourceId} not found`);
-    mockStore[index] = { ...mockStore[index], status };
-    return cloneJob(mockStore[index]);
+  } catch (error) {
+    const failure = describeApiError(error, "Updating job status");
+    if (isUnreachable(failure.kind)) {
+      const index = mockStore.findIndex((job) => job.source_id === sourceId);
+      if (index < 0) throw failure;
+      mockStore[index] = { ...mockStore[index], status };
+      return cloneJob(mockStore[index]);
+    }
+    throw failure;
   }
 }

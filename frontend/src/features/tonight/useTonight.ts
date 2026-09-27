@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import type { ApiFailure } from "../../shared/api/errors";
 import { fetchTonight } from "./api";
 import type { DataSource, PreviewState, TonightSnapshot } from "./types";
 
@@ -18,12 +19,14 @@ export function readPreview(search: string): PreviewState | null {
  */
 export function useTonight(): {
   snapshot: TonightSnapshot | null;
-  source: DataSource;
+  source: DataSource | "error";
+  failure: ApiFailure | null;
   loading: boolean;
   reload: () => void;
 } {
   const [snapshot, setSnapshot] = useState<TonightSnapshot | null>(null);
-  const [source, setSource] = useState<DataSource>("mock");
+  const [source, setSource] = useState<DataSource | "error">("mock");
+  const [failure, setFailure] = useState<ApiFailure | null>(null);
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
   const reload = useCallback(() => setReloadKey((key) => key + 1), []);
@@ -33,8 +36,15 @@ export function useTonight(): {
     fetchTonight()
       .then((result) => {
         if (cancelled) return;
+        if (result.source === "error") {
+          setSnapshot(null);
+          setSource("error");
+          setFailure(result.failure);
+          return;
+        }
         setSnapshot(result.data);
         setSource(result.source);
+        setFailure(null);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -44,5 +54,5 @@ export function useTonight(): {
     };
   }, [reloadKey]);
 
-  return { snapshot, source, loading, reload };
+  return { snapshot, source, failure, loading, reload };
 }

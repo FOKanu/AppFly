@@ -35,7 +35,7 @@ One row per Cloud Agent package. Sibling agents add folders on parallel branches
 | M4 | Embeddings app-data cache | `cache/embeddings` under native data dir | **This tree** | Native: `{data}/cache/embeddings`; one-shot migrate from repo `.cache/`; markdown keeps repo `.cache`. |
 | M5 | Desktop shell | Neutralino + spawn API on loopback | **This tree** | `desktop/`; port 5174; spawns uvicorn from checkout venv/`uv`. |
 | M6 | First-launch wizard | `/setup` outside AppShell | **This tree** | Claude decision in `briefs/M6-claude-decision.md`. Gate on `has_cv`/`has_gemini`. |
-| M7 | Mock-data honesty | Mock only when offline | **Planned** | F2. Claude optional for copy. |
+| M7 | Mock-data honesty | Mock only when offline/timeout | **This tree** | F2: HTTP errors show danger banners; samples only when unreachable. |
 | M8 | Privacy pass | Packaged paths audit | **Planned** | After M5. Composer-owned. |
 
 Backend feature folders that already contain code: `scout`, `match`, `write`, `pipeline`, `secrets` under `backend/src/jobhunt/features/`. Storage lives under `backend/src/jobhunt/store/`. Frontend chrome is in `frontend/src/app/layout/`. Tonight, Workflow, Queue, Packet, Memory, Activity, Settings, and Profiles screens are live, including mobile/tablet edge states. Role playbooks: [docs/agents/](agents/README.md). Epic base: **`integrate/mvp-v1`**.

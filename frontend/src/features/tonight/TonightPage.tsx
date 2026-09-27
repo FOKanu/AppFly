@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ROUTES } from "../../routes";
+import { Banner } from "../../shared/ui/Banner";
+import { SampleDataBanner } from "../../shared/ui/SampleDataBanner";
 import { Toast, useToast } from "../../shared/ui/Toast";
 import { copyToClipboard } from "../../app/layout/AppShell";
 import { patchJobStatus } from "../queue/jobsApi";
@@ -25,7 +27,7 @@ export function TonightPage() {
   const navigate = useNavigate();
   const toast = useToast();
   const preview = readPreview(search);
-  const { snapshot, loading, reload } = useTonight();
+  const { snapshot, source, failure, loading, reload } = useTonight();
 
   // Approve/deny write through to the API, so the list has to update locally.
   const [decided, setDecided] = useState<Record<string, JobStatus>>({});
@@ -90,6 +92,12 @@ export function TonightPage() {
   return (
     <div className="tonight" aria-busy={loading || undefined}>
       {preview ? <PreviewStrip active={preview} /> : null}
+      {source === "mock" && !preview ? <SampleDataBanner noun="jobs" /> : null}
+      {source === "error" && failure ? (
+        <Banner tone="danger" title="Couldn't load Tonight" role="alert">
+          {failure.message}
+        </Banner>
+      ) : null}
 
       <TonightHero
         run={run}

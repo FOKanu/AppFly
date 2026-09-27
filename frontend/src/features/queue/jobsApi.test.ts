@@ -12,7 +12,7 @@ describe("jobsApi", () => {
     vi.restoreAllMocks();
   });
 
-  it("falls back to the sample queue when GET /jobs fails", async () => {
+  it("falls back to the sample queue when GET /jobs is offline", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
     const result = await listJobs();
     expect(result.usingMock).toBe(true);
@@ -20,11 +20,25 @@ describe("jobsApi", () => {
     expect(result.jobs.map((job) => job.status).sort()).toContain("draft");
   });
 
+  it("does not use samples when GET /jobs returns HTTP 500", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: async () => ({ detail: "boom" }),
+        text: async () => "boom",
+      }),
+    );
+    await expect(listJobs()).rejects.toMatchObject({ kind: "server" });
+  });
+
   it("loads GET /jobs when the API responds", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
+        status: 200,
         json: async () => [{ source_id: "live-1", title: "Live role", company: "Acme", status: "inbox" }],
       }),
     );
