@@ -31,7 +31,7 @@ One row per Cloud Agent package. Sibling agents add folders on parallel branches
 | Post-B4 UI | Run chrome re-attach + Stop | `shared/run/useRunController.ts` | **This tree** | #41: re-attach any active run; Stop cancels cli/nightly via cross-process cancel. |
 | M1 | Doc extract | PDF/DOCX → `extracted.txt` on upload | **This tree** | #50. Optional `pip install 'jobhunt[extract]'` (`pypdf`, `python-docx`). `extract_status`: `ok` \| `empty` \| `unsupported` \| `error`. List/GET meta never returns file bytes or CV body. |
 | M2 | Run CV override | `POST /runs` `{ "cv": "<id>" }` | **This tree** | Optional CV document id; default active CV; sealed packet still one CV slice; missing/non-cv → 404. |
-| M3 | CV picker UI | Tonight/Workflow metadata picker | **Planned** | After M1+M2. **Call Claude** before the UI brief. |
+| M3 | CV picker UI | Tonight/Workflow metadata picker | **This tree** | Header picker + `RunContext` `{cv}` on POST /runs; metadata only. Claude design in `briefs/M3-claude-decision.md`. |
 | M4 | Embeddings app-data cache | `cache/embeddings` under native data dir | **Planned** | Parallel with M1 OK. |
 | M5 | Desktop shell | Neutralino or Tauri + spawn API | **Planned** | Composer-owned. |
 | M6 | First-launch wizard | Desktop first-run flow | **Planned** | After M5. **Call Claude** before the brief. |

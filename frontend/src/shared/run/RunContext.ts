@@ -4,7 +4,7 @@
  */
 import { createContext, useContext } from "react";
 import type { HeartbeatState } from "../api/client";
-import type { RunCounts, RunStage, RunUiState } from "./types";
+import type { CvOption, RunCounts, RunStage, RunUiState } from "./types";
 
 /** Pinned interface for W2-B: the G11 fields plus what the RunningBar needs. */
 export interface RunController {
@@ -32,6 +32,12 @@ export interface RunController {
   stopTitle: string;
   start: () => void;
   stop: () => void;
+  /** CV selection for the run. */
+  cvId: string | null;
+  setCvId: (id: string | null) => void;
+  cvOptions: CvOption[];
+  cvState: "loading" | "ready" | "empty" | "error" | "offline";
+  cvLabel: string;
 }
 
 /** Value used outside AppShell (and before it mounts): idle, both controls inert. */
@@ -53,6 +59,11 @@ export const IDLE_RUN: RunController = {
   stopTitle: "No run in progress.",
   start: () => {},
   stop: () => {},
+  cvId: null,
+  setCvId: () => {},
+  cvOptions: [],
+  cvState: "loading",
+  cvLabel: "",
 };
 
 export const RunContext = createContext<RunController>(IDLE_RUN);

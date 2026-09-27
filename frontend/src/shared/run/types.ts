@@ -21,6 +21,15 @@ export type RunUiState =
 /** B1 pipeline stage while a run is going. */
 export type RunStage = "scout" | "match" | "write";
 
+/** Metadata-only CV row for the run picker (M3). Never includes body text. */
+export interface CvOption {
+  id: string;
+  label: string;
+  word_count?: number;
+  active_cv?: boolean;
+  extract_status?: "ok" | "empty" | "unsupported" | "error";
+}
+
 /** `POST /runs` reply (`AsyncRunAccepted`). */
 export interface RunAccepted {
   id: string;

@@ -45,6 +45,8 @@ interface HeartbeatPanelProps {
   stopTitle: string;
   /** True while cancelling: the Stop label becomes "Stopping...", H3 */
   stopping: boolean;
+  /** M3: read-only CV label for this run (from shared RunContext). */
+  cvUsingLabel?: string;
 }
 
 /**
@@ -66,6 +68,7 @@ export function HeartbeatPanel({
   stopDisabled,
   stopTitle,
   stopping,
+  cvUsingLabel = "",
 }: HeartbeatPanelProps) {
   return (
     <section className="heartbeat-panel" aria-label="Heartbeat">
@@ -92,6 +95,11 @@ export function HeartbeatPanel({
           <Button variant="primary" icon={"\u25b6"} onClick={onRunNow} disabled={runDisabled} title={runTitle || undefined}>
             Run now
           </Button>
+          {cvUsingLabel ? (
+            <span className="heartbeat-panel__using" title="CV for this run (change in the header)">
+              {`Using: ${cvUsingLabel}`}
+            </span>
+          ) : null}
           <span className="nightly-toggle" title={NIGHTLY_TITLE}>{"Nightly schedule \u00b7 set in launchd"}</span>
           <Button
             variant="danger"
