@@ -21,17 +21,21 @@ EMBED_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 SALARY_RE = re.compile(r"(\d[\d.\s]{3,})")
 
 
-def match_jobs(config: AppConfig, vault: Vault) -> dict[str, int]:
+def match_jobs(
+    config: AppConfig, vault: Vault, *, cv_text: str | None = None
+) -> dict[str, int]:
     """Filter and score inbox jobs; promote the top N to shortlist.
 
     Purpose: CLI ``jobhunt match`` pipeline step.
-    Inputs: Config (shortlist size, cache dir) and an open vault.
+    Inputs: Config (shortlist size, cache dir) and an open vault; optional ``cv_text`` (M2)
+    skips ``read_cv`` when provided.
     Returns: ``shortlisted`` / ``skipped`` / ``unchanged`` counts.
     Does not: Call Gemini or fetch new jobs.
     """
 
     requirements = vault.load_requirements()
-    cv_text = vault.read_cv()
+    if cv_text is None:
+        cv_text = vault.read_cv()
     scored: list[tuple[Job, float, list[str], object]] = []
     skipped = 0
     unchanged = 0

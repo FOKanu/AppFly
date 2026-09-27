@@ -109,8 +109,14 @@ def start_async_run(
     store: Any = None,
     on_update: OnUpdate | None = None,
     trigger: str = "api",
+    cv_text: str | None = None,
 ) -> RunRecord:
     """Queue a background ``run_all`` and return the queued record immediately.
+
+    Purpose: Single active async pipeline with optional CV text override (M2).
+    Inputs: Config; store; optional ``cv_text`` already resolved by the route (or None → active CV inside match/write).
+    Returns: Queued ``RunRecord``.
+    Does not: Resolve document ids here; raise on missing CV (route does that).
 
     Raises ``RunConflictError`` when another run is queued or running.
     """
@@ -200,7 +206,9 @@ def start_async_run(
         heartbeat.start()
 
         try:
-            result = run_all(config, store, cancel=event, on_progress=progress)
+            result = run_all(
+                config, store, cancel=event, on_progress=progress, cv_text=cv_text
+            )
         except Exception as exc:  # noqa: BLE001 - a crashed run must still be recorded
             _update(
                 run_id,

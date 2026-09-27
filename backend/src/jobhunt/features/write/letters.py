@@ -33,24 +33,29 @@ def write_letters(
     vault: Vault,
     should_stop: Callable[[], bool] | None = None,
     on_letter: Callable[[int, int], None] | None = None,
+    *,
+    cv_text: str | None = None,
 ) -> dict[str, Any]:
     """Write up to ``letter_cap`` letters for shortlisted jobs.
 
     Purpose: CLI ``jobhunt write`` pipeline step.
     Inputs: Config (model, cap, excerpt length) and vault; key from the Keychain
     (``gemini``) or ``GEMINI_API_KEY``; optional ``should_stop`` checked before each letter;
-    optional ``on_letter(written, skipped)`` called after each letter attempt (B1 live counts).
+    optional ``on_letter(written, skipped)`` called after each letter attempt (B1 live counts);
+    optional ``cv_text`` (M2) — when set, used for every sealed packet instead of ``read_cv``.
     Returns: ``written`` / ``skipped`` / ``capped`` / ``failed`` counts and ``errors``
     (one string per failed job); ``stopped`` (True when cancelled between letters).
     Does not: Overwrite jobs that already have a letter or ``gemini: false``; stop the
-    batch when one Gemini call fails (the missing-key case still raises).
+    batch when one Gemini call fails (the missing-key case still raises); mix two CVs.
     """
 
     if not config.gemini_api_key:
         raise RuntimeError(MISSING_KEY_MESSAGE)
 
     requirements = vault.load_requirements()
-    cv_text = _cv_slice(vault.read_cv())
+    if cv_text is None:
+        cv_text = vault.read_cv()
+    cv_text = _cv_slice(cv_text)
     samples = vault.read_voice_samples()
     written = 0
     skipped = 0
