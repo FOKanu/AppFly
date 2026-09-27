@@ -344,7 +344,7 @@ Workflow page specifics:
 - `retryGemini` (`workflow/api.ts:157-173`) also `POST /runs` (a full run, not a write-stage retry, and it checks for 429, which the API never returns). It should use the shared controller and be labelled `Run again`. Its message becomes the section 1 message or the 409 toast.
 
 Files likely touched: `app/layout/AppShell.tsx` (run logic at `:128-140, :241-281`),
-`app/layout/RunningBar.tsx`, `app/layout/ControlHeader.tsx` (only if the Stop label or title is threaded),
+`app/layout/RunningBar.tsx`, `app/layout/ControlHeader.tsx` (Stop label and button titles, G6),
 `features/workflow/WorkflowPage.tsx`, `features/workflow/HeartbeatPanel.tsx`, `features/workflow/api.ts`,
 and the new `shared/run/*` if Grok agrees. `features/tonight/*` only if Tonight shows run state.
 
@@ -496,7 +496,7 @@ Acceptance additions for W2-A:
 | W1-B first-run | same branch | W1-A | `features/settings/WorkspacePanel.tsx`, `ImportObsidianPanel.tsx`, `features/vault/{VaultPage.tsx,api.ts,types.ts}`, `features/profiles/ProfilesPage.tsx` (1e only) (+ `UploadZone.tsx`, `DocumentTable.tsx` if the prop changes), `shared/ui/OfflineBanner.tsx` |
 | W1-P packet | same branch, or `feat/ui-packet-no-fetch` | none | `features/packet/{PacketSpec,PacketPage,PacketPage.test}.tsx`, `features/packet/packet.css` (the unused rule only), `features/queue/jobsApi{,.test}.ts`, both READMEs |
 | Packet errors | `feat/ui-packet-errors` | W1 merged; lands before W2 | `features/packet/PacketPage.tsx` only |
-| W2-A run controller | `feat/ui-run-progress` | W1-A merged | `app/layout/{AppShell,RunningBar,ControlHeader}.tsx`, new `shared/run/*`, `app/nav-config.ts` (A3 only). Includes "W2-A also: AppShell connectivity truth" (A1 to A3) |
+| W2-A run controller | `feat/ui-run-progress` | W1-A merged | `app/layout/{AppShell,RunningBar,ControlHeader}.tsx`, new `shared/run/*`, `app/nav-config.ts` (A3 only), `app/layout/Heartbeat.tsx` only if its `title` handling changes (G1 needs no change there), `index.css` (the RunningBar message field only, G1). Includes "W2-A also: AppShell connectivity truth" (A1 to A4) and "W2-A brief readiness" (G1 to G12) |
 | W2-B workflow | same branch | W2-A | `features/workflow/{WorkflowPage,HeartbeatPanel}.tsx`, `features/workflow/api.ts` |
 | W2-C activity display | same branch | W2-A | `features/activity/RunRow.tsx`, `RunList.tsx`, `types.ts` for the `interrupted` chip and the `completed_with_errors` / `trigger` labels only. Display only, no loader changes (M7). |
 
