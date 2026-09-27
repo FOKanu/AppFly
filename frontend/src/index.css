@@ -1110,10 +1110,6 @@ code {
   color: var(--text-secondary);
 }
 
-.kv::before {
-  content: "";
-}
-
 /* A flex spacer, not a divider — the Figma leaders are invisible. */
 .kv__rule {
   height: 1px;
