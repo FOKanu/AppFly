@@ -58,6 +58,9 @@ export function AppShell() {
   const [profiles, setProfiles] = useState<HuntProfile[]>([]);
   const [documentCount, setDocumentCount] = useState<number | null>(null);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
+  /** Post-B1 pass item 4: bumped when connectivity goes disconnected -> connected, so hydrate runs once more. */
+  const [hydrateKey, setHydrateKey] = useState(0);
+  const lastConnectivity = useRef<Connectivity>("unknown");
 
   const activeProfile =
     profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0] ?? null;
@@ -83,6 +86,13 @@ export function AppShell() {
       setStatus((prev) => ({ ...prev, ipc: "down" }));
     }
   }, []);
+
+  useEffect(() => {
+    if (lastConnectivity.current === "disconnected" && connectivity === "connected") {
+      setHydrateKey((key) => key + 1);
+    }
+    lastConnectivity.current = connectivity;
+  }, [connectivity]);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,7 +136,7 @@ export function AppShell() {
     return () => {
       cancelled = true;
     };
-  }, [checkHealth]);
+  }, [checkHealth, hydrateKey]);
 
   /** G11: the one run controller; RunContext hands it to Workflow (W2-B). A4: each poll and idle cycle re-checks /health. */
   const run = useRunController({ notify: toast.show, onTick: checkHealth });

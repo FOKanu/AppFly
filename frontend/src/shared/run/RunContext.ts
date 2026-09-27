@@ -4,12 +4,14 @@
  */
 import { createContext, useContext } from "react";
 import type { HeartbeatState } from "../api/client";
-import type { RunCounts, RunUiState } from "./types";
+import type { RunCounts, RunStage, RunUiState } from "./types";
 
 /** Pinned interface for W2-B: the G11 fields plus what the RunningBar needs. */
 export interface RunController {
   ui: RunUiState;
   runId: string | null;
+  /** B1 stage from the last poll while the run is going (also while stopping or out of contact); null otherwise. */
+  stage: RunStage | null;
   /** Visible run line (sections 4 to 6), ticking while a run is active. */
   message: string;
   /** Same line without the elapsed time; changes only on a UI state change (G1a). */
@@ -36,6 +38,7 @@ export interface RunController {
 export const IDLE_RUN: RunController = {
   ui: "idle",
   runId: null,
+  stage: null,
   message: "Idle \u00b7 no run in progress",
   liveMessage: "Idle \u00b7 no run in progress",
   led: "idle",

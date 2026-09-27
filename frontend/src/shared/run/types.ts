@@ -18,6 +18,9 @@ export type RunUiState =
   | "interrupted"
   | "lost-contact";
 
+/** B1 pipeline stage while a run is going. */
+export type RunStage = "scout" | "match" | "write";
+
 /** `POST /runs` reply (`AsyncRunAccepted`). */
 export interface RunAccepted {
   id: string;
@@ -40,10 +43,10 @@ export interface RunStatus {
   errors?: string[];
   model?: string;
   preview?: string;
-  /** B1: current stage, e.g. "scout", "match", "write". */
-  stage?: string;
-  /** B1: the write cap for this run. */
-  write_cap?: number;
+  /** B1: "scout", "match" or "write" while running; null when queued, finished or read back from the store. */
+  stage?: string | null;
+  /** B1: the letter cap for this run; null after an API restart. */
+  write_cap?: number | null;
   /** B3: the process running it stopped before it finished. */
   interrupted?: boolean;
   /** B4: "api", "nightly" or "cli". */
@@ -60,6 +63,8 @@ export interface RunRow {
   /** `async:<id>` while the run lives in this API process. */
   path: string;
   kind?: string;
+  /** B1: current stage while running; null otherwise. */
+  stage?: string | null;
   interrupted?: boolean;
   trigger?: string;
 }
