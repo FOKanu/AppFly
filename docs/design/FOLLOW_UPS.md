@@ -143,3 +143,16 @@ and anything you could not verify. Do not claim anything you did not run.
 Note: the playbooks make Composer (Cursor) the merge and CI gate, not an implementer. Running this
 prompt in Cursor is your call as the human and overrides that for these four tasks. Keep the
 implementing session separate from the one that gates the PRs.
+
+## Decisions delegated to Grok (2026-09-27 06:27, user asleep)
+
+The user delegated these calls to Grok. Where they conflict with the sections above, they win.
+
+1. **Who implements B1-B4.** The RTX 5090 local coder implements B1-B4 under Grok briefs. The
+   user does not do them in Cursor. This overrides the "You, via Cursor" owner in the table above;
+   the Cursor prompt stays as a reference for the contract, not as the execution path.
+2. **Order.** W1, then W2 (with the spec fallbacks), then B2 + B3, then B1, then a small UI pass
+   that replaces the fallbacks with the real fields, then B4 together with F4.
+3. **D-6 stands.** No vitest and no `package.json` / lockfile changes. The vitest proposal (F3)
+   is parked for the user.
+4. **Deferred items.** F1 is deferred until after the MVP. F2 moves to M7. F4 ships with B4.
