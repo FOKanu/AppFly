@@ -74,7 +74,7 @@ def test_post_runs_uses_pipeline_result(
         errors=[],
         run_path=tmp_path / "Runs" / "today.md",
         home_path=tmp_path / "Home.md",
-        model="gemini-2.5-flash",
+        model="gemini-3.8-flash",
     )
     monkeypatch.setattr("jobhunt.api.runner.run_all", lambda config, vault=None, **_kwargs: fake)
     response = api_client.post("/runs")
@@ -91,7 +91,7 @@ def test_post_runs_uses_pipeline_result(
     assert data["scouted"] == 2
     assert data["written"] == 1
     assert data["errors"] == []
-    assert data["model"] == "gemini-2.5-flash"
+    assert data["model"] == "gemini-3.8-flash"
     assert data["status"] == "completed"
 
 

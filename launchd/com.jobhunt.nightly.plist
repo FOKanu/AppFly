@@ -5,13 +5,15 @@
   <key>Label</key>
   <string>com.jobhunt.nightly</string>
   <key>WorkingDirectory</key>
-  <string>/Users/franciskanu/Projects/Job Application Automation</string>
+  <string>/Users/franciskanu/Projects/AppFly</string>
   <key>ProgramArguments</key>
   <array>
     <string>/usr/bin/caffeinate</string>
     <string>-i</string>
-    <string>/Users/franciskanu/Projects/Job Application Automation/.venv/bin/jobhunt</string>
+    <string>/Users/franciskanu/Projects/AppFly/backend/.venv/bin/jobhunt</string>
     <string>run</string>
+    <string>--trigger</string>
+    <string>nightly</string>
   </array>
   <key>StartCalendarInterval</key>
   <array>
@@ -57,8 +59,8 @@
     </dict>
   </array>
   <key>StandardOutPath</key>
-  <string>/Users/franciskanu/Projects/Job Application Automation/.cache/launchd.out.log</string>
+  <string>/Users/franciskanu/Projects/AppFly/.cache/launchd.out.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/franciskanu/Projects/Job Application Automation/.cache/launchd.err.log</string>
+  <string>/Users/franciskanu/Projects/AppFly/.cache/launchd.err.log</string>
 </dict>
 </plist>

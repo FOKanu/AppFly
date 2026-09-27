@@ -27,7 +27,7 @@ function stageOf(ui: RunUiState, status: RunStatus | null): RunStage | null {
 }
 
 /**
- * Purpose: Find a live run to attach to (section 5). Until B4, only rows served from this process.
+ * Purpose: Find a live run to attach to (section 5). Now that B4 is merged, any active run row re-attaches.
  * Does not: throw; any failure reads as "none".
  */
 async function findActiveRun(): Promise<RunRow | null> {
@@ -37,8 +37,7 @@ async function findActiveRun(): Promise<RunRow | null> {
       rows.find(
         (row) =>
           (row.status === "queued" || row.status === "running") &&
-          row.interrupted !== true &&
-          (row.trigger !== undefined || row.path.startsWith("async:")),
+          row.interrupted !== true,
       ) ?? null
     );
   } catch {
@@ -165,7 +164,6 @@ export function useRunController({ notify, onTick }: RunControllerOptions): RunC
     const id = runId;
     if (id === null || stopBusy) return;
     if (!(uiRef.current === "queued" || uiRef.current === "running")) return;
-    if (status?.trigger === "nightly" || status?.trigger === "cli") return;
     setStopBusy(true);
     void (async () => {
       try {
@@ -245,7 +243,7 @@ export function useRunController({ notify, onTick }: RunControllerOptions): RunC
         if (stopped) return;
         const httpStatus = error instanceof ApiError ? error.status : 0;
         if (httpStatus >= 400 && httpStatus < 500) {
-          // Post-B1 pass item 3: the API doesn't know this run (404 or another 4xx), so go back to idle.
+          // The API doesn't know this run (404 or another 4xx), so go back to idle.
           notifyRef.current("That run is no longer known to the API.");
           failuresRef.current = 0;
           setRunId(null);
@@ -294,7 +292,6 @@ export function useRunController({ notify, onTick }: RunControllerOptions): RunC
     cancellingMs: cancelSince === null ? 0 : now - cancelSince,
     finishedBeforeStop: stopRequested && (ui === "completed" || ui === "completed-empty"),
   });
-  const elsewhere = status?.trigger === "nightly" || status?.trigger === "cli";
 
   return {
     ui,
@@ -314,13 +311,9 @@ export function useRunController({ notify, onTick }: RunControllerOptions): RunC
         : active
           ? "A run is already in progress."
           : "",
-    stopDisabled: !(ui === "queued" || ui === "running") || elsewhere || stopBusy,
+    stopDisabled: !(ui === "queued" || ui === "running") || stopBusy,
     stopLabel: ui === "cancelling" ? "Stopping\u2026" : "Stop",
-    stopTitle: !active
-      ? "No run in progress."
-      : elsewhere
-        ? "This run was started outside the app and can't be stopped from here yet."
-        : "",
+    stopTitle: !active ? "No run in progress." : "",
     start,
     stop,
   };

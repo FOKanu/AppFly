@@ -36,9 +36,9 @@ const SCHEDULE_NOTE =
   "Schedule and caps live in config.yaml, which PUT /settings does not expose. Edit the file directly for now.";
 
 const DEFAULT_PLAN: NightlyPlan = {
-  start: "02:00",
+  start: "21:00",
   timezone: "Europe/Berlin",
-  days: [false, false, true, false, false, false, false],
+  days: [true, true, true, true, true, false, false],
   lettersPerNight: 5,
   maxListings: 150,
   shortlistThreshold: 7,
@@ -86,7 +86,7 @@ export function WorkflowPage() {
   }, []);
 
   const run = useRun();
-  // Post-B1 pass item 5: refresh the snapshot once each time the run leaves an active state.
+  // Refresh the snapshot once each time the run leaves an active state.
   const wasActive = useRef(false);
   useEffect(() => {
     const active = ACTIVE_UI.has(run.ui);
@@ -189,7 +189,7 @@ export function WorkflowPage() {
             mode={writerMode}
             readOnlyReason={SCHEDULE_NOTE}
             tokenHistory={[]}
-            cloudLabel="gemini-2.5-flash"
+            cloudLabel="gemini-3.8-flash"
             localLabel="llama3.1:8b (fallback)"
             fallbackNote={lastRun?.errors[0]}
           />

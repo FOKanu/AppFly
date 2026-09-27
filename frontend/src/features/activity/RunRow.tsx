@@ -57,14 +57,10 @@ function metricsLine(run: RunSummary): string {
   const s = run.scouted ?? DASH;
   const m = run.shortlisted ?? DASH;
   const w = run.written ?? DASH;
-  const ws = run.writeSkipped ?? DASH;
-
+  // write_skipped = letters the writer passed over (already written or opted out), not a local fallback.
   let writePart = `${w}`;
-  if (run.written !== null && run.writeSkipped !== null) {
-    writePart += `/${run.written + run.writeSkipped}`;
-  }
   if (run.writeSkipped !== null && run.writeSkipped > 0) {
-    writePart += ` (${ws} fallback)`;
+    writePart += ` (${run.writeSkipped} skipped)`;
   }
 
   return `scout ${s} \u00b7 match ${m} \u00b7 write ${writePart}`;
@@ -75,7 +71,6 @@ export function outcomeOf(run: RunSummary): Outcome {
   if (run.kind === "day_note") {
     // Day note logic
     if (!run.ok) return { label: "error", tone: "danger" };
-    if ((run.writeSkipped ?? 0) > 0) return { label: "fallback", tone: "warning" };
     return { label: "ok", tone: "ok" };
   }
 
@@ -87,14 +82,13 @@ export function outcomeOf(run: RunSummary): Outcome {
     return { label: "running", tone: "accent" };
   }
   if (run.status === "completed") {
-    if ((run.writeSkipped ?? 0) > 0) return { label: "fallback", tone: "warning" };
     return { label: "ok", tone: "ok" };
   }
   if (run.status === "completed_with_errors") {
     return { label: "finished with problems", tone: "warning" };
   }
   if (run.status === "failed") {
-    if ((run.written ?? 0) > 0) return { label: "finished with problems", tone: "warning" };
+    // B2: failed means the pipeline crashed, whatever it wrote before.
     return { label: "failed", tone: "danger" };
   }
   if (run.status === "cancelled") {

@@ -8,11 +8,15 @@ Does not: Crawl deny-listed hosts or submit applications.
 
 from __future__ import annotations
 
+import os
+import socket
+import threading
+import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 import typer
 import yaml
@@ -24,15 +28,23 @@ from jobhunt.config import (
     write_example_config,
 )
 from jobhunt.store import get_store
+from jobhunt.store.types import RunRecord, utc_now
 from jobhunt.vault import init_workspace
 
 app = typer.Typer(help="Job hunt copilot: scout, match, write letters into the configured store.")
+
+EXIT_BUSY = 75
+Trigger = Literal["cli", "nightly"]
 
 
 def _config(config_path: Optional[Path]) -> AppConfig:
     """Load YAML config (and .env) from the given path or the repo default."""
 
     return load_config(config_path)
+
+
+def _owner() -> str:
+    return f"{socket.gethostname()}:{os.getpid()}"
 
 
 @contextmanager
@@ -52,6 +64,151 @@ def _open_store(cfg: AppConfig) -> Iterator[Any]:
         close = getattr(store, "close", None)
         if callable(close):
             close()
+
+
+def _claim_or_exit(store: Any, *, trigger: str, stage: str | None, model: str, write_cap: int | None) -> RunRecord:
+    """Claim the cross-process run lock or exit 75.
+
+    Purpose: B4 — one active run across API and CLI on the native store.
+    Inputs: Open SqliteStore-like object; trigger; optional stage for stage commands.
+    Returns: Queued ``RunRecord`` already upserted.
+    Does not: Run the pipeline.
+    """
+
+    settle = getattr(store, "settle_stale_active_runs", None)
+    if callable(settle):
+        settle()
+    find_active = getattr(store, "find_active_run", None)
+    if callable(find_active):
+        active = find_active()
+        if active is not None:
+            typer.echo(
+                f"A pipeline run is already active: {active.id} (trigger={active.trigger or 'unknown'}). "
+                f"Exit {EXIT_BUSY}.",
+                err=True,
+            )
+            raise typer.Exit(code=EXIT_BUSY)
+
+    record = RunRecord(
+        id=uuid.uuid4().hex[:12],
+        status="queued",
+        started=utc_now(),
+        model=model,
+        write_cap=write_cap,
+        trigger=trigger,
+        owner=_owner(),
+        heartbeat=utc_now(),
+        stage=stage,
+    )
+    upsert = getattr(store, "upsert_run_status", None)
+    if callable(upsert):
+        upsert(record)
+    return record
+
+
+def _heartbeat_loop(store: Any, run_id: str, stop: threading.Event) -> None:
+    touch = getattr(store, "touch_run_heartbeat", None)
+    while not stop.wait(timeout=10.0):
+        if callable(touch):
+            try:
+                touch(run_id)
+            except (OSError, RuntimeError):
+                pass
+
+
+def _persist(store: Any, record: RunRecord, **changes: Any) -> RunRecord:
+    for key, value in changes.items():
+        setattr(record, key, value)
+    upsert = getattr(store, "upsert_run_status", None)
+    if callable(upsert):
+        upsert(record)
+    return record
+
+
+def _run_with_lock(
+    cfg: AppConfig,
+    store: Any,
+    *,
+    trigger: str,
+    stage: str | None,
+    body: Any,
+) -> None:
+    """Run ``body(cancel, on_progress)`` under a native run record, or plain on markdown."""
+
+    if cfg.storage_backend != "native" or not callable(getattr(store, "find_active_run", None)):
+        body(None, None)
+        return
+
+    record = _claim_or_exit(
+        store,
+        trigger=trigger,
+        stage=stage,
+        model=cfg.gemini_model,
+        write_cap=cfg.letter_cap,
+    )
+    cancel = threading.Event()
+    stop_hb = threading.Event()
+    hb = threading.Thread(target=_heartbeat_loop, args=(store, record.id, stop_hb), daemon=True)
+    _persist(store, record, status="running", heartbeat=utc_now())
+    hb.start()
+
+    def on_progress(**changes: Any) -> None:
+        check = getattr(store, "is_run_cancel_requested", None)
+        if callable(check) and check(record.id):
+            cancel.set()
+        allowed = {
+            k: v
+            for k, v in changes.items()
+            if k in {"stage", "scouted", "shortlisted", "skipped", "written", "write_skipped"}
+        }
+        if allowed:
+            _persist(store, record, heartbeat=utc_now(), **allowed)
+
+    try:
+        result = body(cancel, on_progress)
+    except Exception as exc:
+        _persist(
+            store,
+            record,
+            status="failed",
+            finished=utc_now(),
+            stage=None,
+            errors=[f"{type(exc).__name__}: {exc}"],
+        )
+        raise
+    finally:
+        stop_hb.set()
+        hb.join(timeout=1.0)
+
+    if result is None:
+        return
+
+    if getattr(result, "cancelled", False):
+        status = "cancelled"
+    elif getattr(result, "errors", None):
+        status = "completed_with_errors"
+    else:
+        status = "completed"
+    _persist(
+        store,
+        record,
+        status=status,
+        finished=utc_now(),
+        stage=None,
+        scouted=getattr(result, "scouted", record.scouted),
+        shortlisted=getattr(result, "shortlisted", record.shortlisted),
+        skipped=getattr(result, "skipped", record.skipped),
+        written=getattr(result, "written", record.written),
+        write_skipped=getattr(result, "write_skipped", record.write_skipped),
+        errors=list(getattr(result, "errors", []) or []),
+        model=getattr(result, "model", record.model) or record.model,
+        preview=(
+            f"scouted={getattr(result, 'scouted', 0)} "
+            f"shortlisted={getattr(result, 'shortlisted', 0)} "
+            f"written={getattr(result, 'written', 0)}"
+        ),
+        heartbeat=utc_now(),
+    )
 
 
 @app.command()
@@ -119,11 +276,14 @@ def scout(
     Does not: HTTP-fetch deny-listed listing URLs.
     """
 
-    from jobhunt.policy import CrawlDeniedError
     from jobhunt.features.scout import collect_jobs
+    from jobhunt.policy import CrawlDeniedError
 
     cfg = _config(config)
-    with _open_store(cfg) as store:
+
+    def body(cancel: threading.Event | None, on_progress: Any) -> Any:
+        if on_progress is not None:
+            on_progress(stage="scout")
         store.ensure_dirs()
         requirements = store.load_requirements()
         try:
@@ -134,7 +294,13 @@ def scout(
         for job in jobs:
             store.upsert_job(job)
         store.regenerate_home(last_run=datetime.now().astimezone().isoformat(timespec="minutes"))
-    typer.echo(f"Wrote {len(jobs)} new job notes")
+        if on_progress is not None:
+            on_progress(scouted=len(jobs))
+        typer.echo(f"Wrote {len(jobs)} new job notes")
+        return type("R", (), {"scouted": len(jobs), "errors": [], "cancelled": False})()
+
+    with _open_store(cfg) as store:
+        _run_with_lock(cfg, store, trigger="cli", stage="scout", body=body)
 
 
 @app.command()
@@ -152,12 +318,30 @@ def match(
     from jobhunt.features.match import match_jobs
 
     cfg = _config(config)
-    with _open_store(cfg) as store:
+
+    def body(cancel: threading.Event | None, on_progress: Any) -> Any:
+        if on_progress is not None:
+            on_progress(stage="match")
         stats = match_jobs(cfg, store)
         store.regenerate_home(last_run=datetime.now().astimezone().isoformat(timespec="minutes"))
-    typer.echo(
-        f"Shortlisted {stats['shortlisted']}, skipped {stats['skipped']}, left {stats['unchanged']}"
-    )
+        if on_progress is not None:
+            on_progress(shortlisted=stats["shortlisted"], skipped=stats["skipped"])
+        typer.echo(
+            f"Shortlisted {stats['shortlisted']}, skipped {stats['skipped']}, left {stats['unchanged']}"
+        )
+        return type(
+            "R",
+            (),
+            {
+                "shortlisted": stats["shortlisted"],
+                "skipped": stats["skipped"],
+                "errors": [],
+                "cancelled": False,
+            },
+        )()
+
+    with _open_store(cfg) as store:
+        _run_with_lock(cfg, store, trigger="cli", stage="match", body=body)
 
 
 @app.command()
@@ -175,31 +359,63 @@ def write(
     from jobhunt.features.write import write_letters
 
     cfg = _config(config)
-    with _open_store(cfg) as store:
+
+    def body(cancel: threading.Event | None, on_progress: Any) -> Any:
+        if on_progress is not None:
+            on_progress(stage="write")
         stats = write_letters(cfg, store)
         store.regenerate_home(last_run=datetime.now().astimezone().isoformat(timespec="minutes"))
-    typer.echo(
-        f"Wrote {stats['written']} letters "
-        f"(skipped {stats['skipped']}, over cap {stats['capped']})"
-    )
+        if on_progress is not None:
+            on_progress(written=stats["written"], write_skipped=stats["skipped"])
+        typer.echo(
+            f"Wrote {stats['written']} letters "
+            f"(skipped {stats['skipped']}, over cap {stats['capped']})"
+        )
+        return type(
+            "R",
+            (),
+            {
+                "written": stats["written"],
+                "write_skipped": stats["skipped"],
+                "errors": [],
+                "cancelled": False,
+            },
+        )()
+
+    with _open_store(cfg) as store:
+        _run_with_lock(cfg, store, trigger="cli", stage="write", body=body)
 
 
 @app.command("run")
 def run_all(
     config: Optional[Path] = typer.Option(None, "--config", "-c"),
+    trigger: str = typer.Option("cli", "--trigger", help="Run trigger: cli or nightly"),
 ) -> None:
     """Scout, match, write, refresh Home.md, and append today's run note.
 
-    Purpose: One nightly pipeline with a run log.
-    Inputs: Optional config path.
-    Returns: None; continues past stage errors and exits 1 if any occurred.
+    Purpose: One nightly/CLI pipeline with a durable run record on the native store.
+    Inputs: Optional config path; ``--trigger cli|nightly`` (default ``cli``).
+    Returns: None; continues past stage errors and exits 1 if any occurred; exits 75 if busy.
     Does not: Submit applications or crawl deny-listed hosts.
     """
 
     from jobhunt.features.pipeline.run_all import run_all as run_pipeline
 
+    if trigger not in ("cli", "nightly"):
+        typer.echo("--trigger must be cli or nightly", err=True)
+        raise typer.Exit(code=2)
+
     cfg = _config(config)
-    result = run_pipeline(cfg)
+    result_holder: dict[str, Any] = {}
+
+    def body(cancel: threading.Event | None, on_progress: Any) -> Any:
+        result_holder["r"] = run_pipeline(cfg, store, cancel=cancel, on_progress=on_progress)
+        return result_holder["r"]
+
+    with _open_store(cfg) as store:
+        _run_with_lock(cfg, store, trigger=trigger, stage=None, body=body)
+        result = result_holder["r"]
+
     typer.echo(f"Run complete. Home: {result.home_path}")
     typer.echo(f"Log: {result.run_path}")
     if result.errors:

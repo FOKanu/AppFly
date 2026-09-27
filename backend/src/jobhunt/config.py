@@ -71,7 +71,7 @@ class AppConfig(BaseModel):
     published_days: int = 7
     letter_cap: int = 5
     shortlist_size: int = 8
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-3.8-flash"
     gemini_api_base: str | None = None
     jd_excerpt_chars: int = 1200
     sources: SourcesConfig = Field(default_factory=SourcesConfig)

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { fetchTonight } from "./api";
 import type { DataSource, PreviewState, TonightSnapshot } from "./types";
 
@@ -14,16 +14,19 @@ export function readPreview(search: string): PreviewState | null {
 }
 
 /**
- * Load Tonight snapshot once on mount.
+ * Load Tonight snapshot on mount, and again on reload() (after a run ends, D4).
  */
 export function useTonight(): {
   snapshot: TonightSnapshot | null;
   source: DataSource;
   loading: boolean;
+  reload: () => void;
 } {
   const [snapshot, setSnapshot] = useState<TonightSnapshot | null>(null);
   const [source, setSource] = useState<DataSource>("mock");
   const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
+  const reload = useCallback(() => setReloadKey((key) => key + 1), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,7 +42,7 @@ export function useTonight(): {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
-  return { snapshot, source, loading };
+  return { snapshot, source, loading, reload };
 }

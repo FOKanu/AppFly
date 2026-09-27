@@ -24,7 +24,7 @@ from jobhunt.api.runner import (
     request_cancel,
     start_async_run,
 )
-from jobhunt.api.schemas.runs import RunLogSummary, RunResponse
+from jobhunt.api.schemas.runs import RunLogSummary
 from jobhunt.store.types import RunRecord
 
 router = APIRouter(tags=["runs"])
@@ -41,6 +41,7 @@ class AsyncRunAccepted(BaseModel):
     status: str
     started: str = ""
     model: str = ""
+    trigger: str = "api"
 
 
 class AsyncRunStatus(BaseModel):
@@ -61,6 +62,7 @@ class AsyncRunStatus(BaseModel):
     interrupted: bool = False
     stage: str | None = None
     write_cap: int | None = None
+    trigger: str = "api"
 
 
 def _status_out(rec: RunRecord) -> AsyncRunStatus:
@@ -80,6 +82,7 @@ def _status_out(rec: RunRecord) -> AsyncRunStatus:
         interrupted=rec.interrupted,
         stage=rec.stage,
         write_cap=rec.write_cap,
+        trigger=rec.trigger,
     )
 
 
@@ -92,19 +95,35 @@ def _is_day_note(rec: RunRecord) -> bool:
     return bool(_DAY_NOTE_ID.match(rec.id))
 
 
-def _settle_stale(rec: RunRecord) -> RunRecord:
-    """A stored run still queued/running from a previous process is reported as failed.
+def _settle_stale(store: Any, rec: RunRecord) -> RunRecord:
+    """A stored run still queued/running with a stale heartbeat is reported as failed.
 
-    Purpose: B3 - mark it ``interrupted`` and keep the legacy ``interrupted: ...`` error for older clients.
+    Purpose: B3/B4 - mark it ``interrupted`` and keep the legacy ``interrupted: ...`` error.
     Inputs: A stored ``RunRecord`` (never a live in-memory one).
-    Returns: The record unchanged, or a copy with status ``failed``, ``interrupted=True`` and the error appended.
-    Does not: Write the settled state back to the store.
+    Returns: Unchanged, or a copy with status ``failed``, ``interrupted=True``, error appended.
+    Does not: Require the store write to succeed for the response flag (list may have persisted earlier).
     """
 
+    settle = getattr(store, "settle_stale_active_runs", None)
+    if callable(settle):
+        settle()
+
     if rec.status in ACTIVE_STATUSES:
-        return replace(
-            rec, status="failed", errors=[*rec.errors, _INTERRUPTED], interrupted=True, stage=None
-        )
+        from jobhunt.store.sqlite.store import HEARTBEAT_STALE_SECONDS, _heartbeat_age_seconds
+
+        age = _heartbeat_age_seconds(rec.heartbeat)
+        if age is None or age > HEARTBEAT_STALE_SECONDS:
+            errors = list(rec.errors)
+            if _INTERRUPTED not in errors:
+                errors.append(_INTERRUPTED)
+            return replace(
+                rec, status="failed", errors=errors, interrupted=True, stage=None
+            )
+        return rec
+
+    # Already persisted as failed by settle_stale_active_runs — still surface the flag.
+    if rec.status == "failed" and any(err.startswith("interrupted:") for err in rec.errors):
+        return replace(rec, interrupted=True, stage=None)
     return rec
 
 
@@ -129,6 +148,7 @@ def _summary(rec: RunRecord, *, path: str) -> RunLogSummary:
         error_count=len(rec.errors),
         interrupted=rec.interrupted,
         stage=rec.stage,
+        trigger=rec.trigger,
     )
 
 
@@ -149,13 +169,13 @@ def start_run(request: Request) -> AsyncRunAccepted:
             upsert(rec)
 
     try:
-        record = start_async_run(config, store=store, on_update=persist)
+        record = start_async_run(config, store=store, on_update=persist, trigger="api")
     except RunConflictError as exc:
         raise HTTPException(
             status_code=409,
             detail=f"A pipeline run is already active: {exc.run_id}",
         ) from exc
-    return AsyncRunAccepted(id=record.id, status=record.status, started=record.started, model=record.model)
+    return AsyncRunAccepted(id=record.id, status=record.status, started=record.started, model=record.model, trigger=record.trigger)
 
 
 @router.get("/runs/{run_id}", response_model=AsyncRunStatus)
@@ -163,17 +183,32 @@ def get_run_status(run_id: str, request: Request) -> AsyncRunStatus:
     """Live status from memory, else the stored row (survives a server restart)."""
 
     rec = get_run(run_id)
+    store = get_app_store(request)
+
     if rec is None:
-        stored = next((r for r in _stored_runs(get_app_store(request)) if r.id == run_id), None)
-        rec = _settle_stale(stored) if stored is not None else None
+        stored = next((r for r in _stored_runs(store) if r.id == run_id), None)
+        if stored is not None:
+            rec = _settle_stale(store, stored)
+        else:
+            raise HTTPException(status_code=404, detail="Run not found")
     if rec is None:
         raise HTTPException(status_code=404, detail="Run not found")
     return _status_out(rec)
 
 
 @router.post("/runs/{run_id}/cancel")
-def cancel_run(run_id: str) -> dict[str, bool]:
+def cancel_run(run_id: str, request: Request) -> dict[str, bool]:
+    store = get_app_store(request)
+
+    # Try to cancel via runner first
     ok = request_cancel(run_id)
+
+    # If not found in memory, try store
+    if not ok:
+        request_cancel_store = getattr(store, "request_run_cancel", None)
+        if callable(request_cancel_store):
+            ok = request_cancel_store(run_id)
+
     if not ok:
         raise HTTPException(status_code=404, detail="Run not found")
     return {"cancelled": True}
@@ -185,10 +220,15 @@ def list_runs(request: Request) -> list[RunLogSummary]:
 
     store = get_app_store(request)
     data_path = str(store.data_path())
+
+    settle_stale = getattr(store, "settle_stale_active_runs", None)
+    if callable(settle_stale):
+        settle_stale()
+
     live = {rec.id: rec for rec in list_async_runs()}
     stored = _stored_runs(store)
     runs: dict[str, RunRecord] = {
-        rec.id: _settle_stale(rec) for rec in stored if not _is_day_note(rec)
+        rec.id: _settle_stale(store, rec) for rec in stored if not _is_day_note(rec)
     }
     runs.update(live)
     run_days = {rec.started[:10] for rec in runs.values() if rec.started}

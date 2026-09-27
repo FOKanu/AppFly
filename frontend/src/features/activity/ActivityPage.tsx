@@ -161,8 +161,9 @@ function eventsFrom(runs: RunSummary[]): LogEvent[] {
         id: `${run.id}-write`,
         time,
         channel: "write",
-        level: (run.writeSkipped ?? 0) > 0 ? "warn" : "info",
-        message: `wrote ${count(run.written)} letters${(run.writeSkipped ?? 0) > 0 ? `, ${run.writeSkipped} fell back to local` : ""}`,
+        // A skipped letter was already written or opted out; that is not a warning.
+        level: "info",
+        message: `wrote ${count(run.written)} letters${(run.writeSkipped ?? 0) > 0 ? `, ${run.writeSkipped} skipped (already written or opted out)` : ""}`,
       },
     ];
 
@@ -203,12 +204,13 @@ function coreLevel(run: RunSummary): LogLevel {
 }
 
 /**
- * Purpose: Core log line. Run rows read `run #{id5} {chip label}`, plus ` \u00b7 {model}` only when the
- *          model is known; day-note and mock rows keep their wording.
+ * Purpose: Core log line. Run rows read `run #{id5} {chip label}`, day-note and mock rows
+ *          `run {id} finished|failed`; both add ` \u00b7 {model}` only when the model is known.
  */
 function coreMessage(run: RunSummary): string {
   if (run.kind !== "run") {
-    return `run ${run.id} ${run.ok ? "finished" : "failed"} \u00b7 ${run.model || "writer \u2014"}`;
+    const noteModel = run.model && run.model !== "\u2014" ? ` \u00b7 ${run.model}` : "";
+    return `run ${run.id} ${run.ok ? "finished" : "failed"}${noteModel}`;
   }
   const model = run.model && run.model !== "\u2014" ? ` \u00b7 ${run.model}` : "";
   return `run #${id5(run.id)} ${outcomeOf(run).label}${model}`;

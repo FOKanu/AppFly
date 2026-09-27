@@ -42,7 +42,7 @@ describe("ActivityPage", () => {
               skipped: 1,
               written: 1,
               write_skipped: 0,
-              model: "gemini-2.5-flash",
+              model: "gemini-3.8-flash",
               errors: ['{"api_key":"sk-leaked-token-value-123456"}'],
             },
           ]);

@@ -158,7 +158,7 @@ export function PacketPage() {
           <div className="packet-page__work">
             <LetterWorkbench
               aiDraft={letterBody || job.letter_excerpt}
-              writer={job.source === "agentur" ? "gemini-2.5-flash" : undefined}
+              writer={job.source === "agentur" ? "gemini-3.8-flash" : undefined}
               onSave={(text) => void onSave(text)}
               onRegenerate={() => void onRegenerate()}
             />

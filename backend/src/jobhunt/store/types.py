@@ -85,6 +85,14 @@ class RunRecord:
     stage: str | None = None
     # B1: letter cap for this run (config letter_cap); None when unknown (for example read back from the store).
     write_cap: int | None = None
+    # B4: trigger source ("api", "cli", or "nightly")
+    trigger: str = "api"
+    # B4: process owner ID (empty for unowned)
+    owner: str = ""
+    # B4: last heartbeat timestamp (empty when not set)
+    heartbeat: str = ""
+    # B4: true when cancel was requested by another process
+    cancel_requested: bool = False
 
 
 @dataclass

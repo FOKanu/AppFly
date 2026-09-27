@@ -174,11 +174,11 @@ function num(value: number | undefined): string {
   return value === undefined ? "—" : value.toLocaleString();
 }
 
+/** Letters written; `{w} / {cap} cap` only when the run reports a cap (the live run), else `{w}`. */
 function writeRatio(run: Run | null): string {
   if (!run || run.written === undefined) return "\u2014";
-  if (run.write_skipped === undefined) return String(run.written);
-  const cap = run.written + run.write_skipped;
-  return cap > 0 ? `${run.written} / ${cap} cap` : String(run.written);
+  const cap = run.write_cap;
+  return typeof cap === "number" ? `${run.written} / ${cap} cap` : String(run.written);
 }
 
 function sourceMix(run: Run | null): string {
@@ -197,14 +197,15 @@ function refusedHosts(run: Run | null): string {
   return refusals.length === 1 ? "1 host" : `${refusals.length} hosts`;
 }
 
-/** D2/D5: Vault is queued while a run is in flight, else done when letters were written, else idle. */
+/** D2/D5: Vault is queued while a run is going, else done when letters were written, else idle. */
 function vaultStatus(run: Run | null): StageStatus | undefined {
   if (!run) return undefined;
-  if (run.stages.write === "in flight") return "queued";
+  const write = run.stages.write;
+  if (write === "in flight" || write === "queued" || write === "running") return "queued";
   return (run.written ?? 0) > 0 ? "done" : "idle";
 }
 
-/** Review fix: Home.md reads `updated` only once a run has finished writing (or for a day note). */
+/** Home.md reads "updated" only after a run the pipeline returned from normally (or a day note). */
 function homeUpdated(run: Run | null): boolean {
   if (!run) return false;
   if (run.kind === "day_note") return true;

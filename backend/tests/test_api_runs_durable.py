@@ -164,6 +164,21 @@ def test_cancel_between_stages_stops_before_writing(
     assert restarted.get(f"/runs/{run_id}").json()["status"] == "cancelled"
 
 
+def test_cancel_completed_run_is_404(
+    native_config: Path, secret_store: SecretStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Terminal in-memory runs must not accept cancel (store already rejects them)."""
+
+    monkeypatch.setattr(
+        "jobhunt.api.runner.run_all",
+        lambda *_a, **_k: _result(scouted=0, shortlisted=0, written=0),
+    )
+    client = _client(native_config, secret_store)
+    run_id = client.post("/runs").json()["id"]
+    assert _wait(client, run_id)["status"] == "completed"
+    assert client.post(f"/runs/{run_id}/cancel").status_code == 404
+
+
 def test_write_letters_stops_between_letters(monkeypatch: pytest.MonkeyPatch) -> None:
     stop = threading.Event()
     calls: list[Any] = []

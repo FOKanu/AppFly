@@ -1,4 +1,5 @@
 import { apiBaseUrl } from "../../shared/api/client";
+import { knownCounts } from "../../shared/run/progress";
 import { redactError, redactSecrets } from "./redact";
 import type { ActivityView, FunnelView, RunFunnel, RunSummary } from "./types";
 
@@ -76,7 +77,7 @@ const MOCK_RUNS_PAYLOAD = [
     skipped: 5,
     written: 5,
     write_skipped: 3,
-    model: "gemini-2.5-flash",
+    model: "gemini-3.8-flash",
     path: "Runs/2026-09-18.md",
     errors: [
       "write: GEMINI_API_KEY=AIzaSyFakeSecretThatMustNeverRender012345 is invalid",
@@ -93,7 +94,7 @@ const MOCK_RUNS_PAYLOAD = [
     skipped: 2,
     written: 4,
     write_skipped: 1,
-    model: "gemini-2.5-flash",
+    model: "gemini-3.8-flash",
     path: "Runs/2026-09-17.md",
     errors: [],
   },
@@ -107,7 +108,7 @@ const MOCK_RUNS_PAYLOAD = [
     skipped: 3,
     written: 0,
     write_skipped: 4,
-    model: "gemini-2.5-flash",
+    model: "gemini-3.8-flash",
     path: "Runs/2026-09-16.md",
     errors: ["match: embedding model download still running"],
   },
@@ -139,9 +140,21 @@ function normalizeRun(item: unknown, index: number): RunSummary {
   const kind = asString(row.kind) === "run" ? "run" : "day_note";
   const status = asString(row.status);
   const counts = asRecord(row.counts);
-  // Spec sections 4 and 6: before B1 the counts of an active or interrupted run are unknown, not 0.
-  const countsUnknown =
-    kind === "run" && (status === "queued" || status === "running" || row.interrupted === true);
+  const scouted = countOf(row.scouted ?? counts.scouted);
+  const shortlisted = countOf(row.shortlisted ?? counts.matched);
+  const written = countOf(row.written ?? counts.written);
+  // Spec section 1 for run rows (running rows too, via stage); day notes and mock rows keep their counts.
+  const known =
+    kind === "run"
+      ? knownCounts({
+          status,
+          stage: typeof row.stage === "string" ? row.stage : null,
+          interrupted: row.interrupted === true,
+          scouted: scouted ?? undefined,
+          shortlisted: shortlisted ?? undefined,
+          written: written ?? undefined,
+        })
+      : { scouted: true, shortlisted: true, written: true };
   const started = asString(row.started ?? row.started_at ?? row.date);
   const date = asString(row.date, started.slice(0, 10) || `run-${index + 1}`);
   // C3: a run row's `preview` is never an error line; only real error strings are shown.
@@ -158,11 +171,11 @@ function normalizeRun(item: unknown, index: number): RunSummary {
     date,
     started,
     finished: asString(row.finished ?? row.finished_at),
-    scouted: countsUnknown ? null : countOf(row.scouted ?? counts.scouted),
-    shortlisted: countsUnknown ? null : countOf(row.shortlisted ?? counts.matched),
-    skipped: countOf(row.skipped),
-    written: countsUnknown ? null : countOf(row.written ?? counts.written),
-    writeSkipped: countOf(row.write_skipped ?? row.writeSkipped),
+    scouted: known.scouted ? scouted : null,
+    shortlisted: known.shortlisted ? shortlisted : null,
+    skipped: known.shortlisted ? countOf(row.skipped) : null,
+    written: known.written ? written : null,
+    writeSkipped: known.written ? countOf(row.write_skipped ?? row.writeSkipped) : null,
     model: redactSecrets(asString(row.model, "\u2014")),
     errors,
     path: asString(row.path, date ? `Runs/${date}.md` : ""),

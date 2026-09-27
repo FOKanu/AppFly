@@ -12,14 +12,14 @@ type RunListProps = {
 export function RunList({ runs }: RunListProps) {
   return (
     <section className="activity-card" aria-labelledby="runs-title">
-      <p className="activity-card__kicker">Nightly runs</p>
+      <p className="activity-card__kicker">Runs</p>
       <h2 id="runs-title" className="activity-card__title">
         Run history
       </h2>
 
       {runs.length === 0 ? (
         <p className="activity-card__empty">
-          No runs yet. Nightly `jobhunt run` notes land here.
+          No runs yet. Runs started here, from the CLI or overnight appear in this list.
         </p>
       ) : (
         <ul className="run-list">
