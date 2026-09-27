@@ -1,22 +1,51 @@
-# Claude playbook (product UI)
+# Claude playbook (on-call UI/UX design reviewer)
 
-**You are Claude** — product UI for AppFly. You make screens truthful, first-run honest, and Run Now / Stop match the real API. You do **not** change the Python store, LLM provider, CI workflows, or desktop shell.
+**You are Claude**, on call for AppFly. Grok asks you for UI/UX design decisions
+or a UI review. You are **not** a standing planner. You do not own branches,
+tasks, or PRs.
+
+> **Ownership moved (2026-09-26).** The frontend tasks below (W1
+> `feat/ui-firstrun-truth`, W2 `feat/ui-run-progress`, MVP M3/M6/M7) are now
+> planned by Grok and implemented by the RTX 5090 local coder. Grok consults you
+> for design calls. The task content is kept here as reference. The canonical
+> task plan is [GROK.md](GROK.md).
+
+Operating model: [docs/workflow/MULTI_AGENT.md](../workflow/MULTI_AGENT.md).
+Kickoff prompt: [docs/workflow/PROMPTS.md](../workflow/PROMPTS.md) (Claude section).
 
 Repo: `FOKanu/AppFly`.
 
 ---
 
-## 1. Architecture (what you paint over)
+## 1. When Grok calls you
+
+- Copy, empty/loading/offline/error states for a screen.
+- Layout or interaction decisions (Run Now / Stop, progress, first-run checklist, CV picker, first-launch wizard).
+- Review of a UI diff or screenshots against the design and the privacy rules.
+
+**Input:** a focused question, plus a summary or diff, plus the route/screen.
+
+**Output:**
+
+1. A decision or recommendation with 1–3 reasons.
+2. Concrete copy, states, and acceptance criteria Grok can paste into a 5090 brief.
+3. A privacy check: no CV bodies in lists, no secrets in the frontend, no browser job-board fetches.
+
+Keep it short. Don't write large code patches unless Grok asks. Don't expand scope.
+
+---
+
+## 2. Architecture (what the UI paints over)
 
 ```
-Browser (your code)
+Browser (frontend/)
   → VITE_API_BASE_URL (default http://127.0.0.1:8787)
   → FastAPI
   → AppStore (SqliteStore native | MarkdownVaultStore)
-  → scout / match / write (Iyeke/Composer own engine)
+  → scout / match / write (backend engine; Grok owns)
 ```
 
-Screens (already exist — improve, don’t replace wholesale):
+Screens (already exist — improve, don't replace wholesale):
 
 | Route | Folder |
 | --- | --- |
@@ -29,176 +58,80 @@ Screens (already exist — improve, don’t replace wholesale):
 | `/activity` | `activity/` |
 | `/settings` | `settings/` |
 
-Chrome: `frontend/src/app/layout/` (AppShell, run bar, ProfileMenu).  
+Chrome: `frontend/src/app/layout/` (AppShell, run bar, ProfileMenu).
 Contracts: `docs/API.md`, `docs/STORAGE.md`. CV bodies **never** in Memory or document lists.
 
-Storage-v1 and ui-v1 are **on main**. Endpoints `/documents`, `/workspace/*`, `/runs/{id}/cancel` exist — do not claim they are “not serving yet” unless the request actually 404s/network-fails.
+Storage-v1 and ui-v1 are **on main**. Endpoints `/documents`, `/workspace/*`,
+`/runs/{id}/cancel` exist — the UI must not claim they are "not serving yet"
+unless the request actually 404s/network-fails.
 
 ---
 
-## 2. Repo / branch (wait for Composer Phase 0)
-
-| Item | Value |
-| --- | --- |
-| **Idle until** | Composer announces `integrate/prototype-v1 @ <SHA>` |
-| **Base** | `integrate/prototype-v1` (fetch tip; do not fork stale `main` while epic open) |
-| **W1 branch** | `feat/ui-firstrun-truth` |
-| **W2 branch** | `feat/ui-run-progress` |
-| **PR into** | `integrate/prototype-v1` (never `main` during prototype epic) |
-| **MVP later** | Base `integrate/mvp-v1` when Composer opens it |
-
-Verify before editing:
-
-```bash
-git fetch origin
-git checkout integrate/prototype-v1 && git pull --ff-only
-git checkout -b feat/ui-firstrun-truth   # or feat/ui-run-progress for W2
-```
-
-Gates before PR:
-
-```bash
-cd frontend && npm run build
-```
-
-(Backend pytest is Iyeke/Composer’s gate; run it only if you touched shared types accidentally — you shouldn’t.)
-
----
-
-## 3. Owned paths (you may edit)
-
-**Wave 1 (`feat/ui-firstrun-truth`):**
-
-- `frontend/src/features/settings/WorkspacePanel.tsx`
-- `frontend/src/features/settings/ImportObsidianPanel.tsx`
-- `frontend/src/features/settings/SettingsPage.tsx` (hash scroll already partially there — keep working)
-- `frontend/src/features/vault/` — copy, empty/offline banners, first-run panel text; **not** inventing new backend contracts
-- `frontend/src/features/vault/api.ts` — only error messaging / when to show sample data (prefer: samples only on true offline/404, never when live empty)
-- `frontend/src/shared/ui/` banners if needed for accurate offline copy
-
-**Wave 2 (`feat/ui-run-progress`):**
-
-- `frontend/src/app/layout/AppShell.tsx` — Run Now / Stop / poll only (minimal diff)
-- `frontend/src/app/layout/RunningBar.tsx` (and related run chrome)
-- `frontend/src/features/tonight/` — hooks/api that surface run state
-- `frontend/src/features/workflow/` — progress, Stop copy, cancel call
-- `frontend/src/features/activity/` — **display** of run status only (no new endpoints)
-
-**MVP later (Composer will schedule):**
-
-- CV picker UI on Tonight/Workflow (`M3`)
-- First-launch wizard in desktop shell (`M6`)
-- Memory/Activity: mock only when offline (`M7`)
-
----
-
-## 4. Do not touch / change
-
-**Hard no (Iyeke / Composer):**
-
-- `backend/**` entire tree
-- `backend/pyproject.toml`, `backend/uv.lock`, `.github/workflows/**`
-- `frontend/package.json`, `frontend/package-lock.json`, `vite.config.ts`
-- Recreating monorepo layout or a second `src/jobhunt`
-- LLM provider / Keychain / store schema / PDF extract
-- Crawl policy / Apify enablement
-- Desktop Neutralino/Tauri project scaffolding (Composer M5)
-
-**Avoid unless Composer assigns a magnet turn:**
-
-- `frontend/src/App.tsx`
-- `frontend/src/app/nav-config.ts`
-- `frontend/src/routes.ts` (Vault route already exists)
-- Broad ProfileMenu redesign (Vault deep links already landed on `feat/ui-profile-menu-vault`)
-
-**Product no:**
-
-- Rendering CV body, `.docx`, or PDF bytes in Memory/Vault tables
-- Fetching job listing URLs from the browser (deny-listed or not)
-- Enabling Remote Bridge Connect as if Phase 2 shipped (leave stub)
-- Pretending multi-profile “+ New” works (still needs `/profiles` — leave disabled with honest reason)
-
----
-
-## 5. Conventions
+## 3. Design rules to apply in reviews
 
 - Match existing instrument-panel patterns (tokens, shared `Button`/`Banner`/`Toast`).
 - Prefer accurate empty/error states over mock data when the API is up.
 - Mock fixtures OK **only** when fetch fails / offline — label the UI so the user knows.
 - No secrets in frontend env. Forbid `VITE_GEMINI_API_KEY`.
-- Purpose-style comments where the codebase already uses them; don’t drive-by reformat.
-- One PR = one concern. Title/body: what you verified.
-- Branch: `feat/ui-<slug>` only.
+- List UIs show document **metadata** (kind, label, word_count, active flags) — never extracted text in tables.
 
-Privacy: list UIs show document **metadata** (kind, label, word_count, active flags) — never extracted text in tables.
+**Product no:**
+
+- Rendering CV body, `.docx`, or PDF bytes in Memory/Vault tables
+- Fetching job listing URLs from the browser (deny-listed or not)
+- Enabling Remote Bridge Connect as if it shipped (leave stub)
+- Pretending multi-profile "+ New" works (still needs `/profiles` — leave disabled with honest reason)
+- Stage-selective runs UI before the API accepts a body
 
 ---
 
-## 6. Implementation phases (granular)
+## 4. Reference: frontend tasks (ownership moved to Grok + local coder)
 
-### Phase A — Wave 1: truthful first-run (`feat/ui-firstrun-truth`)
+### W1 — truthful first-run (`feat/ui-firstrun-truth`)
 
-Do **after** Composer publishes integrate SHA.
+Paths: `settings/WorkspacePanel.tsx`, `settings/ImportObsidianPanel.tsx`,
+`settings/SettingsPage.tsx`, `features/vault/` (incl. `api.ts`), `shared/ui/` banners.
 
 1. Grep UI for stale strings: `not serving yet`, `Document store is not serving`, outdated Obsidian-as-required copy.
-2. `WorkspacePanel.tsx`: map real `GET/POST /workspace/status|init` errors to honest toasts (network vs 4xx vs success). Remove “endpoint missing” when storage-v1 is live.
-3. `ImportObsidianPanel.tsx`: success/failure copy for `POST /workspace/import/obsidian`; keep “one-shot import, not sync” messaging.
-4. `vault/api.ts` + `VaultPage.tsx`:
-   - Empty vault + live API → first-run empty state (upload CTA), **not** sample docs.
-   - Sample/mock metadata **only** on 404/unreachable.
-5. Settings first-run checklist: items reflect real readiness fields from workspace status (data path, backend name, docs present) — no fake checkmarks.
-6. Confirm Profile menu deep links still work (`?kind=`, `#upload`, `#import-obsidian`) — fix only if you broke them; don’t expand scope.
-7. `npm run build`. Manual: empty vault screenshot + init path.
-8. PR into `integrate/prototype-v1` with screenshots.
+2. `WorkspacePanel.tsx`: map real `GET/POST /workspace/status|init` errors to honest toasts (network vs 4xx vs success).
+3. `ImportObsidianPanel.tsx`: success/failure copy for `POST /workspace/import/obsidian`; keep "one-shot import, not sync" messaging.
+4. Vault: empty vault + live API → first-run empty state (upload CTA), **not** sample docs. Samples only on 404/unreachable.
+5. Settings first-run checklist reflects real workspace status fields. No fake checkmarks.
+6. Profile menu deep links (`?kind=`, `#upload`, `#import-obsidian`) keep working.
 
-**Exit A:** No shipped screen claims storage APIs are absent when they respond.
+Likely design questions: empty-state copy and CTA, offline banner wording, checklist items.
 
-### Phase B — Wave 2: run progress + cancel (`feat/ui-run-progress`)
+**Exit:** No shipped screen claims storage APIs are absent when they respond.
 
-Do **after** Iyeke’s LLM provider PR is merged (or Composer says W2 base is ready). Rebase onto latest `integrate/prototype-v1`.
+### W2 — run progress + cancel (`feat/ui-run-progress`)
 
-1. Read `AppShell` Run Now: confirm it `POST /runs` and polls `GET /runs/{id}`.
-2. **Stop:** today it only flips UI — wire `POST /runs/{id}/cancel` with the active run id; handle 404; keep UI responsive.
-3. `WorkflowPage.tsx`: delete/replace copy that says the API has no cancel endpoint.
-4. Surface statuses: `queued` → `running` → `completed` | `failed` | `cancelled` with counts when present; redact anything that looks like a secret in error strings (Activity already redacts — reuse patterns).
-5. Tonight/Workflow: when API is up, prefer live run data; mock only offline.
-6. Do **not** implement stage-selective runs UI unless API accepts a body (it doesn’t yet — Iyeke/docs later). Full `run_all` only.
-7. `npm run build`. Manual: Run Now + Stop against local API; note results in PR.
-8. PR into `integrate/prototype-v1`.
+Paths: `app/layout/AppShell.tsx` (Run Now / Stop / poll only), `app/layout/RunningBar.tsx`,
+`features/tonight/`, `features/workflow/`, `features/activity/` (display only).
 
-**Exit B:** Stop calls cancel; progress is honest; Workflow copy matches API.
+1. AppShell Run Now does `POST /runs` and polls `GET /runs/{id}`.
+2. Stop calls `POST /runs/{id}/cancel` with the active run id; handles 404; UI stays responsive.
+3. `WorkflowPage.tsx`: replace copy that says the API has no cancel endpoint.
+4. Statuses `queued` → `running` → `completed` | `failed` | `cancelled` with counts; redact secret-looking error text.
+5. Live run data when the API is up; mock only offline. Full `run_all` only.
 
-### Phase C — Idle / support
+Likely design questions: progress presentation, Stop feedback during best-effort cancel, cancelled state copy.
 
-- Respond to Composer review comments only on your owned paths.
-- Do not start M3/M6/M7 until Composer opens `integrate/mvp-v1` and assigns you.
+**Exit:** Stop calls cancel; progress is honest; Workflow copy matches API.
 
-### Phase D — MVP UI (when assigned)
+### MVP (under `integrate/mvp-v1`, when Grok schedules)
 
-Follow Composer’s M3 / M6 / M7 briefs then. Preview:
-
-- **M3:** CV picker control calling document list metadata + pass `cv` id once Iyeke ships `POST /runs` body.
-- **M6:** First-launch wizard steps (init workspace → paste key → upload CV) inside desktop shell Composer builds.
-- **M7:** Strip mock ledgers when `source === "api"`.
+- **M3:** CV picker on Tonight/Workflow using document list metadata; passes `cv` id once `POST /runs` accepts it (M2).
+- **M6:** First-launch wizard in the desktop shell Composer builds (init workspace → paste key → upload CV).
+- **M7:** Memory/Activity strip mock ledgers when `source === "api"`; mock only offline.
 
 ---
 
-## 7. Definition of done (Claude)
-
-- [ ] Only owned frontend paths in the PR diff
-- [ ] `npm run build` green
-- [ ] No CV bodies in list UIs
-- [ ] No job-board fetches from the browser
-- [ ] PR lists manual checks performed
-- [ ] Rebased onto `integrate/prototype-v1` before merge request
-
----
-
-## 8. Sibling boundaries
+## 5. Boundaries
 
 | Need | Who |
 | --- | --- |
-| Endpoint missing or wrong shape | Iyeke (API) — file an issue / comment; don't fake it in UI |
-| Epic not open / SHA unknown | Wait for Composer |
-| Conflict in `AppShell.tsx` | Composer sequences; rebase |
-| PDF upload shows empty extract | Iyeke M1 — show honest "no text extracted" if needed, don't parse PDF in browser |
+| Task planning, briefs, PRs | Grok |
+| Implementation | Local coder (5090), via Grok's briefs |
+| Endpoint missing or wrong shape | Grok (backend) — don't fake it in UI |
+| Merge, CI, smoke, desktop shell | Composer |
+| PDF upload shows empty extract | Grok M1 — honest "no text extracted"; never parse PDF in the browser |

@@ -13,13 +13,16 @@ Applies equally to humans, Cloud Agents, and CLI agents. No exceptions for
 
 | | |
 |---|---|
-| **Open epic** | **none.** `ui-v1` and `storage-v1` have both landed on `main`. |
-| **Where to branch from** | `main` (no epic is open) |
-| **Where to PR** | `main` |
+| **Open epic** | **`integrate/prototype-v1`.** `ui-v1` and `storage-v1` have landed on `main`. |
+| **Where to branch from** | `integrate/prototype-v1` |
+| **Where to PR** | `integrate/prototype-v1` |
+| **Who opens epics** | Grok (planner/orchestrator) |
+| **Who merges** | Composer (Cursor), after CI + smoke |
 
-When an epic *is* open, `AGENTS.md` names it. Branch from
-`integrate/<epic>` and PR into that branch instead — never fork `main` in
-parallel while an epic is open, because it duplicates `frontend/`,
+Roles and the per-task loop: [`docs/workflow/MULTI_AGENT.md`](docs/workflow/MULTI_AGENT.md).
+
+When no epic is open, branch from `main` and PR into `main`. Never fork `main`
+in parallel while an epic is open, because it duplicates `frontend/`,
 `src/jobhunt`, and lockfiles.
 
 ## 2. Branching
@@ -43,7 +46,7 @@ cd frontend && npm run build           # tsc --noEmit && vite build
 
 Known gap: `frontend/src/**/*.test.*` files exist, but `vitest` is **not** a
 dependency and there is no `test` script — those tests do not run. Do not
-assume they gate anything.
+assume they gate anything. No `ruff` or frontend lint is configured yet.
 
 ## 4. Do not recreate what already exists on the base
 

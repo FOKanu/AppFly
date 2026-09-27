@@ -17,15 +17,21 @@ One row per Cloud Agent package. Sibling agents add folders on parallel branches
 | A8 | Settings | `frontend/src/features/settings/` | **This tree** | Write-only key fields. GET never shows secret values. |
 | — | Mobile / tablet | Shared banners, `useBreakpoint`, queue/workflow empty states | **This tree** | Keeps `AppShell` chrome. Does not swap in `ResponsiveShell`. |
 | — | CV variants | Upload Word/PDF, extract to `CV/<variant>.md`, pick CV per run | **Planned** | See backlog below. Do not render CV body in the UI. |
-| S0 | Native storage | `store/`, SQLite + files, Documents + Workspace APIs, Vault UI | **This tree** | Obsidian optional one-shot import. See [STORAGE.md](STORAGE.md). Epic base: `integrate/storage-v1`. |
+| S0 | Native storage | `store/`, SQLite + files, Documents + Workspace APIs, Vault UI | **This tree** | Obsidian optional one-shot import. See [STORAGE.md](STORAGE.md). Landed via `storage-v1`. |
+| P0 | Prototype stabilize | CI workflow, `uv.lock`, profile→Vault, agent playbooks | **This tree** | On `integrate/prototype-v1`. |
+| P3 | UI first-run truth | Settings/Vault copy matches live storage APIs | **Planned** | Planned by Grok (Grokbot), implemented by local coder (5090); Claude on call for design review · `feat/ui-firstrun-truth` → `integrate/prototype-v1`. |
+| P4 | LLM provider config | Optional remote/local Gemini base URL + Keychain | **Planned** | Planned by Grok (Grokbot), implemented by local coder (5090) · `feat/backend-llm-provider`. |
+| P5 | Run progress + cancel | AppShell Stop → cancel; honest Workflow progress | **Planned** | Planned by Grok (Grokbot), implemented by local coder (5090); Claude on call for design review · `feat/ui-run-progress`. |
+| P6 | Durable async runs | Persist `POST /runs` status in SqliteStore | **Planned** | Planned by Grok (Grokbot), implemented by local coder (5090) · `feat/backend-durable-runs`. |
+| P7 | Prototype smoke | E2E happy path on integrate tip | **Planned** | Composer (merge/CI gate) runs smoke after W1/W2. |
 
-Backend feature folders that already contain code: `scout`, `match`, `write`, `pipeline`, `secrets` under `backend/src/jobhunt/features/`. Storage lives under `backend/src/jobhunt/store/`. Frontend chrome is in `frontend/src/app/layout/`. Tonight, Workflow, Queue, Packet, Memory, Activity, Settings, and Profiles screens are live, including mobile/tablet edge states.
+Backend feature folders that already contain code: `scout`, `match`, `write`, `pipeline`, `secrets` under `backend/src/jobhunt/features/`. Storage lives under `backend/src/jobhunt/store/`. Frontend chrome is in `frontend/src/app/layout/`. Tonight, Workflow, Queue, Packet, Memory, Activity, Settings, and Profiles screens are live, including mobile/tablet edge states. Role playbooks: [docs/agents/](agents/README.md). Epic base: **`integrate/prototype-v1`**.
 
 ## Backlog
 
 ### CV upload and per-run picker
 
-Match/write currently always read `CV/Master.md`. Word/PDF files in the vault are ignored. Planned work (own PR on `integrate/ui-v1` after the first markdown-CV run):
+Match/write currently always read `CV/Master.md` (or the active native CV document). Word/PDF files without extract are ignored. Planned work (own PR on `integrate/prototype-v1` / later `integrate/mvp-v1`):
 
 1. Accept Word/PDF uploads into `CV/originals/` (or alongside notes). Extract locally into `CV/<variant>.md` with frontmatter `type: cv`, `variant`, `source` filename. Keep the original file.
 2. `GET /cvs` — id, label, filename, word count, last extracted. Never return CV body, `.docx`, or PDF bytes.

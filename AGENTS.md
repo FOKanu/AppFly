@@ -15,7 +15,7 @@ Cursor rule: `.cursor/rules/branch-strategy.mdc` (always apply).
 | Branch | Purpose |
 |---|---|
 | `main` | Shippable. No direct commits. Hotfixes that cannot wait for an epic. |
-| `integrate/<epic>` | Inbox for that epic (all stacks). **No epic is open** — `ui-v1` and `storage-v1` have both landed on `main`. |
+| `integrate/<epic>` | Inbox for that epic (all stacks). **Current prototype epic: `integrate/prototype-v1`.** `ui-v1` and `storage-v1` landed on `main`. |
 | `feat/<area>-<slug>` | One concern, one PR. Examples: `feat/backend-api`, `feat/ui-queue-packet`, `feat/docs-api`. |
 | `fix/<slug>` | Bug fix against shipped `main`. |
 | `chore/<slug>` | Tooling, docs, layout. |
@@ -28,11 +28,15 @@ Names: lowercase, hyphens, no author names. Retarget `cursor/…` Cloud Agent de
 2. No epic: branch from `main`; PR into `main`.
 3. Do not start parallel agents from stale `main` while an epic is open.
 
-No epic is currently open. Branch from `main` and PR into `main`.
+While **prototype-v1** is open, every Cloud Agent prompt includes:
 
-When an epic opens, name it here and every Cloud Agent prompt includes:
+> Base: `integrate/prototype-v1`. Branch: `feat/<area>-<slug>`. Touch only owned paths. Do not recreate `backend/pyproject.toml` or `frontend/package.json`. PR into `integrate/prototype-v1`. Rebase before merge.
 
-> Base: `integrate/<epic>`. Branch: `feat/<area>-<slug>`. Touch only owned paths. Do not recreate `backend/pyproject.toml` or `frontend/package.json`. PR into `integrate/<epic>`. Rebase before merge.
+No parallel forks of `main` while this epic is open.
+
+When an epic opens, name it here and every Cloud Agent prompt includes the Base/Branch/PR block above (generic form uses `integrate/<epic>`).
+
+**Who does what:** Grok opens and closes epics (`integrate/<epic>`), plans tasks, and writes PR text. The RTX 5090 local coder implements. Composer (Cursor) is the merge and CI gate: it runs CI and smoke, then merges. See [docs/workflow/MULTI_AGENT.md](docs/workflow/MULTI_AGENT.md).
 
 ### Closed epics
 
@@ -41,17 +45,18 @@ When an epic opens, name it here and every Cloud Agent prompt includes:
 
 ### Cursor Cloud specific instructions
 
-- Clone from **`main`** — no epic is open. When one is, clone from `integrate/<epic>` instead.
-- PR against `main` (or the open `integrate/<epic>`). Backend work goes under `backend/`; UI under `frontend/`. Do not add a second `src/jobhunt` tree.
+- Clone from **`integrate/prototype-v1`**, not `main`, for this epic.
+- PR against `integrate/prototype-v1`. Backend work goes under `backend/`; UI under `frontend/`. Do not add a second `src/jobhunt` tree.
 - Do not force-push `main` or `integrate/*`. Do not commit `.env`, vault notes, or API keys.
 
-## Sibling agent playbooks
+## Agent roles and playbooks
 
-Role ownership for product work (paths, phases, no-touch lists):
+Operating model (2026-09-26): one cloud planner (Grok) + local-first coding on the RTX 5090.
 
-- [docs/agents/COMPOSER.md](docs/agents/COMPOSER.md) — orchestration
-- [docs/agents/CLAUDE.md](docs/agents/CLAUDE.md) — product UI
-- [docs/agents/GROK.md](docs/agents/GROK.md) — Iyeke (GrokBot), backend engine
+- [docs/agents/GROK.md](docs/agents/GROK.md) — Grok (Grokbot / Iyeke): single planner and orchestrator for backend and frontend; opens epics; briefs, review, PR text; backend engine owner
+- [docs/agents/LOCAL_CODER.md](docs/agents/LOCAL_CODER.md) — RTX 5090 local coder: all mechanical work from Grok's briefs
+- [docs/agents/COMPOSER.md](docs/agents/COMPOSER.md) — Composer (Cursor): merge and CI gate, smoke, desktop packaging (M5), privacy pass (M8)
+- [docs/agents/CLAUDE.md](docs/agents/CLAUDE.md) — Claude: on call for UI/UX design decisions and UI review
 - Index: [docs/agents/README.md](docs/agents/README.md)
 
-Optional maintainer-only multi-agent + local GPU coding flow (not required to ship): [docs/workflow/](docs/workflow/README.md).
+Loop, escalation rules, prompts, and token log: [docs/workflow/](docs/workflow/README.md). Product contributors don't need that folder to open a normal PR.
