@@ -58,10 +58,29 @@ def fetch_agentur_jobs(config: AppConfig) -> list[Job]:
                 time.sleep(REQUEST_PAUSE_S)
                 details = _details(client, ref)
                 jobs.append(_to_job(item, details, ref))
-            max_page = int(payload.get("maxSeiten") or payload.get("pageCount") or page)
+            max_page = int(
+                payload.get("maxSeiten")
+                or payload.get("pageCount")
+                or _pages_from_total(payload, page)
+            )
             if page >= max_page:
                 break
     return jobs
+
+
+def _pages_from_total(payload: dict[str, Any], current_page: int) -> int:
+    """Derive page count from maxErgebnisse/size when maxSeiten is absent."""
+
+    total = payload.get("maxErgebnisse")
+    size = payload.get("size")
+    try:
+        total_n = int(total)
+        size_n = int(size) if size else PAGE_SIZE
+    except (TypeError, ValueError):
+        return current_page
+    if total_n <= 0 or size_n <= 0:
+        return current_page
+    return max(1, (total_n + size_n - 1) // size_n)
 
 
 def _search(client: httpx.Client, config: AppConfig, query: str, page: int) -> dict[str, Any]:
@@ -89,7 +108,7 @@ def _details(client: httpx.Client, refnr: str) -> dict[str, Any]:
 
 
 def _extract_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    for key in ("stellenangebote", "jobs", "items", "results"):
+    for key in ("ergebnisliste", "stellenangebote", "jobs", "items", "results"):
         value = payload.get(key)
         if isinstance(value, list):
             return [item for item in value if isinstance(item, dict)]
@@ -106,13 +125,22 @@ def _refnr(item: dict[str, Any]) -> str:
 
 def _to_job(item: dict[str, Any], details: dict[str, Any], ref: str) -> Job:
     title = _first_str(details, item, "stellenangebotsTitel", "titel", "title") or "Untitled"
-    company = _first_str(details, item, "arbeitgeber", "firma", "company") or "Unknown"
+    company = _company_name(details, item)
     location = _location(details) or _location(item)
-    description = _description(details) or _first_str(details, item, "kurztext", "teaser") 
-    url = _first_str(details, item, "externeUrl", "url", "href") or _agentur_url(ref)
+    description = _description(details) or _first_str(details, item, "kurztext", "teaser")
+    url = (
+        _first_str(details, item, "externeURL", "externeUrl", "url", "href")
+        or _agentur_url(ref)
+    )
     address = _address(details)
     salary = _first_str(details, item, "verguetung", "gehalt", "salary")
-    posted = _first_str(details, item, "aktuelleVeroeffentlichungsdatum", "eintrittsdatum")
+    posted = _first_str(
+        details,
+        item,
+        "datumErsteVeroeffentlichung",
+        "aktuelleVeroeffentlichungsdatum",
+        "eintrittsdatum",
+    )
     return Job(
         source_id=ref,
         source="agentur",
@@ -128,6 +156,18 @@ def _to_job(item: dict[str, Any], details: dict[str, Any], ref: str) -> Job:
     )
 
 
+def _company_name(primary: dict[str, Any], secondary: dict[str, Any]) -> str:
+    for blob in (primary, secondary):
+        value = blob.get("firma") or blob.get("arbeitgeber") or blob.get("company")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if isinstance(value, dict):
+            name = value.get("name") or value.get("firmenname") or value.get("bezeichnung")
+            if isinstance(name, str) and name.strip():
+                return name.strip()
+    return "Unknown"
+
+
 def _first_str(primary: dict[str, Any], secondary: dict[str, Any], *keys: str) -> str:
     for blob in (primary, secondary):
         for key in keys:
@@ -138,6 +178,19 @@ def _first_str(primary: dict[str, Any], secondary: dict[str, Any], *keys: str) -
 
 
 def _location(blob: dict[str, Any]) -> str:
+    lokationen = blob.get("stellenlokationen")
+    if isinstance(lokationen, list) and lokationen:
+        first = lokationen[0]
+        if isinstance(first, dict):
+            adresse = first.get("adresse")
+            if isinstance(adresse, dict):
+                formatted = _format_place(adresse)
+                if formatted:
+                    return formatted
+            formatted = _format_place(first)
+            if formatted:
+                return formatted
+
     ort = blob.get("arbeitsort") or blob.get("arbeitsorte")
     if isinstance(ort, str):
         return ort
