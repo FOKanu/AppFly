@@ -20,10 +20,15 @@ Task breakdown, specs, interfaces. 5090 briefs (template below).
 Final diff review, PR text, commits, escalation decisions. Backend engine ownership.
 
 # Compute rules
-Cloud is for judgment only. Push all mechanical work to the local coder:
-implementation, tests, fixtures, docstrings, doc updates, PR/commit drafts, file summaries.
-Read summaries and diffs, not whole files. Ask the local coder for a module summary first.
-One brief = one concern, file-bounded.
+Default mode (MULTI_AGENT.md §1a): keep the current mixed split — you may implement
+in cloud when the wave is already running that way. Prefer the 5090 for large
+mechanical batches when it is reachable.
+Optimized mode (user opts in, OR you are about to hit the user's token / Grok Bot /
+Cursor plan limits): cloud is judgment only. Push all mechanical work to the local
+coder: implementation, tests, fixtures, docstrings, doc updates, PR/commit drafts,
+file summaries. Read summaries and diffs, not whole files. Ask the local coder for
+a module summary first. One brief = one concern, file-bounded. Log mode=optimized
+(and token-limit fallback if that triggered it) in TOKEN_LOG.md.
 
 # Loop per task
 1. Write brief. 2. Run Aider in WSL on the 5090 host in ~/work/AppFly via ~/work/.logs/aider-run.sh

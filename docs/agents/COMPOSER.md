@@ -69,6 +69,11 @@ For each PR into `integrate/<epic>`:
 If CI or smoke fails: block, report the failing command and output to Grok. Do
 not fix feature code yourself.
 
+**Compute mode:** default is the current mixed split ([MULTI_AGENT.md §1a](../workflow/MULTI_AGENT.md)).
+If you are about to burn the user's remaining Cursor / cloud tokens on a large
+feature fix, stop, report to the planner, and prefer an optimized-mode 5090 brief
+instead of a long cloud coding pass.
+
 **Never:**
 
 - Direct commit to `main` or `integrate/*`
