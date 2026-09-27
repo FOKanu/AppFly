@@ -72,6 +72,7 @@ export function PacketPage() {
       if (!job) return;
       setBusy(true);
       setFeedback(null);
+      setError(null);
       try {
         const updated = await patchJobStatus(job.source_id, status);
         setJob({
@@ -100,6 +101,7 @@ export function PacketPage() {
       }
       setBusy(true);
       setError(null);
+      setFeedback(null);
       try {
         await apiPut<unknown>(`/jobs/${encodeURIComponent(job.source_id)}/letter`, { body: text });
         setLetterBody(text);
@@ -121,6 +123,7 @@ export function PacketPage() {
     }
     setBusy(true);
     setError(null);
+    setFeedback(null);
     try {
       const data = await apiPost<{ body?: string }>(
         `/jobs/${encodeURIComponent(job.source_id)}/letter/regenerate`,
