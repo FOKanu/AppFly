@@ -170,6 +170,7 @@ export function WorkflowPage() {
         stopDisabled={run.stopDisabled}
         stopTitle={run.stopTitle}
         stopping={run.ui === "cancelling"}
+        cvUsingLabel={run.cvLabel}
       />
 
       <div className="workflow__columns">
