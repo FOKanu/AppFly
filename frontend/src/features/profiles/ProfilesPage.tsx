@@ -5,7 +5,7 @@ import { Banner } from "../../shared/ui/Banner";
 import { Toast, useToast } from "../../shared/ui/Toast";
 import { recordProfileSnapshot } from "../memory/versionLedger";
 import { fetchSettings, profileFromSettings, saveProfile, saveSources } from "./api";
-import { STORE_UNAVAILABLE_NOTE, listDocuments } from "../vault/api";
+import { listDocuments } from "../vault/api";
 import { isActive } from "../vault/types";
 import type { VaultDocument } from "../vault/types";
 import { ProfileDocuments } from "./ProfileDocuments";
@@ -195,7 +195,7 @@ export function ProfilesPage() {
             available={documents}
             attachedIds={attachedIds}
             enabled={storeLive}
-            disabledReason={STORE_UNAVAILABLE_NOTE}
+            disabledReason="Start the local API to attach files."
             onAttach={(id) => {
               setAttachedIds((current) => [...current, id]);
               toast.show("Attached to this profile.");

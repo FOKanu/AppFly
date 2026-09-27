@@ -8,7 +8,6 @@ import { Toast, useToast } from "../../shared/ui/Toast";
 import { DocumentTable } from "./DocumentTable";
 import { UploadZone } from "./UploadZone";
 import {
-  STORE_UNAVAILABLE_NOTE,
   deleteDocument,
   getWorkspace,
   listDocuments,
@@ -22,6 +21,7 @@ import {
   type VaultDocument,
   type WorkspaceStatus,
 } from "./types";
+import { describeApiError, isUnreachable, type ApiFailure } from "../../shared/api/errors";
 import "./vault.css";
 
 /** Kind filter values, with "all" in front of the real kinds. */
@@ -51,9 +51,8 @@ export function VaultPage() {
   const { hash } = useLocation();
   const [documents, setDocuments] = useState<VaultDocument[]>([]);
   const [workspace, setWorkspace] = useState<WorkspaceStatus | null>(null);
-  const [live, setLive] = useState(true);
+  const [failure, setFailure] = useState<ApiFailure | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>(() =>
     filterFromParam(searchParams.get("kind")),
   );
@@ -86,12 +85,11 @@ export function VaultPage() {
     try {
       const [snapshot, status] = await Promise.all([listDocuments(), getWorkspace()]);
       setDocuments(snapshot.documents);
-      setLive(snapshot.availability === "live");
       setWorkspace(status);
-      setError(null);
-    } catch {
-      setError("Could not reach the local API. Start the copilot to manage your files.");
-      setLive(false);
+      setFailure(null);
+    } catch (error) {
+      setDocuments([]);
+      setFailure(describeApiError(error, "Loading your files"));
     } finally {
       setLoading(false);
     }
@@ -105,6 +103,8 @@ export function VaultPage() {
     () => (filter === "all" ? documents : documents.filter((doc) => doc.kind === filter)),
     [documents, filter],
   );
+
+  const unreachable = failure !== null && isUnreachable(failure.kind);
 
   const onUpload = useCallback(
     async (files: File[], kind: DocumentKind) => {
@@ -122,8 +122,8 @@ export function VaultPage() {
             ? `${added[0].label} added to the vault.`
             : `${added.length} files added to the vault.`,
         );
-      } catch {
-        toast.show("Upload failed — the document store rejected the file.");
+      } catch (error) {
+        toast.show(describeApiError(error, "Upload").message);
       } finally {
         setUploading(false);
       }
@@ -140,8 +140,8 @@ export function VaultPage() {
           current.map((doc) => (doc.id === target.id ? { ...doc, ...updated } : doc)),
         );
         toast.show(`Renamed to ${label}.`);
-      } catch {
-        toast.show("Rename failed — the document store rejected the change.");
+      } catch (error) {
+        toast.show(describeApiError(error, "Rename").message);
       } finally {
         setBusyId(null);
       }
@@ -165,8 +165,8 @@ export function VaultPage() {
         toast.show(
           `${target.label} is now the active ${target.kind === "cv" ? "CV" : "voice sample"}.`,
         );
-      } catch {
-        toast.show("Could not change which file is active.");
+      } catch (error) {
+        toast.show(describeApiError(error, "Changing the active file").message);
       } finally {
         setBusyId(null);
       }
@@ -181,8 +181,8 @@ export function VaultPage() {
         await deleteDocument(target.id);
         setDocuments((current) => current.filter((doc) => doc.id !== target.id));
         toast.show(`${target.label} deleted.`);
-      } catch {
-        toast.show("Delete failed — the document store rejected the request.");
+      } catch (error) {
+        toast.show(describeApiError(error, "Delete").message);
       } finally {
         setBusyId(null);
       }
@@ -190,18 +190,18 @@ export function VaultPage() {
     [toast],
   );
 
-  const firstRun = !loading && live && documents.length === 0;
+  const firstRun = !loading && failure === null && documents.length === 0;
 
   return (
     <div className="vault" aria-busy={loading || undefined}>
-      {error ? (
-        <Banner tone="danger" title="Vault not loaded">
-          {error}
+      {failure && failure.kind === "timeout" ? (
+        <Banner tone="warning" title="Vault not loaded">
+          {failure.message}
         </Banner>
       ) : null}
-      {!live && !error ? (
-        <Banner tone="warning" title="Document store not serving yet">
-          {STORE_UNAVAILABLE_NOTE}
+      {failure && !unreachable ? (
+        <Banner tone="danger" title="Vault not loaded">
+          {failure.message}
         </Banner>
       ) : null}
 
@@ -232,8 +232,8 @@ export function VaultPage() {
       <div className="vault__columns">
         <UploadZone
           onUpload={(files, kind) => void onUpload(files, kind)}
-          enabled={live}
-          disabledReason={STORE_UNAVAILABLE_NOTE}
+          enabled={!unreachable}
+          disabledReason="Start the local API to upload or change files."
           busy={uploading}
           initialKind={filter === "all" ? "cv" : filter}
         />
@@ -258,7 +258,9 @@ export function VaultPage() {
             </Button>
           </header>
 
-          {firstRun ? (
+          {unreachable ? (
+            <p className="vault__empty">No files to show while the API is offline.</p>
+          ) : failure ? null : firstRun ? (
             <FirstRun />
           ) : visible.length === 0 ? (
             <p className="vault__empty">
@@ -267,8 +269,8 @@ export function VaultPage() {
           ) : (
             <DocumentTable
               documents={visible}
-              enabled={live}
-              disabledReason={STORE_UNAVAILABLE_NOTE}
+              enabled={!unreachable}
+              disabledReason="Start the local API to upload or change files."
               busyId={busyId}
               onRename={(doc, label) => void onRename(doc, label)}
               onDelete={(doc) => void onDelete(doc)}
