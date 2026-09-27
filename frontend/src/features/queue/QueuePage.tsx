@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import type { ApiFailure } from "../../shared/api/errors";
+import { Banner } from "../../shared/ui/Banner";
+import { SampleDataBanner } from "../../shared/ui/SampleDataBanner";
 import { EMPTY_FILTERS, filterJobs, type QueueFilterState } from "./filterJobs";
 import { listJobs, patchJobStatus } from "./jobsApi";
 import { JobList } from "./JobList";
@@ -10,6 +13,13 @@ import { UndoToast, type UndoEntry } from "./UndoToast";
 import { EmptyQueueState } from "./states/EmptyQueueState";
 import { JOB_STATUSES, type JobRecord, type JobStatus } from "./types";
 import "./queue.css";
+
+function asFailure(err: unknown): ApiFailure | null {
+  if (err && typeof err === "object" && "kind" in err && "message" in err) {
+    return err as ApiFailure;
+  }
+  return null;
+}
 
 /**
  * Purpose: Queue master-detail — filterable job list plus one selected packet.
@@ -49,7 +59,10 @@ export function QueuePage() {
         setError(null);
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load jobs");
+        if (cancelled) return;
+        const failure = asFailure(err);
+        setError(failure?.message ?? (err instanceof Error ? err.message : "Failed to load jobs"));
+        setUsingMock(false);
       });
     return () => {
       cancelled = true;
@@ -139,13 +152,12 @@ export function QueuePage() {
 
   return (
     <section className="queue-page page-flush" data-testid="queue-page">
-      {usingMock ? (
-        <p className="queue-page__banner" data-testid="mock-banner">
-          Sample queue — GET /jobs is unavailable. Status changes stay local until the API is
-          up.
-        </p>
+      {usingMock ? <SampleDataBanner noun="jobs" /> : null}
+      {error ? (
+        <Banner tone="danger" title="Couldn't load Queue" role="alert">
+          {error}
+        </Banner>
       ) : null}
-      {error ? <p className="queue-page__banner">{error}</p> : null}
 
       <QueueToolbar
         filters={filters}

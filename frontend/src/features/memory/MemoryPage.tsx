@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ROUTES } from "../../routes";
 import { Banner } from "../../shared/ui/Banner";
+import { SampleDataBanner } from "../../shared/ui/SampleDataBanner";
 import { Segmented } from "../../shared/ui/Segmented";
 import { ApplicationLedger } from "./ApplicationLedger";
 import { CompaniesLedger } from "./CompaniesLedger";
@@ -87,11 +88,7 @@ export function MemoryPage() {
           {error}
         </Banner>
       ) : null}
-      {snapshot.usingMock ? (
-        <Banner tone="warning" title="Sample ledger">
-          Local IPC is unreachable, so this is the sample vault — not your applications.
-        </Banner>
-      ) : null}
+      {snapshot.usingMock ? <SampleDataBanner noun="ledger" /> : null}
 
       <header className="memory__head">
         <div className="memory__stats">

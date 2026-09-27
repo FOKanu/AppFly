@@ -1,4 +1,4 @@
-import { apiBaseUrl } from "../../shared/api/client";
+import { resolveMockPolicy, tryApiGet, type MockPolicyLoad } from "../../shared/api/mockPolicy";
 import { knownCounts } from "../../shared/run/progress";
 import { redactError, redactSecrets } from "./redact";
 import type { ActivityView, FunnelView, RunFunnel, RunSummary } from "./types";
@@ -8,19 +8,26 @@ const JOB_STATUSES = ["inbox", "shortlist", "draft", "approved", "applied", "ski
 /**
  * Purpose: Load run history and job-status funnel from GET /runs and GET /jobs.
  * Does not: start a pipeline run, display API keys, or crawl job boards.
+ * Samples only when the API is offline/timeout (M7 / F2).
  */
-export async function loadActivity(): Promise<ActivityView> {
-  try {
-    const [runsPayload, jobsPayload] = await Promise.all([getJson("/runs"), getJson("/jobs")]);
-    const runs = normalizeRuns(runsPayload);
-    return {
-      runs,
-      funnel: buildFunnel(runs, jobsPayload),
-      source: "api",
-    };
-  } catch {
-    return { ...MOCK_ACTIVITY };
-  }
+export async function loadActivity(): Promise<MockPolicyLoad<ActivityView>> {
+  const [runsPayload, jobsPayload] = await Promise.all([
+    tryApiGet<unknown>("/runs", "Loading Activity"),
+    tryApiGet<unknown>("/jobs", "Loading Activity"),
+  ]);
+
+  return resolveMockPolicy(
+    [runsPayload, jobsPayload],
+    () => {
+      const runs = normalizeRuns(runsPayload.ok ? runsPayload.data : { runs: [] });
+      return {
+        runs,
+        funnel: buildFunnel(runs, jobsPayload.ok ? jobsPayload.data : {}),
+        source: "api" as const,
+      };
+    },
+    { ...MOCK_ACTIVITY },
+  );
 }
 
 /**
@@ -190,15 +197,6 @@ function normalizeRun(item: unknown, index: number): RunSummary {
 
 function emptyJobCounts(): FunnelView["jobs"] {
   return { inbox: 0, shortlist: 0, draft: 0, approved: 0, applied: 0, skipped: 0 };
-}
-
-async function getJson(path: string): Promise<unknown> {
-  const response = await fetch(`${apiBaseUrl()}${path}`, {
-    headers: { Accept: "application/json" },
-    signal: AbortSignal.timeout(4000),
-  });
-  if (!response.ok) throw new Error(`GET ${path} failed (${response.status})`);
-  return response.json();
 }
 
 function unwrapList(payload: unknown, keys: string[]): unknown[] {
