@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -50,6 +50,8 @@ describe("PacketPage", () => {
   it("A approves the packet", async () => {
     renderPacket("agentur-ref-88112");
     await screen.findByRole("heading", { name: "Staff Platform Engineer" });
+    // Let React flush the effect that registers the shortcut listener before pressing the key.
+    await act(async () => {});
     fireEvent.keyDown(window, { key: "a" });
     expect(await screen.findByText(/Marked approved/)).toBeInTheDocument();
     expect(screen.getByTestId("status-chip")).toHaveAttribute("data-status", "approved");
@@ -58,6 +60,7 @@ describe("PacketPage", () => {
   it("D denies the packet", async () => {
     renderPacket("agentur-ref-88112");
     await screen.findByRole("heading", { name: "Staff Platform Engineer" });
+    await act(async () => {});
     fireEvent.keyDown(window, { key: "d" });
     expect(await screen.findByText(/Marked skipped/)).toBeInTheDocument();
   });
@@ -65,6 +68,7 @@ describe("PacketPage", () => {
   it("A does nothing on an applied packet", async () => {
     renderPacket("agentur-ref-22091");
     await screen.findByRole("heading", { name: "Data Engineer" });
+    await act(async () => {});
     fireEvent.keyDown(window, { key: "a" });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(screen.queryByText(/Marked approved/)).not.toBeInTheDocument();
@@ -176,6 +180,7 @@ describe("PacketPage", () => {
   it("Esc goes back to the queue", async () => {
     renderPacket("agentur-ref-88112");
     await screen.findByRole("heading", { name: "Staff Platform Engineer" });
+    await act(async () => {});
     fireEvent.keyDown(window, { key: "Escape" });
     expect(await screen.findByText("queue-route")).toBeInTheDocument();
   });
@@ -183,6 +188,7 @@ describe("PacketPage", () => {
   it("Esc in the letter editor stays on the packet", async () => {
     renderPacket("agentur-ref-88112");
     await screen.findByRole("heading", { name: "Staff Platform Engineer" });
+    await act(async () => {});
     fireEvent.keyDown(screen.getByLabelText("Your edit of the application letter"), { key: "Escape" });
     expect(screen.queryByText("queue-route")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Staff Platform Engineer" })).toBeInTheDocument();
