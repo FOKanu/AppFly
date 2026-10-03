@@ -71,4 +71,20 @@ describe("PacketPage", () => {
     expect(screen.queryByTestId("crawl-denied")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Frontend Lead" })).not.toBeInTheDocument();
   });
+
+  it("shows the real error, not 'PATCH failed', when approving fails", async () => {
+    vi.stubGlobal("fetch", vi.fn((_url: unknown, init?: RequestInit) =>
+      init?.method === "PATCH"
+        ? Promise.resolve(new Response(JSON.stringify({ detail: "boom" }), { status: 500 }))
+        : Promise.reject(new Error("offline")),
+    ));
+    const user = userEvent.setup();
+    renderPacket("agentur-ref-88112");
+    await screen.findByRole("heading", { name: "Staff Platform Engineer" });
+    await user.click(screen.getAllByRole("button", { name: /Approve packet/ })[0]!);
+    expect(await screen.findByText(/internal error \(HTTP 500\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/PATCH failed/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Couldn't load Packet")).not.toBeInTheDocument();
+    expect(screen.getByTestId("status-chip")).toHaveAttribute("data-status", "draft");
+  });
 });

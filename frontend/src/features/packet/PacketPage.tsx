@@ -33,6 +33,7 @@ export function PacketPage() {
   const [letterBody, setLetterBody] = useState("");
   const [usingMock, setUsingMock] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -40,6 +41,7 @@ export function PacketPage() {
     let cancelled = false;
     setJob(null);
     setError(null);
+    setActionError(null);
     setFeedback(null);
     if (!decodedId) {
       setError("Missing job id");
@@ -81,7 +83,7 @@ export function PacketPage() {
       if (!job) return;
       setBusy(true);
       setFeedback(null);
-      setError(null);
+      setActionError(null);
       try {
         const updated = await patchJobStatus(job.source_id, status);
         setJob({
@@ -94,7 +96,8 @@ export function PacketPage() {
           status === "approved" ? "Marked approved. Submit it yourself." : "Marked skipped.",
         );
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "PATCH failed");
+        const failure = asFailure(err) ?? describeApiError(err, "Updating the job");
+        if (!failure.aborted) setActionError(failure.message);
       } finally {
         setBusy(false);
       }
@@ -109,7 +112,7 @@ export function PacketPage() {
         return;
       }
       setBusy(true);
-      setError(null);
+      setActionError(null);
       setFeedback(null);
       try {
         await apiPut<unknown>(`/jobs/${encodeURIComponent(job.source_id)}/letter`, { body: text });
@@ -117,7 +120,7 @@ export function PacketPage() {
         setFeedback("Letter saved to the local store.");
       } catch (err: unknown) {
         const failure = describeApiError(err, "Saving the letter", JOB_GONE);
-        if (!failure.aborted) setError(failure.message);
+        if (!failure.aborted) setActionError(failure.message);
       } finally {
         setBusy(false);
       }
@@ -131,7 +134,7 @@ export function PacketPage() {
       return;
     }
     setBusy(true);
-    setError(null);
+    setActionError(null);
     setFeedback(null);
     try {
       const data = await apiPost<{ body?: string }>(
@@ -141,7 +144,7 @@ export function PacketPage() {
       setFeedback("Letter regenerated.");
     } catch (err: unknown) {
       const failure = describeApiError(err, "Regenerating the letter", JOB_GONE);
-      if (!failure.aborted) setError(failure.message);
+      if (!failure.aborted) setActionError(failure.message);
     } finally {
       setBusy(false);
     }
@@ -154,6 +157,13 @@ export function PacketPage() {
         <div data-testid="packet-error">
           <Banner tone="danger" title="Couldn't load Packet" role="alert">
             {error}
+          </Banner>
+        </div>
+      ) : null}
+      {actionError ? (
+        <div data-testid="packet-action-error">
+          <Banner tone="danger" title="Couldn't save changes" role="alert">
+            {actionError}
           </Banner>
         </div>
       ) : null}
