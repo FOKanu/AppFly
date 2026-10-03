@@ -185,6 +185,7 @@ describe("QueuePage", () => {
     expect(detail).not.toHaveTextContent("Seniority");
     expect(detail).not.toHaveTextContent("✓ salary floor");
     expect(detail).toHaveTextContent("Per-listing results are not shown yet.");
+    expect(detail).toHaveTextContent("must-have terms");
     expect(within(detail).getByRole("tab", { name: "Match" })).toBeInTheDocument();
     expect(within(detail).queryByRole("tab", { name: "Match breakdown" })).not.toBeInTheDocument();
   });

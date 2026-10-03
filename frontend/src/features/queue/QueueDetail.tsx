@@ -229,7 +229,7 @@ function MatchPanel({ job }: { job: JobRecord }) {
 
       <p className="detail-card__label">Hard filters</p>
       <p className="detail-card__body">
-        Hard filters (skip-list, banned terms, location, salary floor) run during matching. Per-listing results are not shown yet.
+        Hard filters (skip-list, banned terms, must-have terms, location, salary floor) run during matching. Per-listing results are not shown yet.
       </p>
 
       <p className="detail-card__label">Gaps</p>
