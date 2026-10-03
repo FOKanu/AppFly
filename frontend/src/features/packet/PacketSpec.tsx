@@ -79,7 +79,7 @@ export function PacketSpec({ job }: PacketSpecProps) {
       <p className="packet-spec__label">Match score</p>
       <div className="match-row">
         <span className="match-row__label">Overall</span>
-        <Meter value={(score ?? 0) / 10} label="Overall match" />
+        <Meter value={score === null ? null : score / 10} label="Overall match" />
         <span className="match-row__value">{score === null ? "—" : score.toFixed(1)}</span>
       </div>
 
