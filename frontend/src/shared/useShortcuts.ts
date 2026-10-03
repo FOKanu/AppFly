@@ -1,6 +1,6 @@
 /**
  * Purpose: Page-level keyboard shortcuts that back the on-screen keycaps (A, D, E, ⇧A, ⇧D, Esc, "G Q", ⌘Z).
- * Does not: own ⌘K or R (AppShell does), or fire while the person types in a text field.
+ * Does not: own ⌘K or R (AppShell does), or fire while the person types in a text field or works inside an open dialog or menu.
  */
 import { useEffect, useRef } from "react";
 
@@ -13,10 +13,16 @@ const NON_TEXT_INPUTS = new Set(["checkbox", "radio", "button", "submit", "reset
 
 export function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
-  if (target.isContentEditable) return true;
+  if (target.isContentEditable || target.getAttribute("contenteditable") === "true" || target.getAttribute("contenteditable") === "") return true;
   if (target.tagName === "TEXTAREA" || target.tagName === "SELECT") return true;
   if (target instanceof HTMLInputElement) return !NON_TEXT_INPUTS.has(target.type);
   return false;
+}
+
+/** True inside an open overlay (dialog sheet, menu, listbox), where page keys must not act on the page behind. */
+export function isInOverlay(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return target.closest('[role="dialog"], [role="menu"], [role="listbox"], [aria-modal="true"]') !== null;
 }
 
 export function shortcutKey(event: KeyboardEvent): string | null {
@@ -40,7 +46,7 @@ export function useShortcuts(map: ShortcutMap, enabled = true): void {
     let pending: { key: string; at: number } | null = null;
     function onKey(event: KeyboardEvent) {
       if (event.defaultPrevented || event.repeat) return;
-      if (isTypingTarget(event.target)) return;
+      if (isTypingTarget(event.target) || isInOverlay(event.target)) return;
       const key = shortcutKey(event);
       if (!key) return;
       const handlers = mapRef.current;

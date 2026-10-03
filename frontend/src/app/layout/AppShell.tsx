@@ -12,6 +12,7 @@ import { describeApiError, isUnreachable } from "../../shared/api/errors";
 import { OfflineBanner } from "../../shared/ui/OfflineBanner";
 import { Toast, useToast } from "../../shared/ui/Toast";
 import { useBreakpoint } from "../../shared/useBreakpoint";
+import { isInOverlay, isTypingTarget } from "../../shared/useShortcuts";
 import { profileFromSettings } from "../../features/profiles/api";
 import type { HuntProfile, SettingsPayload } from "../../features/profiles/types";
 import { recordProfileSnapshot } from "../../features/memory/versionLedger";
@@ -165,8 +166,8 @@ export function AppShell() {
         searchRef.current?.focus();
         return;
       }
-      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
-      if (isTypingTarget(event.target)) return;
+      if (event.defaultPrevented || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (isTypingTarget(event.target) || isInOverlay(event.target)) return;
       if (event.key === "r" || event.key === "R") {
         event.preventDefault();
         if (!run.runDisabled) run.start();
@@ -265,10 +266,4 @@ function formatToday(): string {
     day: "numeric",
     month: "short",
   }).format(new Date());
-}
-
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable;
 }
