@@ -1,10 +1,11 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Meter } from "../../shared/ui/Meter";
 import { Score } from "../../shared/ui/Score";
 import { Tag } from "../../shared/ui/Tag";
 import { ROUTES } from "../../routes";
 import { SourceBadge } from "../queue/SourceBadge";
 import { StatusChip } from "../queue/StatusChip";
+import { useShortcuts } from "../../shared/useShortcuts";
 import type { JobRecord } from "../queue/types";
 
 interface PacketSpecProps {
@@ -18,6 +19,8 @@ interface PacketSpecProps {
  *           and only for allowed sources.
  */
 export function PacketSpec({ job }: PacketSpecProps) {
+  const navigate = useNavigate();
+  useShortcuts({ escape: () => navigate(`${ROUTES.queue}/${encodeURIComponent(job.source_id)}`) });
   const score = toTen(job.score);
 
   return (
@@ -79,8 +82,8 @@ export function PacketSpec({ job }: PacketSpecProps) {
       <p className="packet-spec__label">Match score</p>
       <div className="match-row">
         <span className="match-row__label">Overall</span>
-        <Meter value={(score ?? 0) / 10} label="Overall match" />
-        <span className="match-row__value">{score === null ? "—" : score.toFixed(1)}</span>
+        <Meter value={score === null ? null : score / 10} label="Overall match" />
+        {score === null ? <span className="match-row__value" aria-hidden="true">—</span> : null}
       </div>
 
       <p className="packet-spec__label">Company note</p>
