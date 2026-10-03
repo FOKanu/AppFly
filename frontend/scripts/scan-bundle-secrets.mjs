@@ -6,11 +6,11 @@
  */
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "..");
-const distRoot = process.argv[2] ? join(process.cwd(), process.argv[2]) : join(root, "dist");
+const distRoot = process.argv[2] ? resolve(process.cwd(), process.argv[2]) : join(root, "dist");
 
 /** Patterns that must never appear in a shipped renderer bundle. */
 const FORBIDDEN = [
