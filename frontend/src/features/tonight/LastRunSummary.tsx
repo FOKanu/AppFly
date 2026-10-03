@@ -10,13 +10,11 @@ export interface FunnelTotals {
   applied?: number;
 }
 
-/** Writer token usage for the run, split by backend. */
+/** Writer token usage for the run (Gemini is the only writer). */
 export interface WriterUsage {
   mode?: string;
   cloudLabel?: string;
   cloudTokens?: number;
-  localLabel?: string;
-  localTokens?: number;
 }
 
 interface LastRunSummaryProps {
@@ -69,24 +67,9 @@ export function LastRunSummary({ funnel, writer, refusals }: LastRunSummaryProps
           <span className="run-summary__rule" />
           <span className="run-summary__value">{formatTokens(totalTokens(writer))}</span>
         </div>
-        <div
-          className="writer-split"
-          data-empty={totalTokens(writer) === undefined}
-          role="img"
-          aria-label={`Writer token split, ${formatTokens(writer.cloudTokens)} cloud and ${formatTokens(writer.localTokens)} local`}
-        >
-          <span
-            className="writer-split__cloud"
-            style={{ width: `${splitPercent(writer)}%` }}
-          />
-          <span className="writer-split__local" />
-        </div>
         <p className="run-summary__legend">
           <span>
-            {writer.cloudLabel ?? "gemini-flash"} · {formatTokens(writer.cloudTokens)}
-          </span>
-          <span>
-            {writer.localLabel ?? "llama3.1:8b"} · {formatTokens(writer.localTokens)}
+            {writer.cloudLabel ?? "Gemini"} · {formatTokens(writer.cloudTokens)}
           </span>
         </p>
       </section>
@@ -138,14 +121,7 @@ function FunnelRow({
 }
 
 function totalTokens(writer: WriterUsage): number | undefined {
-  if (writer.cloudTokens === undefined && writer.localTokens === undefined) return undefined;
-  return (writer.cloudTokens ?? 0) + (writer.localTokens ?? 0);
-}
-
-function splitPercent(writer: WriterUsage): number {
-  const total = totalTokens(writer);
-  if (!total) return 0;
-  return Math.round(((writer.cloudTokens ?? 0) / total) * 100);
+  return writer.cloudTokens;
 }
 
 function formatTokens(value: number | undefined): string {
