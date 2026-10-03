@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -118,6 +118,8 @@ describe("QueuePage", () => {
   it("A approves the selected job", async () => {
     renderQueue();
     await screen.findAllByTestId("job-row");
+    // Let React flush the effect that registers the shortcut listener before pressing the key.
+    await act(async () => {});
     fireEvent.keyDown(window, { key: "a" });
     await waitFor(() =>
       expect(within(screen.getByTestId("queue-detail")).getByTestId("status-chip")).toHaveAttribute("data-status", "approved"),
@@ -127,6 +129,7 @@ describe("QueuePage", () => {
   it("D skips the selected job", async () => {
     renderQueue();
     await screen.findAllByTestId("job-row");
+    await act(async () => {});
     fireEvent.keyDown(window, { key: "d" });
     await waitFor(() =>
       expect(within(screen.getByTestId("queue-detail")).getByTestId("status-chip")).toHaveAttribute("data-status", "skipped"),
@@ -136,6 +139,7 @@ describe("QueuePage", () => {
   it("E opens the selected job's packet", async () => {
     renderQueue();
     await screen.findAllByTestId("job-row");
+    await act(async () => {});
     fireEvent.keyDown(window, { key: "e" });
     expect(await screen.findByText("packet-route")).toBeInTheDocument();
   });
@@ -163,6 +167,33 @@ describe("QueuePage", () => {
     fireEvent.keyDown(window, { key: "A", shiftKey: true });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(false);
+  });
+
+  it("an unscored job's match card does not claim 0 %", async () => {
+    const user = userEvent.setup();
+    renderQueue();
+    await screen.findAllByTestId("job-row");
+    await user.click(screen.getByRole("button", { name: /Backend Engineer \(Rust\)/ }));
+    const detail = screen.getByTestId("queue-detail");
+    expect(within(detail).queryByRole("meter", { name: "Overall match" })).not.toBeInTheDocument();
+    expect(within(detail).getByRole("img", { name: "Overall match: not scored" })).toBeInTheDocument();
+    expect(detail).not.toHaveTextContent("Skills overlap");
+  });
+
+  it("a scored job's match card shows one overall meter and no invented filter ticks", async () => {
+    const user = userEvent.setup();
+    renderQueue();
+    await screen.findAllByTestId("job-row");
+    await user.click(screen.getByRole("button", { name: /Engineering Manager, Search/ }));
+    const detail = screen.getByTestId("queue-detail");
+    expect(within(detail).getAllByRole("meter")).toHaveLength(1);
+    expect(within(detail).getByRole("meter", { name: "Overall match" })).toBeInTheDocument();
+    expect(detail).not.toHaveTextContent("Seniority");
+    expect(detail).not.toHaveTextContent("✓ salary floor");
+    expect(detail).toHaveTextContent("Per-listing results are not shown yet.");
+    expect(detail).toHaveTextContent("must-have terms");
+    expect(within(detail).getByRole("tab", { name: "Match" })).toBeInTheDocument();
+    expect(within(detail).queryByRole("tab", { name: "Match breakdown" })).not.toBeInTheDocument();
   });
 
   it("one failed job reads 1 of 1 job", async () => {

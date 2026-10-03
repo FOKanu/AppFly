@@ -26,7 +26,7 @@ describe("FunnelSummary", () => {
   });
 
   it("gives the empty dash an accessible name", () => {
-    render(<FunnelSummary funnel={zero} />);
+    render(<FunnelSummary funnel={zero} loaded />);
     expect(screen.getAllByRole("img", { name: "no data" })).toHaveLength(5);
   });
 
@@ -42,5 +42,20 @@ describe("FunnelSummary", () => {
     expect(screen.queryByText(/No runs in the last/)).not.toBeInTheDocument();
     rerender(<FunnelSummary funnel={{ ...zero, scouted: 4 }} loaded />);
     expect(screen.queryByText(/No runs in the last/)).not.toBeInTheDocument();
+  });
+
+  it("says loading before the data arrives", () => {
+    render(<FunnelSummary funnel={zero} />);
+    expect(screen.getAllByRole("img", { name: "loading" })).toHaveLength(5);
+  });
+
+  it("names the rate dashes", () => {
+    render(<FunnelSummary funnel={zero} loaded />);
+    expect(screen.getAllByRole("img", { name: "no rate" })).toHaveLength(5);
+  });
+
+  it("draws no meters while the funnel is empty", () => {
+    render(<FunnelSummary funnel={zero} loaded />);
+    expect(screen.queryAllByRole("meter")).toHaveLength(0);
   });
 });
