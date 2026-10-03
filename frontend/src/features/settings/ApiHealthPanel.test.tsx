@@ -9,7 +9,6 @@ describe("ApiHealthPanel", () => {
       <ApiHealthPanel
         health={{
           geminiFlash: unknown,
-          ollama: unknown,
           arbeitsagentur: unknown,
           apify: unknown,
           minilm: unknown,
