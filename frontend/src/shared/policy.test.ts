@@ -1,11 +1,12 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { BANNED_HOSTS } from "./policy";
+import { fileURLToPath } from "node:url";
+import { BANNED_BRANDS, BANNED_HOSTS } from "./policy";
 
 describe("policy", () => {
   it("BANNED_HOSTS mirrors policy.py DENIED_ROOT_DOMAINS", () => {
-    const backendPolicyPath = resolve(process.cwd(), "../backend/src/jobhunt/policy.py");
+    const backendPolicyPath = fileURLToPath(new URL("../../../backend/src/jobhunt/policy.py", import.meta.url));
     const policyContent = readFileSync(backendPolicyPath, "utf-8");
 
     // Find the DENIED_ROOT_DOMAINS section
@@ -21,8 +22,8 @@ describe("policy", () => {
   });
 
   it("pages use the shared list", () => {
-    const workflowPath = resolve(process.cwd(), "src/features/workflow/WorkflowPage.tsx");
-    const profilePath = resolve(process.cwd(), "src/features/profiles/ProfileRequirements.tsx");
+    const workflowPath = fileURLToPath(new URL("../features/workflow/WorkflowPage.tsx", import.meta.url));
+    const profilePath = fileURLToPath(new URL("../features/profiles/ProfileRequirements.tsx", import.meta.url));
 
     const workflowContent = readFileSync(workflowPath, "utf-8");
     const profileContent = readFileSync(profilePath, "utf-8");
@@ -32,5 +33,10 @@ describe("policy", () => {
 
     expect(profileContent).not.toMatch(/const BANNED_HOSTS\s*=/);
     expect(profileContent).toContain("shared/policy");
+  });
+
+  it("BANNED_BRANDS names every banned host by brand", () => {
+    expect([...BANNED_BRANDS]).toEqual(["LinkedIn", "Indeed", "Stepstone", "ZipRecruiter", "Xing", "Glassdoor", "Wellfound (AngelList)"]);
+    for (const brand of BANNED_BRANDS) expect(brand).not.toContain(".");
   });
 });
