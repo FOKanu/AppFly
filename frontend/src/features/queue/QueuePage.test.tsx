@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -112,5 +112,54 @@ describe("QueuePage", () => {
     await user.click(screen.getByRole("checkbox", { name: "Select Engineering Manager, Search" }));
     await user.click(within(screen.getByTestId("job-list")).getByRole("button", { name: /^Approve/ }));
     expect(await screen.findByText(/Could not save 2 of 2 jobs\./)).toBeInTheDocument();
+  });
+
+  it("A approves the selected job", async () => {
+    renderQueue();
+    await screen.findAllByTestId("job-row");
+    fireEvent.keyDown(window, { key: "a" });
+    await waitFor(() =>
+      expect(within(screen.getByTestId("queue-detail")).getByTestId("status-chip")).toHaveAttribute("data-status", "approved"),
+    );
+  });
+
+  it("D skips the selected job", async () => {
+    renderQueue();
+    await screen.findAllByTestId("job-row");
+    fireEvent.keyDown(window, { key: "d" });
+    await waitFor(() =>
+      expect(within(screen.getByTestId("queue-detail")).getByTestId("status-chip")).toHaveAttribute("data-status", "skipped"),
+    );
+  });
+
+  it("E opens the selected job's packet", async () => {
+    renderQueue();
+    await screen.findAllByTestId("job-row");
+    fireEvent.keyDown(window, { key: "e" });
+    expect(await screen.findByText("packet-route")).toBeInTheDocument();
+  });
+
+  it("Shift+A approves the checked jobs", async () => {
+    vi.stubGlobal("fetch", vi.fn((_url: unknown, init?: RequestInit) =>
+      init?.method === "PATCH"
+        ? Promise.resolve(new Response(JSON.stringify({ detail: "boom" }), { status: 500 }))
+        : Promise.reject(new Error("offline")),
+    ));
+    const user = userEvent.setup();
+    renderQueue();
+    await screen.findAllByTestId("job-row");
+    await user.click(screen.getByRole("checkbox", { name: "Select ML Platform Engineer" }));
+    await user.click(screen.getByRole("checkbox", { name: "Select Engineering Manager, Search" }));
+    fireEvent.keyDown(document.activeElement ?? window, { key: "A", shiftKey: true });
+    expect(await screen.findByText(/2 of 2 jobs/)).toBeInTheDocument();
+  });
+
+  it("Shift+A does nothing with nothing checked", async () => {
+    const fetchMock = vi.fn((_url: unknown, _init?: RequestInit) => Promise.reject(new Error("offline")));
+    vi.stubGlobal("fetch", fetchMock);
+    renderQueue();
+    await screen.findAllByTestId("job-row");
+    fireEvent.keyDown(window, { key: "A", shiftKey: true });
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(false);
   });
 });

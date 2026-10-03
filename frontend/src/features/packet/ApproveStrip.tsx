@@ -1,4 +1,5 @@
 import { Button } from "../../shared/ui/Button";
+import { useShortcuts } from "../../shared/useShortcuts";
 import type { JobRecord, JobStatus } from "../queue/types";
 
 interface ApproveStripProps {
@@ -14,6 +15,11 @@ interface ApproveStripProps {
  * Does not: submit the application. The person applies in their own browser.
  */
 export function ApproveStrip({ job, busy, feedback, onStatus }: ApproveStripProps) {
+  useShortcuts(
+    { a: () => onStatus("approved"), d: () => onStatus("skipped") },
+    !busy && job.status !== "applied",
+  );
+
   return (
     <section className="approve-strip" data-testid="packet-actions">
       <span className="approve-strip__dot" aria-hidden="true" />

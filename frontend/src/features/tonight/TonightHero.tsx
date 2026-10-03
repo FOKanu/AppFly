@@ -1,5 +1,6 @@
 import { Button } from "../../shared/ui/Button";
 import { id5 } from "../../shared/run/format";
+import { useShortcuts } from "../../shared/useShortcuts";
 import type { Run } from "./types";
 
 interface TonightHeroProps {
@@ -22,6 +23,8 @@ export function TonightHero({
   onOpenHome,
   onReviewDrafts,
 }: TonightHeroProps) {
+  useShortcuts({ "g q": onReviewDrafts });
+
   return (
     <header className="tonight-hero">
       <div className="tonight-hero__col">

@@ -1,4 +1,4 @@
-import { render, screen, within, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -45,6 +45,30 @@ describe("PacketPage", () => {
     const actions = screen.getByTestId("packet-actions");
     expect(within(actions).getByText(/local AppFly store/)).toBeInTheDocument();
     expect(actions.textContent).not.toMatch(/vault/i);
+  });
+
+  it("A approves the packet", async () => {
+    renderPacket("agentur-ref-88112");
+    await screen.findByRole("heading", { name: "Staff Platform Engineer" });
+    fireEvent.keyDown(window, { key: "a" });
+    expect(await screen.findByText(/Marked approved/)).toBeInTheDocument();
+    expect(screen.getByTestId("status-chip")).toHaveAttribute("data-status", "approved");
+  });
+
+  it("D denies the packet", async () => {
+    renderPacket("agentur-ref-88112");
+    await screen.findByRole("heading", { name: "Staff Platform Engineer" });
+    fireEvent.keyDown(window, { key: "d" });
+    expect(await screen.findByText(/Marked skipped/)).toBeInTheDocument();
+  });
+
+  it("A does nothing on an applied packet", async () => {
+    renderPacket("agentur-ref-22091");
+    await screen.findByRole("heading", { name: "Data Engineer" });
+    fireEvent.keyDown(window, { key: "a" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByText(/Marked approved/)).not.toBeInTheDocument();
+    expect(screen.getByTestId("status-chip")).toHaveAttribute("data-status", "applied");
   });
 
   it("approves and skips via PATCH status", async () => {
@@ -147,5 +171,20 @@ describe("PacketPage", () => {
     await user.click(screen.getByRole("button", { name: "Regenerate letter" }));
     await waitFor(() => expect(panel).toHaveTextContent("gemini-y"));
     expect(panel).not.toHaveTextContent("Gemini (model unknown)");
+  });
+
+  it("Esc goes back to the queue", async () => {
+    renderPacket("agentur-ref-88112");
+    await screen.findByRole("heading", { name: "Staff Platform Engineer" });
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(await screen.findByText("queue-route")).toBeInTheDocument();
+  });
+
+  it("Esc in the letter editor stays on the packet", async () => {
+    renderPacket("agentur-ref-88112");
+    await screen.findByRole("heading", { name: "Staff Platform Engineer" });
+    fireEvent.keyDown(screen.getByLabelText("Your edit of the application letter"), { key: "Escape" });
+    expect(screen.queryByText("queue-route")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Staff Platform Engineer" })).toBeInTheDocument();
   });
 });
