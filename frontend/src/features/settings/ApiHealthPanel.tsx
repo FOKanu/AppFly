@@ -6,7 +6,7 @@ export type ApiHealthPanelProps = {
 };
 
 const ROWS: { key: keyof SettingsView["health"]; label: string; role: string }[] = [
-  { key: "geminiFlash", label: "Gemini Flash", role: "writer · cloud letters (only writer)" },
+  { key: "geminiFlash", label: "Gemini", role: "writer · cover letters (only writer)" },
   { key: "arbeitsagentur", label: "Arbeitsagentur API", role: "scout · official job search API" },
   { key: "apify", label: "Apify", role: "company / Impressum pages only" },
   { key: "minilm", label: "MiniLM embeddings", role: "match · runs locally, no network" },

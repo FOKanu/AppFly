@@ -88,4 +88,12 @@ describe("PacketPage", () => {
     expect(screen.queryByText("Couldn't load Packet")).not.toBeInTheDocument();
     expect(screen.getByTestId("status-chip")).toHaveAttribute("data-status", "draft");
   });
+
+  it("names the letter's real model, not a hardcoded one", async () => {
+    renderPacket("agentur-ref-88112");
+    await screen.findByRole("heading", { name: "Staff Platform Engineer" });
+    const panel = screen.getByTestId("letter-panel");
+    expect(panel).toHaveTextContent("Gemini (model unknown)");
+    expect(panel.textContent).not.toMatch(/gemini-3\.8-flash/);
+  });
 });
