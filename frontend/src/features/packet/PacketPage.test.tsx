@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -110,5 +110,42 @@ describe("PacketPage", () => {
     const meter = screen.getByRole("meter", { name: "Overall match" });
     expect(meter).not.toHaveAttribute("aria-valuenow");
     expect(meter).toHaveAttribute("aria-valuetext", "Not scored");
+  });
+
+  it("the packet prints the score once", async () => {
+    renderPacket("agentur-ref-88112");
+    await screen.findByRole("heading", { name: "Staff Platform Engineer" });
+    expect(screen.getAllByText("8.6")).toHaveLength(1);
+    expect(screen.getByRole("meter", { name: "Overall match" })).toHaveAttribute("aria-valuenow", "86");
+  });
+
+  it("names the model from the letter API, then from regenerate", async () => {
+    const live = {
+      source_id: "live-1",
+      source: "agentur",
+      title: "Live Platform Engineer",
+      company: "Livewerk",
+      status: "draft",
+      score: 0.8,
+      letter_excerpt: "Excerpt",
+      crawl_allowed: true,
+    };
+    const json = (body: unknown) =>
+      Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", vi.fn((url: unknown, init?: RequestInit) => {
+      const path = String(url);
+      if (path.endsWith("/jobs/live-1/letter/regenerate") && init?.method === "POST") return json({ body: "Regenerated body", model: "gemini-y" });
+      if (path.endsWith("/jobs/live-1/letter")) return json({ body: "Stored body", model: "gemini-x" });
+      if (path.endsWith("/jobs/live-1")) return json(live);
+      return Promise.reject(new Error("offline"));
+    }));
+    const user = userEvent.setup();
+    renderPacket("live-1");
+    await screen.findByRole("heading", { name: "Live Platform Engineer" });
+    const panel = screen.getByTestId("letter-panel");
+    await waitFor(() => expect(panel).toHaveTextContent("gemini-x"));
+    await user.click(screen.getByRole("button", { name: "Regenerate letter" }));
+    await waitFor(() => expect(panel).toHaveTextContent("gemini-y"));
+    expect(panel).not.toHaveTextContent("Gemini (model unknown)");
   });
 });
