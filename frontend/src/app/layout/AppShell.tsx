@@ -22,9 +22,7 @@ import { Sidebar } from "./Sidebar";
 import { RunContext } from "../../shared/run/RunContext";
 import { id5 } from "../../shared/run/format";
 import { useRunController } from "../../shared/run/useRunController";
-
-/** App version printed under the brand mark. */
-const APP_VERSION = "0.4.2";
+import { APP_VERSION } from "../../shared/appVersion";
 
 /** Statuses that count toward the Queue badge. */
 const ACTIVE_QUEUE = new Set(["inbox", "shortlist", "draft", "approved"]);

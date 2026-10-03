@@ -31,6 +31,7 @@ export function QueuePage() {
   const [jobs, setJobs] = useState<JobRecord[]>([]);
   const [usingMock, setUsingMock] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
   const [filters, setFilters] = useState<QueueFilterState>(EMPTY_FILTERS);
   const [view, setView] = useState<QueueView>("list");
@@ -109,6 +110,7 @@ export function QueuePage() {
 
   const setStatus = useCallback(
     async (job: JobRecord, status: JobStatus) => {
+      setSaveError(null);
       const previous = job.status;
       setJobs((current) =>
         current.map((row) => (row.source_id === job.source_id ? { ...row, status } : row)),
@@ -116,8 +118,15 @@ export function QueuePage() {
       setUndo({ title: job.title, status, sourceId: job.source_id, previous });
       try {
         await patchJobStatus(job.source_id, status);
-      } catch {
-        setError(`Could not save ${job.title} as ${status}.`);
+      } catch (err: unknown) {
+        setJobs((current) =>
+          current.map((row) =>
+            row.source_id === job.source_id && row.status === status ? { ...row, status: previous } : row,
+          ),
+        );
+        setUndo(null);
+        const failure = asFailure(err);
+        setSaveError(`Could not save ${job.title} as ${status}. ${failure?.message ?? ""}`.trim());
       }
     },
     [],
@@ -126,6 +135,7 @@ export function QueuePage() {
   const onUndo = useCallback(async () => {
     if (!undo) return;
     const job = jobs.find((row) => row.source_id === undo.sourceId);
+    setSaveError(null);
     setUndo(null);
     if (!job) return;
     setJobs((current) =>
@@ -135,8 +145,13 @@ export function QueuePage() {
     );
     try {
       await patchJobStatus(undo.sourceId, undo.previous);
-    } catch {
-      setError(`Could not undo ${job.title}.`);
+    } catch (err: unknown) {
+      setJobs((current) =>
+        current.map((row) =>
+          row.source_id === undo.sourceId && row.status === undo.previous ? { ...row, status: undo.status } : row,
+        ),
+      );
+      setSaveError(`Could not undo ${job.title}. ${asFailure(err)?.message ?? ""}`.trim());
     }
   }, [undo, jobs]);
 
@@ -156,6 +171,12 @@ export function QueuePage() {
       {error ? (
         <Banner tone="danger" title="Couldn't load Queue" role="alert">
           {error}
+        </Banner>
+      ) : null}
+
+      {saveError ? (
+        <Banner tone="danger" title="Couldn't save" role="alert">
+          {saveError}
         </Banner>
       ) : null}
 

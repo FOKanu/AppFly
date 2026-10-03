@@ -74,7 +74,6 @@ export function PacketSpec({ job }: PacketSpecProps) {
         <SpecRow label="Salary" value={job.salary} />
         <SpecRow label="Language" value={job.lang ? job.lang.toUpperCase() : undefined} />
         <SpecRow label="Posted" value={job.posted} />
-        <SpecRow label="Vault" value={`Jobs/${job.source_id}.md`} mono />
       </dl>
 
       <p className="packet-spec__label">
