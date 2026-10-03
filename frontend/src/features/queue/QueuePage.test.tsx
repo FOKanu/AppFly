@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -118,6 +118,8 @@ describe("QueuePage", () => {
   it("A approves the selected job", async () => {
     renderQueue();
     await screen.findAllByTestId("job-row");
+    // Let React flush the effect that registers the shortcut listener before pressing the key.
+    await act(async () => {});
     fireEvent.keyDown(window, { key: "a" });
     await waitFor(() =>
       expect(within(screen.getByTestId("queue-detail")).getByTestId("status-chip")).toHaveAttribute("data-status", "approved"),
@@ -127,6 +129,7 @@ describe("QueuePage", () => {
   it("D skips the selected job", async () => {
     renderQueue();
     await screen.findAllByTestId("job-row");
+    await act(async () => {});
     fireEvent.keyDown(window, { key: "d" });
     await waitFor(() =>
       expect(within(screen.getByTestId("queue-detail")).getByTestId("status-chip")).toHaveAttribute("data-status", "skipped"),
@@ -136,6 +139,7 @@ describe("QueuePage", () => {
   it("E opens the selected job's packet", async () => {
     renderQueue();
     await screen.findAllByTestId("job-row");
+    await act(async () => {});
     fireEvent.keyDown(window, { key: "e" });
     expect(await screen.findByText("packet-route")).toBeInTheDocument();
   });
