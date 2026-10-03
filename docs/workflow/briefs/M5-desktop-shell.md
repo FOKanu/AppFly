@@ -1,6 +1,6 @@
 # M5 — Desktop shell (Composer-owned)
 
-Status: implementing on `feat/desktop-shell` → PR into `integrate/mvp-v1`.
+Status: **landed** on `main` via mvp-v1 (#57, #61). The `prepare-resources` path bug (from M8 #60) was fixed in #63 (gaps-v1). Manual smoke below is still open.
 
 ## Decision
 
@@ -14,7 +14,7 @@ Status: implementing on `feat/desktop-shell` → PR into `integrate/mvp-v1`.
 - [x] CORS defaults include `http://127.0.0.1:5174` / `http://localhost:5174`
 - [x] Reuses native app-data paths (no new store root)
 - [x] No secrets / `VITE_GEMINI_API_KEY` in the shell
-- [ ] Manual smoke: `cd desktop && npm run update && npm run dev` → UI + API
+- [ ] Manual smoke: `cd desktop && npm run update && npm run dev` → UI + API (still open: user check on the Mac)
 
 ## Out of scope
 
