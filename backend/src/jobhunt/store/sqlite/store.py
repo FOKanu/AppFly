@@ -948,12 +948,18 @@ class SqliteStore:
         """
 
         errors_json = json.dumps(list(record.errors))
+        # Stage and write cap are only meaningful while a run is queued/running; cleared at the end.
+        is_active = record.status in ("queued", "running")
+        stage_value = record.stage if is_active else None
+        write_cap_value = record.write_cap if is_active else None
+
         self._conn.execute(
             """
             INSERT INTO runs (
                 id, status, started, finished, scouted, shortlisted, skipped,
-                written, write_skipped, errors_json, model, preview, trigger, owner, heartbeat, cancel_requested
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                written, write_skipped, errors_json, model, preview, trigger, owner, heartbeat, cancel_requested,
+                stage, write_cap
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 status = excluded.status,
                 started = excluded.started,
@@ -969,7 +975,9 @@ class SqliteStore:
                 trigger = excluded.trigger,
                 owner = excluded.owner,
                 heartbeat = excluded.heartbeat,
-                cancel_requested = excluded.cancel_requested
+                cancel_requested = excluded.cancel_requested,
+                stage = excluded.stage,
+                write_cap = excluded.write_cap
             """,
             (
                 record.id,
@@ -988,6 +996,8 @@ class SqliteStore:
                 record.owner,
                 record.heartbeat,
                 int(record.cancel_requested),
+                stage_value,
+                write_cap_value,
             ),
         )
         self._conn.commit()
@@ -1146,7 +1156,9 @@ class SqliteStore:
                     UPDATE runs SET
                         status = 'failed',
                         errors_json = ?,
-                        cancel_requested = 0
+                        cancel_requested = 0,
+                        stage = NULL,
+                        write_cap = NULL
                     WHERE id = ?
                     """,
                     (errors_json, run_id)
@@ -1244,6 +1256,10 @@ def _run_row_to_record(row: sqlite3.Row) -> RunRecord:
         errors = []
     if not isinstance(errors, list):
         errors = []
+    # stage/write_cap columns exist from schema v4 on; guard for rows read mid-migration.
+    keys = set(row.keys())
+    stage = str(row["stage"]) if "stage" in keys and row["stage"] else None
+    write_cap = int(row["write_cap"]) if "write_cap" in keys and row["write_cap"] is not None else None
     return RunRecord(
         id=str(row["id"]),
         status=str(row["status"] or "completed"),
@@ -1261,6 +1277,8 @@ def _run_row_to_record(row: sqlite3.Row) -> RunRecord:
         owner=str(row["owner"] or ""),
         heartbeat=str(row["heartbeat"] or ""),
         cancel_requested=bool(int(row["cancel_requested"] or 0)),
+        stage=stage,
+        write_cap=write_cap,
     )
 
 
