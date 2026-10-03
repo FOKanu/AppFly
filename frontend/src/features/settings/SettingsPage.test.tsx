@@ -28,7 +28,6 @@ function settingsPayload(stored: Stored, leak?: Record<string, unknown>) {
     },
     health: {
       geminiFlash: { status: "missing" },
-      ollama: { status: "unknown" },
       arbeitsagentur: { status: "unknown" },
       apify: { status: "unknown" },
       minilm: { status: "unknown" },
