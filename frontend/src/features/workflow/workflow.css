@@ -526,6 +526,7 @@
   background: var(--accent);
 }
 
+/* Flex spacer, not a divider. */
 .backend-row__rule {
   flex: 1 1 auto;
   min-width: 8px;
