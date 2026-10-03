@@ -1,5 +1,6 @@
 import { Meter } from "../../shared/ui/Meter";
 import { Tag } from "../../shared/ui/Tag";
+import { writerLabel } from "../../shared/writerLabel";
 import type { Run } from "./types";
 
 /** Cumulative funnel counts the Activity screen also reports. */
@@ -69,7 +70,7 @@ export function LastRunSummary({ funnel, writer, refusals }: LastRunSummaryProps
         </div>
         <p className="run-summary__legend">
           <span>
-            {writer.cloudLabel ?? "Gemini"} · {formatTokens(writer.cloudTokens)}
+            {writerLabel(writer.cloudLabel)} · {formatTokens(writer.cloudTokens)}
           </span>
         </p>
       </section>

@@ -24,6 +24,7 @@ import type { Run } from "./types";
 import "./workflow.css";
 
 import { BANNED_HOSTS } from "../../shared/policy";
+import { writerLabel } from "../../shared/writerLabel";
 
 /** Schedule and caps live in config.yaml but PUT /settings cannot reach them. */
 const SCHEDULE_NOTE =
@@ -194,7 +195,7 @@ export function WorkflowPage() {
             mode={writerMode}
             readOnlyReason={SCHEDULE_NOTE}
             tokenHistory={[]}
-            cloudLabel={writerModel ?? "Gemini (model unknown)"}
+            cloudLabel={writerLabel(writerModel)}
             fallbackNote={lastRun?.errors[0]}
           />
         </div>
