@@ -6,7 +6,6 @@ import { Score } from "../../shared/ui/Score";
 import { Tag } from "../../shared/ui/Tag";
 import { ROUTES } from "../../routes";
 import { useShortcuts } from "../../shared/useShortcuts";
-import { MatchScore } from "./MatchScore";
 import { SourceBadge } from "./SourceBadge";
 import { StatusChip } from "./StatusChip";
 import type { JobRecord } from "./types";
@@ -22,7 +21,7 @@ type QueueDetailProps = {
 };
 
 /** Tabs across the top of the detail pane. */
-const TABS = ["Overview", "Letter", "Match breakdown", "Company", "Vault note"] as const;
+const TABS = ["Overview", "Letter", "Match", "Company", "Vault note"] as const;
 type DetailTab = (typeof TABS)[number];
 
 /**
@@ -149,7 +148,7 @@ export function QueueDetail({
       </nav>
 
       <div className="queue-detail__panels">
-        {tab === "Overview" || tab === "Match breakdown" ? (
+        {tab === "Overview" || tab === "Match" ? (
           <MatchPanel job={job} />
         ) : null}
         {tab === "Overview" || tab === "Letter" || tab === "Company" || tab === "Vault note" ? (
@@ -214,43 +213,24 @@ export function QueueDetail({
 }
 
 function MatchPanel({ job }: { job: JobRecord }) {
-  // The API does not break the score down yet; show the axes with the overall
-  // score so the shape of the panel matches the design either way.
   const overall = toTen(job.score);
-  const axes = [
-    { label: "Skills overlap", value: overall },
-    { label: "Domain", value: overall },
-    { label: "Seniority", value: overall },
-    { label: `Language (${job.lang || "—"})`, value: overall },
-    { label: "Location", value: overall },
-  ];
 
   return (
     <section className="detail-card">
       <header className="detail-card__head">
         <h3 className="detail-card__title">Why it matched</h3>
-        <span className="detail-card__aside">
-          <MatchScore score={job.score} />
-        </span>
       </header>
 
-      {axes.map((axis) => (
-        <div className="match-row" key={axis.label}>
-          <span className="match-row__label">{axis.label}</span>
-          <Meter value={(axis.value ?? 0) / 10} label={axis.label} />
-          <span className="match-row__value">
-            {axis.value === null ? "—" : axis.value.toFixed(1)}
-          </span>
-        </div>
-      ))}
+      <div className="match-row">
+        <span className="match-row__label">Overall</span>
+        <Meter value={overall === null ? null : overall / 10} label="Overall match" />
+        {overall === null ? <span className="match-row__value" aria-hidden="true">—</span> : null}
+      </div>
 
       <p className="detail-card__label">Hard filters</p>
-      <div className="hard-filters">
-        <span className="hard-filter">✓ location</span>
-        <span className="hard-filter">✓ no banned terms</span>
-        <span className="hard-filter">✓ not on skip-list</span>
-        <span className="hard-filter">✓ salary floor</span>
-      </div>
+      <p className="detail-card__body">
+        Hard filters (skip-list, banned terms, location, salary floor) run during matching. Per-listing results are not shown yet.
+      </p>
 
       <p className="detail-card__label">Gaps</p>
       <p className="detail-card__body">No gap summary stored for this listing.</p>

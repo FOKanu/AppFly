@@ -162,4 +162,30 @@ describe("QueuePage", () => {
     fireEvent.keyDown(window, { key: "A", shiftKey: true });
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(false);
   });
+
+  it("an unscored job's match card does not claim 0 %", async () => {
+    const user = userEvent.setup();
+    renderQueue();
+    await screen.findAllByTestId("job-row");
+    await user.click(screen.getByRole("button", { name: /Backend Engineer \(Rust\)/ }));
+    const detail = screen.getByTestId("queue-detail");
+    expect(within(detail).queryByRole("meter", { name: "Overall match" })).not.toBeInTheDocument();
+    expect(within(detail).getByRole("img", { name: "Overall match: not scored" })).toBeInTheDocument();
+    expect(detail).not.toHaveTextContent("Skills overlap");
+  });
+
+  it("a scored job's match card shows one overall meter and no invented filter ticks", async () => {
+    const user = userEvent.setup();
+    renderQueue();
+    await screen.findAllByTestId("job-row");
+    await user.click(screen.getByRole("button", { name: /Engineering Manager, Search/ }));
+    const detail = screen.getByTestId("queue-detail");
+    expect(within(detail).getAllByRole("meter")).toHaveLength(1);
+    expect(within(detail).getByRole("meter", { name: "Overall match" })).toBeInTheDocument();
+    expect(detail).not.toHaveTextContent("Seniority");
+    expect(detail).not.toHaveTextContent("✓ salary floor");
+    expect(detail).toHaveTextContent("Per-listing results are not shown yet.");
+    expect(within(detail).getByRole("tab", { name: "Match" })).toBeInTheDocument();
+    expect(within(detail).queryByRole("tab", { name: "Match breakdown" })).not.toBeInTheDocument();
+  });
 });
