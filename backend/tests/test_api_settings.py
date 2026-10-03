@@ -6,6 +6,10 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
+from jobhunt.api.app import create_app
+from jobhunt.config import AppConfig
+from jobhunt.features.secrets.store import SecretStore
+
 
 FAKE_GEMINI_KEY = "AIzaSy-test-secret-key-x9Q2"
 FAKE_APIFY_TOKEN = "apify_api_TESTSECRETTOKEN_x9Q2"
@@ -98,3 +102,64 @@ def test_put_settings_rejects_denied_rss(api_client: TestClient) -> None:
     )
     assert response.status_code == 400
     assert "linkedin" in response.text.casefold()
+
+
+def test_get_settings_exposes_default_caps(api_client: TestClient) -> None:
+    """Test that GET /settings returns default values for caps."""
+    response = api_client.get("/settings")
+    assert response.status_code == 200
+    data = response.json()
+
+    # Check default values from AppConfig
+    assert data["letter_cap"] == AppConfig.model_fields["letter_cap"].default
+    assert data["shortlist_size"] == AppConfig.model_fields["shortlist_size"].default
+    assert data["gemini_model"] == AppConfig.model_fields["gemini_model"].default
+
+
+def test_get_settings_caps_follow_config_yaml(api_config: Path, secret_store: SecretStore) -> None:
+    """Test that GET /settings returns values from config.yaml."""
+    # Modify the config file
+    raw = yaml.safe_load(api_config.read_text(encoding="utf-8"))
+    raw["letter_cap"] = 3
+    raw["shortlist_size"] = 6
+    raw["gemini_model"] = "gemini-test-model"
+    api_config.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
+
+    # Create a new client with the updated config
+    updated_client = TestClient(
+        create_app(config_path=api_config, store=secret_store),
+        base_url="http://127.0.0.1",
+        headers={"X-AppFly": "1"},
+    )
+
+    response = updated_client.get("/settings")
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["letter_cap"] == 3
+    assert data["shortlist_size"] == 6
+    assert data["gemini_model"] == "gemini-test-model"
+
+
+def test_put_settings_rejects_caps(api_client: TestClient, api_config: Path) -> None:
+    """Test that PUT /settings rejects caps fields with 422."""
+    # Test letter_cap rejection
+    response = api_client.put("/settings", json={"letter_cap": 99})
+    assert response.status_code == 422
+
+    # Test shortlist_size rejection
+    response = api_client.put("/settings", json={"shortlist_size": 99})
+    assert response.status_code == 422
+
+    # Test gemini_model rejection
+    response = api_client.put("/settings", json={"gemini_model": "x"})
+    assert response.status_code == 422
+
+    # Verify that the config is unchanged
+    response = api_client.get("/settings")
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["letter_cap"] == AppConfig.model_fields["letter_cap"].default
+    assert data["shortlist_size"] == AppConfig.model_fields["shortlist_size"].default
+    assert data["gemini_model"] == AppConfig.model_fields["gemini_model"].default
