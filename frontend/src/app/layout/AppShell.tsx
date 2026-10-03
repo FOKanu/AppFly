@@ -29,7 +29,6 @@ const ACTIVE_QUEUE = new Set(["inbox", "shortlist", "draft", "approved"]);
 
 const STUB_STATUS: SystemStatusResponse = {
   ipc: "unknown",
-  ollama: "unknown",
   gemini: "unknown",
   vaultPath: "\u2014",
 };
@@ -104,8 +103,6 @@ export function AppShell() {
         const profile = profileFromSettings(settings);
         setStatus((prev) => ({
           ...prev,
-          ollama: "unknown",
-          ollamaDetail: "not probed",
           gemini: settings.secrets.gemini ? "ok" : "down",
           geminiDetail: settings.secrets.gemini ? "key set" : "no key",
           vaultPath: settings.vault_path || "\u2014",

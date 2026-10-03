@@ -69,7 +69,6 @@ export function Sidebar({
 
         <div className="sidebar__status">
           <StatusRow label="Local IPC" health={status.ipc} value={ipcValue(status.ipc)} />
-          <StatusRow label="Ollama" health={status.ollama} value={status.ollamaDetail} />
           <StatusRow label="Gemini" health={status.gemini} value={status.geminiDetail} />
           <p className="sidebar__status-path" title={status.vaultPath}>
             {status.vaultPath || "—"}
