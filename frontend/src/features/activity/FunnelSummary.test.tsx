@@ -34,4 +34,13 @@ describe("FunnelSummary", () => {
     render(<FunnelSummary funnel={{ ...zero, scouted: 5, jobs: { ...jobs, applied: 12 } }} />);
     expect(screen.getAllByRole("meter")).toHaveLength(3);
   });
+
+  it("says when the API has no runs in the window", () => {
+    const { rerender } = render(<FunnelSummary funnel={zero} loaded />);
+    expect(screen.getByText("No runs in the last 30 days.")).toBeInTheDocument();
+    rerender(<FunnelSummary funnel={zero} />);
+    expect(screen.queryByText(/No runs in the last/)).not.toBeInTheDocument();
+    rerender(<FunnelSummary funnel={{ ...zero, scouted: 4 }} loaded />);
+    expect(screen.queryByText(/No runs in the last/)).not.toBeInTheDocument();
+  });
 });

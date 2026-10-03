@@ -5,6 +5,8 @@ type FunnelSummaryProps = {
   funnel: FunnelView;
   /** Days the funnel covers, printed in the kicker. */
   windowDays?: number;
+  /** True once the data has loaded (so empty means "no runs", not "loading"). */
+  loaded?: boolean;
 };
 
 /** The five funnel stages, from what scout found to what you sent. */
@@ -22,7 +24,7 @@ const STAGES = [
  *          Approved/Applied are all-time vault counts (no dates in /jobs), so they get no rate.
  * Does not: start runs or list individual job packets.
  */
-export function FunnelSummary({ funnel, windowDays = 30 }: FunnelSummaryProps) {
+export function FunnelSummary({ funnel, windowDays = 30, loaded = false }: FunnelSummaryProps) {
   const values: Record<string, number> = {
     Scouted: funnel.scouted,
     Shortlisted: funnel.shortlisted,
@@ -32,6 +34,7 @@ export function FunnelSummary({ funnel, windowDays = 30 }: FunnelSummaryProps) {
   };
   const empty = Object.values(values).every((v) => !v);
   const top = values.Scouted || 0;
+  const noRuns = loaded && funnel.scouted + funnel.shortlisted + funnel.written === 0;
 
   return (
     <section className="activity-card" aria-labelledby="funnel-title">
@@ -39,6 +42,8 @@ export function FunnelSummary({ funnel, windowDays = 30 }: FunnelSummaryProps) {
       <h2 id="funnel-title" className="activity-card__title">
         Conversion funnel
       </h2>
+
+      {noRuns ? <p className="activity-card__empty">No runs in the last {windowDays} days.</p> : null}
 
       {STAGES.map((stage) => {
         const value = values[stage.label] ?? 0;
