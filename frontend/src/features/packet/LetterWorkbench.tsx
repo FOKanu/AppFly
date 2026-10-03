@@ -26,6 +26,8 @@ interface LetterWorkbenchProps {
   yourEdit?: string;
   onSave: (text: string) => void;
   onRegenerate: () => void;
+  /** True while a save or regenerate is in flight; disables both buttons. */
+  busy?: boolean;
 }
 
 /** Why the write controls were inert before letter PUT landed. */
@@ -42,6 +44,7 @@ export function LetterWorkbench({
   yourEdit,
   onSave,
   onRegenerate,
+  busy = false,
 }: LetterWorkbenchProps) {
   const [mode, setMode] = useState<LetterMode>("split");
   const [language, setLanguage] = useState<"EN" | "DE">("EN");
@@ -76,6 +79,7 @@ export function LetterWorkbench({
           aria-label="Regenerate letter"
           title="Regenerate with Gemini"
           onClick={onRegenerate}
+          disabled={busy}
         >
           ↻
         </button>
@@ -83,7 +87,7 @@ export function LetterWorkbench({
           <span className="letter__added">+{added}</span>{" "}
           <span className="letter__removed">−{removed}</span>
         </span>
-        <Button variant="primary" shortcut="⌘S" title={SAVE_HINT} onClick={() => onSave(text)}>
+        <Button variant="primary" shortcut="⌘S" title={SAVE_HINT} disabled={busy} onClick={() => onSave(text)}>
           Save letter
         </Button>
       </header>

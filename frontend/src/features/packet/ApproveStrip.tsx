@@ -22,10 +22,6 @@ export function ApproveStrip({ job, busy, feedback, onStatus }: ApproveStripProp
           Approving marks the packet ready in your vault. You still submit it yourself in the
           browser.
         </p>
-        <p className="approve-strip__paths">
-          writes status: approved → Jobs/{job.source_id}.md · letter → Letters/
-          {job.source_id}.md
-        </p>
         {feedback ? (
           <p className="approve-strip__feedback" data-testid="packet-feedback">
             {feedback}
