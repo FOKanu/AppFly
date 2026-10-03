@@ -3,21 +3,13 @@ import { TokenField } from "../../shared/ui/TokenField";
 import { CAPABILITIES, NOT_PERSISTED_NOTE } from "./api";
 import type { HuntProfile } from "./types";
 
+import { BANNED_HOSTS } from "../../shared/policy";
+
 interface ProfileRequirementsProps {
   profile: HuntProfile;
   onToggleSource: (key: "agentur" | "inbox", next: boolean) => void;
   savingSources: boolean;
 }
-
-/** Hosts `backend/src/jobhunt/policy.py` refuses. Read-only by design. */
-const BANNED_HOSTS = [
-  "linkedin.com",
-  "indeed.com",
-  "stepstone.de",
-  "ziprecruiter.de",
-  "xing.com",
-  "glassdoor.de",
-] as const;
 
 /**
  * Purpose: The guardrails around this profile — which sources the scout may
