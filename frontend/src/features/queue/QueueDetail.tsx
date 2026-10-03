@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../../shared/ui/Button";
 import { Meter } from "../../shared/ui/Meter";
 import { Score } from "../../shared/ui/Score";
 import { Tag } from "../../shared/ui/Tag";
 import { ROUTES } from "../../routes";
+import { useShortcuts } from "../../shared/useShortcuts";
 import { MatchScore } from "./MatchScore";
 import { SourceBadge } from "./SourceBadge";
 import { StatusChip } from "./StatusChip";
@@ -38,6 +39,21 @@ export function QueueDetail({
   onStep,
 }: QueueDetailProps) {
   const [tab, setTab] = useState<DetailTab>("Overview");
+  const navigate = useNavigate();
+  useShortcuts(
+    {
+      a: () => {
+        if (job) onApprove(job);
+      },
+      d: () => {
+        if (job) onDeny(job);
+      },
+      e: () => {
+        if (job) navigate(`${ROUTES.packet}/${encodeURIComponent(job.source_id)}`);
+      },
+    },
+    Boolean(job),
+  );
 
   if (!job) {
     return (
