@@ -1,3 +1,5 @@
+import { statusLabel } from "../../features/queue/types";
+
 /** The six job statuses the vault stores, in pipeline order. */
 export type JobStatusName =
   | "inbox"
@@ -9,7 +11,7 @@ export type JobStatusName =
 
 interface StatusChipProps {
   status: JobStatusName;
-  /** Override the label; defaults to the status name. */
+  /** Override the label; defaults to the readable status label ("Shortlist"). */
   label?: string;
   className?: string;
 }
@@ -23,7 +25,7 @@ export function StatusChip({ status, label, className }: StatusChipProps) {
   return (
     <span className={classes} data-status={status}>
       <span className="status-chip__dot" aria-hidden="true" />
-      {label ?? status}
+      {label ?? statusLabel(status)}
     </span>
   );
 }
