@@ -41,8 +41,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[dev,extract]"
       
+      - name: Lint (ruff, classic rules from pyproject)
+        run: |
+          pip install ruff==0.16.10
+          ruff check .
+
       - name: Run tests
         run: pytest
         # Tests use temp paths and in-memory keychains (see conftest.py)
@@ -74,7 +79,37 @@ jobs:
         run: npm test
         # Vitest + Testing Library (F3). Does not hit live APIs or crawl boards.
       
-      - name: Build (includes type-checking)
-        run: npm run build
-        # Build script: "tsc --noEmit && vite build"
-        # This catches TypeScript errors and ensures production build succeeds
+      - name: Build + bundle secret scan
+        run: npm run build:secure
+        # build:secure = tsc --noEmit && vite build && scan-bundle-secrets (M8)
+        # Catches TypeScript errors, build failures, and secret-shaped tokens in dist/
+
+  desktop:
+    name: Desktop (prepare-resources)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: |
+            frontend/package-lock.json
+            desktop/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Install desktop dependencies
+        run: npm ci
+        working-directory: desktop
+
+      - name: Prepare resources
+        # Builds the UI into desktop/.ui-dist and runs the bundle secret scan; Neutralino binaries are not needed.
+        run: npm run prepare-resources
+        working-directory: desktop
