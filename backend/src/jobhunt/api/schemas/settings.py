@@ -82,7 +82,7 @@ class SettingsResponse(BaseModel):
 
     Purpose: Safe snapshot of config.yaml plus health and secret presence.
     Inputs: AppConfig + vault paths + store presence.
-    Returns: Editable settings and boolean flags.
+    Returns: Editable settings, boolean flags, and read-only run limits (letter_cap, shortlist_size, gemini_model).
     Does not: Include GEMINI_API_KEY, Apify tokens, or last-4 digits.
     """
 
@@ -94,6 +94,10 @@ class SettingsResponse(BaseModel):
     sources: SourcesPublic
     health: HealthFlags
     secrets: SecretFlags
+    # Read-only run limits from config.yaml (defaults in AppConfig); not writable via PUT /settings.
+    letter_cap: int
+    shortlist_size: int
+    gemini_model: str
 
 
 class SourcesUpdate(BaseModel):
