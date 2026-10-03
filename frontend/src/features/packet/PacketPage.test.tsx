@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -41,6 +41,10 @@ describe("PacketPage", () => {
     expect(screen.getByText("Match score")).toBeInTheDocument();
     expect(screen.queryByText(/Match breakdown/)).not.toBeInTheDocument();
     expect(screen.queryByText("Seniority")).not.toBeInTheDocument();
+
+    const actions = screen.getByTestId("packet-actions");
+    expect(within(actions).getByText(/local AppFly store/)).toBeInTheDocument();
+    expect(actions.textContent).not.toMatch(/vault/i);
   });
 
   it("approves and skips via PATCH status", async () => {
