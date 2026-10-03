@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { NeedsYou } from "./NeedsYou";
+import { TonightHero } from "./TonightHero";
 import type { Job } from "./types";
 
 const draft: Job = { source_id: "j1", source: "api", title: "Platform Engineer", company: "Acme", status: "draft" };
@@ -54,5 +55,13 @@ describe("Tonight keyboard shortcuts", () => {
     const { onApprove } = renderNeedsYou({ drafts: [] });
     fireEvent.keyDown(window, { key: "a" });
     expect(onApprove).not.toHaveBeenCalled();
+  });
+
+  it("G then Q reviews drafts", () => {
+    const onReviewDrafts = vi.fn();
+    render(<TonightHero run={null} draftCount={1} refusalCount={null} onOpenHome={vi.fn()} onReviewDrafts={onReviewDrafts} />);
+    fireEvent.keyDown(window, { key: "g" });
+    fireEvent.keyDown(window, { key: "q" });
+    expect(onReviewDrafts).toHaveBeenCalledTimes(1);
   });
 });
