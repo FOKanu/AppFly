@@ -1,4 +1,5 @@
 import { Button } from "../../shared/ui/Button";
+import { useShortcuts } from "../../shared/useShortcuts";
 import { JobRow } from "./JobRow";
 import type { JobRecord } from "./types";
 
@@ -28,6 +29,8 @@ export function JobList({
   onApproveChecked,
   onSkipChecked,
 }: JobListProps) {
+  useShortcuts({ "shift+a": onApproveChecked, "shift+d": onSkipChecked }, checkedIds.size > 0);
+
   const drafts = jobs.filter((job) => job.status === "draft");
   const others = jobs.filter((job) => job.status !== "draft");
 
