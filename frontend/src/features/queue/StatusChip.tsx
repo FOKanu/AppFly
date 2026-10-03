@@ -1,4 +1,4 @@
-import type { JobStatus } from "./types";
+import { statusLabel, type JobStatus } from "./types";
 
 type StatusChipProps = {
   status: JobStatus;
@@ -12,7 +12,7 @@ export function StatusChip({ status }: StatusChipProps) {
   return (
     <span className="status-chip" data-testid="status-chip" data-status={status}>
       <span className="status-chip__dot" aria-hidden="true" />
-      {status}
+      {statusLabel(status)}
     </span>
   );
 }
