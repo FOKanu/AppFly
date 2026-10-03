@@ -112,9 +112,9 @@ Allowed automated ingest: Arbeitsagentur API, RSS on other hosts, public company
 
 ## Branching
 
-GitHub Flow: protect `main`. While an epic is open, **all** related changes (backend, frontend, docs) land on `integrate/<epic>` — from agents or collaborators — and reach `main` only through a Stage PR the user merges. Current epic: **`integrate/gaps-v1`** (opened 2026-10-03 from `main` @ `d9d7d15`). Full rules: [AGENTS.md](AGENTS.md) and `.cursor/rules/branch-strategy.mdc`.
+GitHub Flow: protect `main`. While an epic is open, **all** related changes (backend, frontend, docs) land on `integrate/<epic>` — from agents or collaborators — and reach `main` only through a Stage PR the user merges. Current epic: **`integrate/ui-honesty-v1`** (opened 2026-10-03 from `main` @ `460c14c`). Full rules: [AGENTS.md](AGENTS.md) and `.cursor/rules/branch-strategy.mdc`.
 
-Cut feature branches from `integrate/gaps-v1` and PR into it until it is merged; with no epic open, branch from `main`.
+Cut feature branches from `integrate/ui-honesty-v1` and PR into it until it is merged; with no epic open, branch from `main`.
 
 Agent roles: Grok plans and opens epics, an RTX 5090 local coder implements, Composer runs CI/smoke and merges, Claude is on call for UI design. See [docs/agents/](docs/agents/README.md) and [docs/workflow/MULTI_AGENT.md](docs/workflow/MULTI_AGENT.md).
 
