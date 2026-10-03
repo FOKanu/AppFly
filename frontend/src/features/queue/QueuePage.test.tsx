@@ -244,4 +244,41 @@ describe("QueuePage", () => {
     fireEvent.keyDown(document.activeElement ?? window, { key: "D", shiftKey: true });
     expect(await screen.findByText(/Could not move 1 of 1 job to Skipped\./)).toBeInTheDocument();
   });
+
+  it("a bulk move shows an undo toast that reverts every moved job", async () => {
+    const user = userEvent.setup();
+    renderQueue();
+    await screen.findAllByTestId("job-row");
+    await user.click(screen.getByRole("checkbox", { name: "Select ML Platform Engineer" }));
+    await user.click(screen.getByRole("checkbox", { name: "Select Engineering Manager, Search" }));
+    await user.click(within(screen.getByTestId("job-list")).getByRole("button", { name: /^Approve/ }));
+    expect(await screen.findByText("2 jobs → Approved")).toBeInTheDocument();
+    const chip = (id: string) =>
+      within(document.querySelector(`[data-source-id="${id}"]`) as HTMLElement).getByTestId("status-chip");
+    expect(chip("agentur-ref-77401")).toHaveAttribute("data-status", "approved");
+    await user.click(screen.getByRole("button", { name: /^Undo/ }));
+    await waitFor(() => expect(chip("agentur-ref-77401")).toHaveAttribute("data-status", "shortlist"));
+    expect(chip("inbox-clip-linkedin-4f2a")).toHaveAttribute("data-status", "shortlist");
+  });
+
+  it("the undo toast prints the readable status label", async () => {
+    const user = userEvent.setup();
+    renderQueue();
+    await screen.findAllByTestId("job-row");
+    await user.click(screen.getByRole("button", { name: /Approve packet/ }));
+    const label = await screen.findByText(/ → Approved$/);
+    expect(label).toHaveClass("undo-toast__label");
+    expect(screen.queryByText(/ → approved$/)).not.toBeInTheDocument();
+  });
+
+  it("⌘Z undoes the last move while the toast is up", async () => {
+    const user = userEvent.setup();
+    renderQueue();
+    await screen.findAllByTestId("job-row");
+    await user.click(screen.getByRole("button", { name: /Approve packet/ }));
+    const chip = () => within(screen.getByTestId("queue-detail")).getByTestId("status-chip");
+    expect(chip()).toHaveAttribute("data-status", "approved");
+    fireEvent.keyDown(window, { key: "z", metaKey: true });
+    await waitFor(() => expect(chip()).toHaveAttribute("data-status", "shortlist"));
+  });
 });
