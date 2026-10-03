@@ -127,4 +127,19 @@ describe("PacketPage", () => {
     expect(panel).toHaveTextContent("Gemini (model unknown)");
     expect(panel.textContent).not.toMatch(/gemini-3\.8-flash/);
   });
+
+  it("Esc goes back to the queue", async () => {
+    renderPacket("agentur-ref-88112");
+    await screen.findByRole("heading", { name: "Staff Platform Engineer" });
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(await screen.findByText("queue-route")).toBeInTheDocument();
+  });
+
+  it("Esc in the letter editor stays on the packet", async () => {
+    renderPacket("agentur-ref-88112");
+    await screen.findByRole("heading", { name: "Staff Platform Engineer" });
+    fireEvent.keyDown(screen.getByLabelText("Your edit of the application letter"), { key: "Escape" });
+    expect(screen.queryByText("queue-route")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Staff Platform Engineer" })).toBeInTheDocument();
+  });
 });

@@ -1,10 +1,11 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Meter } from "../../shared/ui/Meter";
 import { Score } from "../../shared/ui/Score";
 import { Tag } from "../../shared/ui/Tag";
 import { ROUTES } from "../../routes";
 import { SourceBadge } from "../queue/SourceBadge";
 import { StatusChip } from "../queue/StatusChip";
+import { useShortcuts } from "../../shared/useShortcuts";
 import type { JobRecord } from "../queue/types";
 
 interface PacketSpecProps {
@@ -18,6 +19,8 @@ interface PacketSpecProps {
  *           and only for allowed sources.
  */
 export function PacketSpec({ job }: PacketSpecProps) {
+  const navigate = useNavigate();
+  useShortcuts({ escape: () => navigate(`${ROUTES.queue}/${encodeURIComponent(job.source_id)}`) });
   const score = toTen(job.score);
 
   return (
