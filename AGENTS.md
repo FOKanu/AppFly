@@ -32,9 +32,9 @@ Names: lowercase, hyphens, no author names. Retarget `cursor/…` Cloud Agent de
 
 ### Live tip (avoid double work)
 
-- **No epic open.** Base PRs on `origin/main` (tip as of 2026-09-27: `5a5adc9`, mvp-v1 close / #61). `git fetch origin` before cutting a branch.
+- **Epic open: `integrate/gaps-v1`** (opened 2026-10-03 from `main` @ `d9d7d15`, which has #61 mvp-v1 + #62 Vitest). Cut branches from `origin/integrate/gaps-v1` and PR into it; `git fetch origin` first.
 - **Do not** reopen closed `cursor/*` or continue closed integrate feature PRs.
-- **Next:** F3 Vitest (`feat/ui-vitest-f3`) and remaining [FOLLOW_UPS](docs/design/FOLLOW_UPS.md). Sequence archive: [docs/workflow/MVP_SEQUENCE.md](docs/workflow/MVP_SEQUENCE.md).
+- **Next:** finish gaps-v1, then the open list in [FOLLOW_UPS](docs/design/FOLLOW_UPS.md) (UI honesty pass, user decisions, F1). Sequence archive: [docs/workflow/MVP_SEQUENCE.md](docs/workflow/MVP_SEQUENCE.md).
 - **5090 briefs:** slice large features; mandatory cloud check-in between slices. Rule: [`.cursor/rules/local-coder-bulk.mdc`](.cursor/rules/local-coder-bulk.mdc).
 - **Claude:** Mac install only (not Cursor Claude agent); richer context OK; check-in before coding. Rule: [`.cursor/rules/claude-handoff.mdc`](.cursor/rules/claude-handoff.mdc).
 
