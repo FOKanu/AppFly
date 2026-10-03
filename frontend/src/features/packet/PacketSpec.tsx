@@ -13,8 +13,7 @@ interface PacketSpecProps {
 
 /**
  * Purpose: Left pane of the packet — what the posting says, where it came from,
- *          and how it scored (one overall score; the API has no per-axis breakdown). and
- *          how the vault stores it.
+ *          and how it scored (one overall score; the API has no per-axis breakdown).
  * Does not: fetch the listing URL from the browser; the local scout does that,
  *           and only for allowed sources.
  */
