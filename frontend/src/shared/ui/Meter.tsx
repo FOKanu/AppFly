@@ -9,7 +9,7 @@ interface MeterProps {
 }
 
 /**
- * Purpose: Horizontal bar for match breakdowns and the conversion funnel.
+ * Purpose: Horizontal bar for the match score and the conversion funnel.
  * Does not: format the numeric value beside it; callers render that.
  */
 export function Meter({ value, tone = "approved", className, label }: MeterProps) {
