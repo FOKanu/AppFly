@@ -23,15 +23,7 @@ import { ACTIVE_UI, id5 } from "../../shared/run/format";
 import type { Run } from "./types";
 import "./workflow.css";
 
-/** Hosts `backend/src/jobhunt/policy.py` refuses. Read-only here on purpose. */
-const BANNED_HOSTS = [
-  "linkedin.com",
-  "indeed.com",
-  "stepstone.de",
-  "ziprecruiter.de",
-  "xing.com",
-  "glassdoor.de",
-] as const;
+import { BANNED_HOSTS } from "../../shared/policy";
 
 /** Schedule and caps live in config.yaml but PUT /settings cannot reach them. */
 const SCHEDULE_NOTE =
