@@ -88,7 +88,6 @@ class MarkdownVaultStore:
             "nice_to_have": list(requirements.nice_to_have),
             "tone": requirements.tone,
         }
-        body = path.read_text(encoding="utf-8") if path.exists() else "# Requirements\n"
         # Keep body; replace frontmatter via frontmatter dump of empty content + meta if needed
         if path.exists():
             post = frontmatter.loads(path.read_text(encoding="utf-8"))

@@ -91,7 +91,7 @@ if (!existsSync(clientLibPath)) {
 }
 
 console.log("Scanning built UI for secret-shaped tokens…");
-execSync("node scripts/scan-bundle-secrets.mjs .ui-dist", {
+execSync(`node scripts/scan-bundle-secrets.mjs ${JSON.stringify(uiDist)}`, {
   cwd: join(repoRoot, "frontend"),
   stdio: "inherit",
   env: process.env,

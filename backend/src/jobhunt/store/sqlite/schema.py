@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import sqlite3
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 _STATEMENTS: list[str] = [
     """
@@ -85,7 +85,9 @@ _STATEMENTS: list[str] = [
         trigger TEXT NOT NULL DEFAULT 'api',
         owner TEXT NOT NULL DEFAULT '',
         heartbeat TEXT NOT NULL DEFAULT '',
-        cancel_requested INTEGER NOT NULL DEFAULT 0
+        cancel_requested INTEGER NOT NULL DEFAULT 0,
+        stage TEXT,
+        write_cap INTEGER
     )
     """,
     """
@@ -141,6 +143,15 @@ def migrate(conn: sqlite3.Connection) -> None:
                     "ALTER TABLE documents ADD COLUMN extract_status "
                     "TEXT NOT NULL DEFAULT 'empty'"
                 )
+
+        # Add new columns for schema version 4
+        if current < 4:
+            run_info = conn.execute("PRAGMA table_info(runs)").fetchall()
+            run_cols = {col[1] for col in run_info}
+            if "stage" not in run_cols:
+                conn.execute("ALTER TABLE runs ADD COLUMN stage TEXT")
+            if "write_cap" not in run_cols:
+                conn.execute("ALTER TABLE runs ADD COLUMN write_cap INTEGER")
 
         conn.execute(
             "INSERT INTO meta(key, value) VALUES('schema_version', ?) "
