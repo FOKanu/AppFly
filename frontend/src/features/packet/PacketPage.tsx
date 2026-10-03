@@ -168,6 +168,7 @@ export function PacketPage() {
               writer={job.source === "agentur" ? "gemini-3.8-flash" : undefined}
               onSave={(text) => void onSave(text)}
               onRegenerate={() => void onRegenerate()}
+              busy={busy}
             />
             <CvTweaks tweaks={[]} />
             <ApproveStrip
