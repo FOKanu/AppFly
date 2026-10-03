@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -45,6 +45,30 @@ describe("PacketPage", () => {
     const actions = screen.getByTestId("packet-actions");
     expect(within(actions).getByText(/local AppFly store/)).toBeInTheDocument();
     expect(actions.textContent).not.toMatch(/vault/i);
+  });
+
+  it("A approves the packet", async () => {
+    renderPacket("agentur-ref-88112");
+    await screen.findByRole("heading", { name: "Staff Platform Engineer" });
+    fireEvent.keyDown(window, { key: "a" });
+    expect(await screen.findByText(/Marked approved/)).toBeInTheDocument();
+    expect(screen.getByTestId("status-chip")).toHaveAttribute("data-status", "approved");
+  });
+
+  it("D denies the packet", async () => {
+    renderPacket("agentur-ref-88112");
+    await screen.findByRole("heading", { name: "Staff Platform Engineer" });
+    fireEvent.keyDown(window, { key: "d" });
+    expect(await screen.findByText(/Marked skipped/)).toBeInTheDocument();
+  });
+
+  it("A does nothing on an applied packet", async () => {
+    renderPacket("agentur-ref-22091");
+    await screen.findByRole("heading", { name: "Data Engineer" });
+    fireEvent.keyDown(window, { key: "a" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByText(/Marked approved/)).not.toBeInTheDocument();
+    expect(screen.getByTestId("status-chip")).toHaveAttribute("data-status", "applied");
   });
 
   it("approves and skips via PATCH status", async () => {
@@ -102,5 +126,65 @@ describe("PacketPage", () => {
     const panel = screen.getByTestId("letter-panel");
     expect(panel).toHaveTextContent("Gemini (model unknown)");
     expect(panel.textContent).not.toMatch(/gemini-3\.8-flash/);
+  });
+
+  it("an unscored job's meter does not claim 0 %", async () => {
+    renderPacket("rss-https://jobs.example.org/feed#42");
+    await screen.findByRole("heading", { name: "Backend Engineer (Rust)" });
+    expect(screen.queryByRole("meter", { name: "Overall match" })).not.toBeInTheDocument();
+    const track = screen.getByRole("img", { name: "Overall match: not scored" });
+    expect(track.closest(".match-row")).toHaveTextContent("—");
+  });
+
+  it("the packet prints the score once", async () => {
+    renderPacket("agentur-ref-88112");
+    await screen.findByRole("heading", { name: "Staff Platform Engineer" });
+    expect(screen.getAllByText("8.6")).toHaveLength(1);
+    expect(screen.getByRole("meter", { name: "Overall match" })).toHaveAttribute("aria-valuenow", "86");
+  });
+
+  it("names the model from the letter API, then from regenerate", async () => {
+    const live = {
+      source_id: "live-1",
+      source: "agentur",
+      title: "Live Platform Engineer",
+      company: "Livewerk",
+      status: "draft",
+      score: 0.8,
+      letter_excerpt: "Excerpt",
+      crawl_allowed: true,
+    };
+    const json = (body: unknown) =>
+      Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", vi.fn((url: unknown, init?: RequestInit) => {
+      const path = String(url);
+      if (path.endsWith("/jobs/live-1/letter/regenerate") && init?.method === "POST") return json({ body: "Regenerated body", model: "gemini-y" });
+      if (path.endsWith("/jobs/live-1/letter")) return json({ body: "Stored body", model: "gemini-x" });
+      if (path.endsWith("/jobs/live-1")) return json(live);
+      return Promise.reject(new Error("offline"));
+    }));
+    const user = userEvent.setup();
+    renderPacket("live-1");
+    await screen.findByRole("heading", { name: "Live Platform Engineer" });
+    const panel = screen.getByTestId("letter-panel");
+    await waitFor(() => expect(panel).toHaveTextContent("gemini-x"));
+    await user.click(screen.getByRole("button", { name: "Regenerate letter" }));
+    await waitFor(() => expect(panel).toHaveTextContent("gemini-y"));
+    expect(panel).not.toHaveTextContent("Gemini (model unknown)");
+  });
+
+  it("Esc goes back to the queue", async () => {
+    renderPacket("agentur-ref-88112");
+    await screen.findByRole("heading", { name: "Staff Platform Engineer" });
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(await screen.findByText("queue-route")).toBeInTheDocument();
+  });
+
+  it("Esc in the letter editor stays on the packet", async () => {
+    renderPacket("agentur-ref-88112");
+    await screen.findByRole("heading", { name: "Staff Platform Engineer" });
+    fireEvent.keyDown(screen.getByLabelText("Your edit of the application letter"), { key: "Escape" });
+    expect(screen.queryByText("queue-route")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Staff Platform Engineer" })).toBeInTheDocument();
   });
 });
