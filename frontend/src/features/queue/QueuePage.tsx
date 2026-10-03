@@ -125,12 +125,12 @@ export function QueuePage() {
             row.source_id === job.source_id && row.status === status ? { ...row, status: previous } : row,
           ),
         );
-        const message = `Could not move ${job.title} to ${statusLabel(status)}. ${asFailure(err)?.message ?? ""}`.trim();
+        const reason = asFailure(err)?.message || "unknown error";
         if (!bulk) {
           setUndo(null);
-          setSaveError(message);
+          setSaveError(`Could not move ${job.title} to ${statusLabel(status)}. ${reason}`);
         }
-        return message;
+        return reason;
       }
     },
     [],
@@ -167,7 +167,8 @@ export function QueuePage() {
       const results = await Promise.all(rows.map((job) => setStatus(job, status, true)));
       const failed = results.filter((message): message is string => Boolean(message));
       if (failed.length > 0) {
-        setSaveError(`Could not save ${failed.length} of ${rows.length} jobs. ${failed[0]}`.trim());
+        const noun = rows.length === 1 ? "job" : "jobs";
+        setSaveError(`Could not move ${failed.length} of ${rows.length} ${noun} to ${statusLabel(status)}. First error: ${failed[0]}`);
       }
     },
     [jobs, checkedIds, setStatus],
