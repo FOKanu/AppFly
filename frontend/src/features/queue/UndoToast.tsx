@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useShortcuts } from "../../shared/useShortcuts";
 import { statusLabel, type JobStatus } from "./types";
 
 /** One reversible status move: one job, or every job a bulk action moved. */
@@ -22,6 +23,8 @@ const WINDOW_SECONDS = 5;
  */
 export function UndoToast({ entry, onUndo, onDismiss }: UndoToastProps) {
   const [left, setLeft] = useState(WINDOW_SECONDS);
+
+  useShortcuts({ "mod+z": onUndo }, Boolean(entry));
 
   useEffect(() => {
     if (!entry) return;

@@ -239,4 +239,15 @@ describe("QueuePage", () => {
     expect(label).toHaveClass("undo-toast__label");
     expect(screen.queryByText(/ → approved$/)).not.toBeInTheDocument();
   });
+
+  it("⌘Z undoes the last move while the toast is up", async () => {
+    const user = userEvent.setup();
+    renderQueue();
+    await screen.findAllByTestId("job-row");
+    await user.click(screen.getByRole("button", { name: /Approve packet/ }));
+    const chip = () => within(screen.getByTestId("queue-detail")).getByTestId("status-chip");
+    expect(chip()).toHaveAttribute("data-status", "approved");
+    fireEvent.keyDown(window, { key: "z", metaKey: true });
+    await waitFor(() => expect(chip()).toHaveAttribute("data-status", "shortlist"));
+  });
 });
