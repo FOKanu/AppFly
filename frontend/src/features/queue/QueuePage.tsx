@@ -115,7 +115,7 @@ export function QueuePage() {
       setJobs((current) =>
         current.map((row) => (row.source_id === job.source_id ? { ...row, status } : row)),
       );
-      if (!bulk) setUndo({ title: job.title, status, sourceId: job.source_id, previous });
+      if (!bulk) setUndo({ status, changes: [{ sourceId: job.source_id, title: job.title, previous }] });
       try {
         await patchJobStatus(job.source_id, status);
         return null;
@@ -138,26 +138,36 @@ export function QueuePage() {
 
   const onUndo = useCallback(async () => {
     if (!undo) return;
-    const job = jobs.find((row) => row.source_id === undo.sourceId);
     setSaveError(null);
     setUndo(null);
-    if (!job) return;
+    const { status, changes } = undo;
+    const previousOf = new Map(changes.map((change) => [change.sourceId, change.previous]));
     setJobs((current) =>
-      current.map((row) =>
-        row.source_id === undo.sourceId ? { ...row, status: undo.previous } : row,
-      ),
+      current.map((row) => (previousOf.has(row.source_id) ? { ...row, status: previousOf.get(row.source_id) as JobStatus } : row)),
     );
-    try {
-      await patchJobStatus(undo.sourceId, undo.previous);
-    } catch (err: unknown) {
-      setJobs((current) =>
-        current.map((row) =>
-          row.source_id === undo.sourceId && row.status === undo.previous ? { ...row, status: undo.status } : row,
-        ),
-      );
-      setSaveError(`Could not undo ${job.title}. ${asFailure(err)?.message ?? ""}`.trim());
+    const results = await Promise.all(
+      changes.map(async (change) => {
+        try {
+          await patchJobStatus(change.sourceId, change.previous);
+          return null;
+        } catch (err: unknown) {
+          setJobs((current) =>
+            current.map((row) =>
+              row.source_id === change.sourceId && row.status === change.previous ? { ...row, status } : row,
+            ),
+          );
+          return asFailure(err)?.message || "unknown error";
+        }
+      }),
+    );
+    const failed = results.filter((message): message is string => Boolean(message));
+    if (failed.length === 0) return;
+    if (changes.length === 1) {
+      setSaveError(`Could not undo ${changes[0].title}. ${failed[0]}`);
+    } else {
+      setSaveError(`Could not undo ${failed.length} of ${changes.length} jobs. First error: ${failed[0]}`);
     }
-  }, [undo, jobs]);
+  }, [undo]);
 
   const onBulk = useCallback(
     async (status: JobStatus) => {
@@ -169,6 +179,13 @@ export function QueuePage() {
       if (failed.length > 0) {
         const noun = rows.length === 1 ? "job" : "jobs";
         setSaveError(`Could not move ${failed.length} of ${rows.length} ${noun} to ${statusLabel(status)}. First error: ${failed[0]}`);
+      }
+      const moved = rows.filter((_job, index) => results[index] === null);
+      if (moved.length > 0) {
+        setUndo({
+          status,
+          changes: moved.map((job) => ({ sourceId: job.source_id, title: job.title, previous: job.status })),
+        });
       }
     },
     [jobs, checkedIds, setStatus],

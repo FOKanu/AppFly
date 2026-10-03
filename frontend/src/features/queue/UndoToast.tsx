@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
-import type { JobStatus } from "./types";
+import { statusLabel, type JobStatus } from "./types";
 
-/** One reversible status change. */
+/** One reversible status move: one job, or every job a bulk action moved. */
 export interface UndoEntry {
-  sourceId: string;
-  title: string;
   status: JobStatus;
-  previous: JobStatus;
+  changes: { sourceId: string; title: string; previous: JobStatus }[];
 }
 
 interface UndoToastProps {
@@ -42,7 +40,7 @@ export function UndoToast({ entry, onUndo, onDismiss }: UndoToastProps) {
     <div className="undo-toast" role="status" aria-live="polite">
       <span className="undo-toast__dot" aria-hidden="true" />
       <span className="undo-toast__label">
-        {entry.title} → {entry.status}
+        {entry.changes.length === 1 ? entry.changes[0].title : `${entry.changes.length} jobs`} → {statusLabel(entry.status)}
       </span>
       <span className="undo-toast__timer">{Math.max(0, left)}s</span>
       <button type="button" className="undo-toast__action" onClick={onUndo}>
