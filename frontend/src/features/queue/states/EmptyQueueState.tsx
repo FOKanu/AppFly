@@ -1,4 +1,5 @@
 import { EmptyState } from "../../../shared/ui/EmptyState";
+import { BANNED_BRANDS } from "../../../shared/policy";
 
 /**
  * FigJam 05 empty queue. Allowed ingest only — never crawl deny-listed boards.
@@ -16,8 +17,7 @@ export function EmptyQueueState() {
         into <code>_inbox/</code>.
       </p>
       <p>
-        LinkedIn, Indeed, Stepstone, ZipRecruiter, Xing, and Glassdoor never
-        enter through crawl or Apify.
+        {BANNED_BRANDS.join(", ")} never enter through crawl or Apify.
       </p>
     </EmptyState>
   );

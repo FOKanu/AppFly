@@ -28,10 +28,7 @@ export interface HeartbeatResponse {
 
 export interface SystemStatusResponse {
   ipc: LinkHealth;
-  ollama: LinkHealth;
   gemini: LinkHealth;
-  /** Short mono detail beside the dot, e.g. "8b · idle". */
-  ollamaDetail?: string;
   /** Short mono detail beside the dot, e.g. "ok · 41%". */
   geminiDetail?: string;
   vaultPath: string;

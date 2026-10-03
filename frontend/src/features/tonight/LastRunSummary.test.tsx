@@ -21,4 +21,10 @@ describe("LastRunSummary", () => {
     render(<LastRunSummary run={null} funnel={{}} writer={{}} refusals={null} />);
     expect(screen.getByText(/Gemini \(model unknown\)/)).toBeTruthy();
   });
+
+  it("policy line names every banned brand, including Wellfound", () => {
+    render(<LastRunSummary run={null} funnel={{}} writer={{}} refusals={null} />);
+    expect(screen.getByText(/Wellfound \(AngelList\)/)).toBeTruthy();
+    expect(screen.getByText(/LinkedIn/)).toBeTruthy();
+  });
 });

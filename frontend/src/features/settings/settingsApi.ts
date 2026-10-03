@@ -129,7 +129,6 @@ function emptySettings(ipc: StatusView): SettingsView {
     },
     health: {
       geminiFlash: { status: "unknown" },
-      ollama: { status: "unknown" },
       arbeitsagentur: { status: "unknown" },
       apify: { status: "unknown" },
       minilm: { status: "unknown" },
@@ -226,7 +225,6 @@ export function parseSettings(payload: unknown, ipcReachable: boolean): Settings
       geminiFlash: secrets.GEMINI_API_KEY
         ? { status: "ok", detail: "Key present in store" }
         : { status: "missing", detail: "Not in Keychain" },
-      ollama: asStatus(pick(healthRaw, ["ollama"]), "unknown"),
       arbeitsagentur: asStatus(
         pick(healthRaw, ["arbeitsagentur", "agentur", "jobsuche"]),
         "unknown",

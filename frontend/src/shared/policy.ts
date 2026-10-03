@@ -15,3 +15,20 @@ export const BANNED_HOSTS: readonly string[] = [
   "wellfound.com",
   "angel.co"
 ] as const;
+
+/** Display brand per banned host; several hosts share one brand. */
+const BRAND_BY_HOST: Record<string, string> = {
+  "linkedin.com": "LinkedIn",
+  "indeed.com": "Indeed",
+  "stepstone.de": "Stepstone",
+  "stepstone.com": "Stepstone",
+  "ziprecruiter.com": "ZipRecruiter",
+  "xing.com": "Xing",
+  "glassdoor.com": "Glassdoor",
+  "glassdoor.de": "Glassdoor",
+  "wellfound.com": "Wellfound (AngelList)",
+  "angel.co": "Wellfound (AngelList)",
+};
+
+/** Brand names for user-facing copy, derived from BANNED_HOSTS (deduplicated, in host order). */
+export const BANNED_BRANDS: readonly string[] = [...new Set(BANNED_HOSTS.map((host) => BRAND_BY_HOST[host] ?? host))];

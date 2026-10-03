@@ -1,6 +1,7 @@
 import { Meter } from "../../shared/ui/Meter";
 import { Tag } from "../../shared/ui/Tag";
 import { writerLabel } from "../../shared/writerLabel";
+import { BANNED_BRANDS } from "../../shared/policy";
 import type { Run } from "./types";
 
 /** Cumulative funnel counts the Activity screen also reports. */
@@ -25,16 +26,6 @@ interface LastRunSummaryProps {
   /** Real crawl-policy refusals reported by the run; null when unknown (D6). */
   refusals: string[] | null;
 }
-
-/** Hosts `backend/src/jobhunt/policy.py` refuses; shown read-only. */
-const BANNED_HOSTS = [
-  "LinkedIn",
-  "Indeed",
-  "Stepstone",
-  "ZipRecruiter",
-  "Xing",
-  "Glassdoor",
-];
 
 /**
  * Purpose: Right rail on Tonight — last run's funnel, writer token split, and the
@@ -87,7 +78,7 @@ export function LastRunSummary({ funnel, writer, refusals }: LastRunSummaryProps
           </span>
         </div>
         <p className="run-summary__policy-copy">
-          0 fetches to {BANNED_HOSTS.join(" \u00b7 ")}.
+          0 fetches to {BANNED_BRANDS.join(" \u00b7 ")}.
           {refusals === null
             ? ""
             : refusals.length > 0
