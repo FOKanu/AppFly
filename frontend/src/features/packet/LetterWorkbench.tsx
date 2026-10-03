@@ -60,7 +60,7 @@ export function LetterWorkbench({
   const removed = aiLines.filter((line) => !yourLines.includes(line)).length;
 
   return (
-    <section className="letter" data-testid="letter-panel">
+    <section className="letter" data-testid="letter-panel" aria-busy={busy || undefined}>
       <header className="letter__toolbar">
         <h2 className="letter__title">Application letter</h2>
         <Segmented options={MODES} value={mode} onChange={setMode} ariaLabel="Letter view" />
