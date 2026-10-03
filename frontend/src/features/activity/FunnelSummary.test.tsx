@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { FunnelSummary } from "./FunnelSummary";
 
@@ -16,5 +16,12 @@ describe("FunnelSummary", () => {
     const { container } = render(<FunnelSummary funnel={{ ...zero, scouted: 4, shortlisted: 2 }} />);
     const cells = [...container.querySelectorAll(".funnel-stage__value")].map((el) => el.textContent);
     expect(cells).toEqual(["4", "2", "0", "0", "0"]);
+  });
+
+  it("labels all-time stages and gives them no rate", () => {
+    const { container } = render(<FunnelSummary funnel={{ ...zero, scouted: 5, jobs: { ...jobs, applied: 12 } }} />);
+    const pcts = [...container.querySelectorAll(".funnel-stage__pct")].map((el) => el.textContent);
+    expect(pcts).toEqual(["100.0%", "0.0%", "0.0%", "—", "—"]);
+    expect(screen.getAllByText(/all time/)).toHaveLength(2);
   });
 });

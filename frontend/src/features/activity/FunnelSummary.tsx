@@ -9,16 +9,17 @@ type FunnelSummaryProps = {
 
 /** The five funnel stages, from what scout found to what you sent. */
 const STAGES = [
-  { label: "Scouted", tone: "accent" },
-  { label: "Shortlisted", tone: "shortlist" },
-  { label: "Drafted", tone: "draft" },
-  { label: "Approved", tone: "approved" },
-  { label: "Applied", tone: "applied" },
+  { label: "Scouted", tone: "accent", allTime: false },
+  { label: "Shortlisted", tone: "shortlist", allTime: false },
+  { label: "Drafted", tone: "draft", allTime: false },
+  { label: "Approved", tone: "approved", allTime: true },
+  { label: "Applied", tone: "applied", allTime: true },
 ] as const;
 
 /**
  * Purpose: Conversion funnel — how many listings survive each stage.
  *          Shows a dash for every stage when there is no data (loading, offline-empty, or no runs in the window).
+ *          Approved/Applied are all-time vault counts (no dates in /jobs), so they get no rate.
  * Does not: start runs or list individual job packets.
  */
 export function FunnelSummary({ funnel, windowDays = 30 }: FunnelSummaryProps) {
@@ -44,11 +45,11 @@ export function FunnelSummary({ funnel, windowDays = 30 }: FunnelSummaryProps) {
         return (
           <div className="funnel-stage" key={stage.label}>
             <p className="funnel-stage__head">
-              <span className="funnel-stage__label">{stage.label}</span>
+              <span className="funnel-stage__label">{stage.label}{stage.allTime ? <span className="funnel-stage__scope"> · all time</span> : null}</span>
               <span className="funnel-stage__value">{empty ? "—" : value.toLocaleString()}</span>
-              <span className="funnel-stage__pct">{percent(value, top)}</span>
+              <span className="funnel-stage__pct">{stage.allTime ? "—" : percent(value, top)}</span>
             </p>
-            <Meter value={top > 0 ? value / top : 0} tone={stage.tone} label={stage.label} />
+            <Meter value={stage.allTime || top <= 0 ? 0 : value / top} tone={stage.tone} label={stage.label} />
           </div>
         );
       })}
