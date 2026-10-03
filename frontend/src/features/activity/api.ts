@@ -41,10 +41,11 @@ export function normalizeRuns(payload: unknown): RunSummary[] {
 }
 
 /**
- * Purpose: Combine latest-run pipeline counts with vault job-status counts.
- * Does not: fetch additional endpoints.
+ * Purpose: Combine pipeline counts from runs in the last `windowDays` days (default 30, matching the
+ *          "last 30 days" label) with vault job-status counts (all time).
+ * Does not: fetch additional endpoints or count undated runs.
  */
-export function buildFunnel(runs: RunSummary[], jobsPayload: unknown): FunnelView {
+export function buildFunnel(runs: RunSummary[], jobsPayload: unknown, now: Date = new Date(), windowDays = 30): FunnelView {
   const jobs = emptyJobCounts();
   const nested = asRecord(jobsPayload).counts ?? asRecord(jobsPayload).by_status;
   if (nested && typeof nested === "object") {
@@ -60,7 +61,12 @@ export function buildFunnel(runs: RunSummary[], jobsPayload: unknown): FunnelVie
       }
     }
   }
-  const pipeline = runs.reduce<RunFunnel>(
+  const cutoff = now.getTime() - windowDays * 24 * 60 * 60 * 1000;
+  const recent = runs.filter((run) => {
+    const stamp = Date.parse(run.started || run.date);
+    return Number.isFinite(stamp) && stamp >= cutoff && stamp <= now.getTime();
+  });
+  const pipeline = recent.reduce<RunFunnel>(
     (acc, run) => ({
       scouted: acc.scouted + (run.scouted ?? 0),
       shortlisted: acc.shortlisted + (run.shortlisted ?? 0),
@@ -140,7 +146,7 @@ const MOCK_JOB_COUNTS = {
 export const MOCK_ACTIVITY: ActivityView = {
   source: "mock",
   runs: normalizeRuns(MOCK_RUNS_PAYLOAD),
-  funnel: buildFunnel(normalizeRuns(MOCK_RUNS_PAYLOAD), MOCK_JOB_COUNTS),
+  funnel: buildFunnel(normalizeRuns(MOCK_RUNS_PAYLOAD), MOCK_JOB_COUNTS, new Date("2026-09-19T00:00:00+02:00")),
 };
 
 function normalizeRun(item: unknown, index: number): RunSummary {

@@ -18,6 +18,8 @@ interface PipelineOrganismProps {
   /** Notes written to the vault by the last run, when the API reports them. */
   vaultNotes?: number;
   vaultPath?: string;
+  /** Writer model from GET /settings; null when unknown. */
+  writerModel?: string | null;
 }
 
 /**
@@ -25,7 +27,7 @@ interface PipelineOrganismProps {
  *          own counters and status light.
  * Does not: fetch listings or start a run; it only reports the last one.
  */
-export function PipelineOrganism({ run, vaultNotes, vaultPath }: PipelineOrganismProps) {
+export function PipelineOrganism({ run, vaultNotes, vaultPath, writerModel }: PipelineOrganismProps) {
   const [window, setWindow] = useState<PipelineWindow>("last-run");
 
   return (
@@ -74,8 +76,7 @@ export function PipelineOrganism({ run, vaultNotes, vaultPath }: PipelineOrganis
           status={run?.stages.write}
           rows={[
             { label: "letters", value: writeRatio(run) },
-            { label: "gemini-flash", value: "—" },
-            { label: "llama3.1:8b", value: "—" },
+            { label: "writer", value: writerModel ?? "—" },
           ]}
           note={run?.write_skipped ? `${run.write_skipped} skipped` : undefined}
           noteTone="warning"
