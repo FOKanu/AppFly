@@ -68,7 +68,7 @@ export function WorkflowPage() {
   const [profile, setProfile] = useState<HuntProfile | null>(null);
   const [savingSources, setSavingSources] = useState(false);
   const [plan] = useState(DEFAULT_PLAN);
-  const [writerMode] = useState<WriterMode>("auto");
+  const [writerMode] = useState<WriterMode>("cloud");
   const [guardrails] = useState(DEFAULT_GUARDRAILS);
 
   useEffect(() => {
@@ -199,7 +199,6 @@ export function WorkflowPage() {
             readOnlyReason={SCHEDULE_NOTE}
             tokenHistory={[]}
             cloudLabel="gemini-3.8-flash"
-            localLabel="llama3.1:8b (fallback)"
             fallbackNote={lastRun?.errors[0]}
           />
         </div>

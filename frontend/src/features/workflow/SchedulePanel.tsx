@@ -97,12 +97,10 @@ function Readout({
 }
 
 /** Which writer backend the nightly run uses. */
-export type WriterMode = "auto" | "cloud" | "local";
+export type WriterMode = "cloud";
 
 const WRITER_MODES = [
-  { value: "auto", label: "Auto · Gemini → 8B" },
-  { value: "cloud", label: "Gemini only" },
-  { value: "local", label: "Local only" },
+  { value: "cloud", label: "Gemini (cloud)" },
 ] as const;
 
 interface WriterPanelProps {
@@ -113,16 +111,14 @@ interface WriterPanelProps {
   tokenHistory: number[];
   cloudLabel: string;
   cloudTokens?: number;
-  localLabel: string;
-  localTokens?: number;
-  /** Last fallback event, e.g. "02:14 Gemini 429 rate-limit → local 8B". */
+  /** Last writer error, if any. */
   fallbackNote?: string;
 }
 
 /**
  * Purpose: Writer model switcher with the backends the last run actually used
  *          and the 7-night token trend.
- * Does not: call a model; the CLI writer does.
+ * Does not: call a model (the CLI writer does) or offer a local writer; letters.py only calls Gemini.
  */
 export function WriterPanel({
   mode,
@@ -130,8 +126,6 @@ export function WriterPanel({
   tokenHistory,
   cloudLabel,
   cloudTokens,
-  localLabel,
-  localTokens,
   fallbackNote,
 }: WriterPanelProps) {
   const peak = Math.max(1, ...tokenHistory);
@@ -162,13 +156,7 @@ export function WriterPanel({
           <span className="backend-row__rule" />
           <span className="backend-row__value">{tokens(cloudTokens)}</span>
         </p>
-        <p className="backend-row">
-          <span className="backend-row__dot" data-tone="local" aria-hidden="true" />
-          {localLabel}
-          <span className="backend-row__rule" />
-          <span className="backend-row__value">{tokens(localTokens)}</span>
-        </p>
-        <p className="backend-box__note">{fallbackNote ?? "No fallback events recorded."}</p>
+        <p className="backend-box__note">{fallbackNote ?? "No writer errors recorded."}</p>
       </div>
 
       <p className="control-card__label">Tokens · last 7 nights</p>
