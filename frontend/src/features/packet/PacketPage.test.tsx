@@ -38,6 +38,9 @@ describe("PacketPage", () => {
     }
     expect(screen.queryByText(/Master\.md|Voice-samples|CV slice/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Jobs\/.*\.md/)).not.toBeInTheDocument();
+    expect(screen.getByText("Match score")).toBeInTheDocument();
+    expect(screen.queryByText(/Match breakdown/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Seniority")).not.toBeInTheDocument();
   });
 
   it("approves and skips via PATCH status", async () => {

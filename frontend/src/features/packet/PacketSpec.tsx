@@ -13,7 +13,8 @@ interface PacketSpecProps {
 
 /**
  * Purpose: Left pane of the packet — what the posting says, where it came from,
- *          how it scored, and what the vault stores for it.
+ *          and how it scored (one overall score; the API has no per-axis breakdown). and
+ *          how the vault stores it.
  * Does not: fetch the listing URL from the browser; the local scout does that,
  *           and only for allowed sources.
  */
@@ -76,16 +77,12 @@ export function PacketSpec({ job }: PacketSpecProps) {
         <SpecRow label="Posted" value={job.posted} />
       </dl>
 
-      <p className="packet-spec__label">
-        Match breakdown · {score === null ? "—" : score.toFixed(1)}
-      </p>
-      {["Skills", "Domain", "Seniority", "Language", "Location"].map((axis) => (
-        <div className="match-row" key={axis}>
-          <span className="match-row__label">{axis}</span>
-          <Meter value={(score ?? 0) / 10} label={axis} />
-          <span className="match-row__value">{score === null ? "—" : score.toFixed(1)}</span>
-        </div>
-      ))}
+      <p className="packet-spec__label">Match score</p>
+      <div className="match-row">
+        <span className="match-row__label">Overall</span>
+        <Meter value={(score ?? 0) / 10} label="Overall match" />
+        <span className="match-row__value">{score === null ? "—" : score.toFixed(1)}</span>
+      </div>
 
       <p className="packet-spec__label">Company note</p>
       <p className="packet-spec__copy">
