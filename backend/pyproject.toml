@@ -1,7 +1,7 @@
 [project]
 name = "jobhunt"
 version = "0.1.0"
-description = "Local job-hunt copilot that writes into an Obsidian vault"
+description = "AppFly: local-first job-search copilot backend (FastAPI + native SQLite store)"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
