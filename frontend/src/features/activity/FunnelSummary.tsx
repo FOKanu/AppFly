@@ -51,10 +51,10 @@ export function FunnelSummary({ funnel, windowDays = 30, loaded = false }: Funne
           <div className="funnel-stage" key={stage.label}>
             <p className="funnel-stage__head">
               <span className="funnel-stage__label">{stage.label}{stage.allTime ? <span className="funnel-stage__scope"> · all time</span> : null}</span>
-              <span className="funnel-stage__value">{empty ? <span role="img" aria-label="no data">—</span> : value.toLocaleString()}</span>
-              <span className="funnel-stage__pct">{stage.allTime ? "—" : percent(value, top)}</span>
+              <span className="funnel-stage__value">{empty ? <Dash label={loaded ? "no data" : "loading"} /> : value.toLocaleString()}</span>
+              <span className="funnel-stage__pct">{stage.allTime || top <= 0 ? <Dash label="no rate" /> : percent(value, top)}</span>
             </p>
-            {stage.allTime ? null : <Meter value={top <= 0 ? 0 : value / top} tone={stage.tone} label={stage.label} />}
+            {stage.allTime || empty || top <= 0 ? null : <Meter value={value / top} tone={stage.tone} label={stage.label} />}
           </div>
         );
       })}
@@ -62,7 +62,15 @@ export function FunnelSummary({ funnel, windowDays = 30, loaded = false }: Funne
   );
 }
 
+/** A dash with an accessible name, so screen readers hear why there is no number. */
+function Dash({ label }: { label: string }) {
+  return (
+    <span role="img" aria-label={label}>
+      —
+    </span>
+  );
+}
+
 function percent(value: number, top: number): string {
-  if (top <= 0) return "—";
   return `${((value / top) * 100).toFixed(1)}%`;
 }
