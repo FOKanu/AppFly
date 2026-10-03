@@ -91,6 +91,21 @@ def _from_docx(raw: bytes) -> ExtractResult:
 
         doc = Document(BytesIO(raw))
         parts = [p.text for p in doc.paragraphs if p.text and p.text.strip()]
+
+        # Extract text from table cells
+        for table in doc.tables:
+            for row in table.rows:
+                row_parts = []
+                prev_cell_text = ""
+                for cell in row.cells:
+                    cell_text = cell.text.strip()
+                    # Skip empty cells and merged cells (same text as previous)
+                    if cell_text and cell_text != prev_cell_text:
+                        row_parts.append(cell_text)
+                        prev_cell_text = cell_text
+                if row_parts:
+                    parts.append(" ".join(row_parts))
+
         text = "\n".join(parts).strip()
         return ExtractResult(text, "ok" if text else "empty")
     except Exception:
