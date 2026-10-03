@@ -39,3 +39,10 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+# Classic pyflakes + syntax/import errors only; keep in sync with the pinned ruff in .github/workflows/ci.yml.
+select = ["E4", "E7", "E9", "F"]
