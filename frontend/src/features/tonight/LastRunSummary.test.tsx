@@ -16,4 +16,9 @@ describe("LastRunSummary", () => {
     expect(screen.getByText(/gemini-x/)).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/8B|llama/i);
   });
+
+  it("legend falls back to Gemini (model unknown)", () => {
+    render(<LastRunSummary run={null} funnel={{}} writer={{}} refusals={null} />);
+    expect(screen.getByText(/Gemini \(model unknown\)/)).toBeTruthy();
+  });
 });
