@@ -46,10 +46,10 @@ export function FunnelSummary({ funnel, windowDays = 30 }: FunnelSummaryProps) {
           <div className="funnel-stage" key={stage.label}>
             <p className="funnel-stage__head">
               <span className="funnel-stage__label">{stage.label}{stage.allTime ? <span className="funnel-stage__scope"> · all time</span> : null}</span>
-              <span className="funnel-stage__value">{empty ? "—" : value.toLocaleString()}</span>
+              <span className="funnel-stage__value">{empty ? <span role="img" aria-label="no data">—</span> : value.toLocaleString()}</span>
               <span className="funnel-stage__pct">{stage.allTime ? "—" : percent(value, top)}</span>
             </p>
-            <Meter value={stage.allTime || top <= 0 ? 0 : value / top} tone={stage.tone} label={stage.label} />
+            {stage.allTime ? null : <Meter value={top <= 0 ? 0 : value / top} tone={stage.tone} label={stage.label} />}
           </div>
         );
       })}

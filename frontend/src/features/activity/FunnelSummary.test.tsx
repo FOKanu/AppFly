@@ -24,4 +24,14 @@ describe("FunnelSummary", () => {
     expect(pcts).toEqual(["100.0%", "0.0%", "0.0%", "—", "—"]);
     expect(screen.getAllByText(/all time/)).toHaveLength(2);
   });
+
+  it("gives the empty dash an accessible name", () => {
+    render(<FunnelSummary funnel={zero} />);
+    expect(screen.getAllByRole("img", { name: "no data" })).toHaveLength(5);
+  });
+
+  it("draws no meter for all-time stages", () => {
+    render(<FunnelSummary funnel={{ ...zero, scouted: 5, jobs: { ...jobs, applied: 12 } }} />);
+    expect(screen.getAllByRole("meter")).toHaveLength(3);
+  });
 });
