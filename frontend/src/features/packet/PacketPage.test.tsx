@@ -107,9 +107,9 @@ describe("PacketPage", () => {
   it("an unscored job's meter does not claim 0 %", async () => {
     renderPacket("rss-https://jobs.example.org/feed#42");
     await screen.findByRole("heading", { name: "Backend Engineer (Rust)" });
-    const meter = screen.getByRole("meter", { name: "Overall match" });
-    expect(meter).not.toHaveAttribute("aria-valuenow");
-    expect(meter).toHaveAttribute("aria-valuetext", "Not scored");
+    expect(screen.queryByRole("meter", { name: "Overall match" })).not.toBeInTheDocument();
+    const track = screen.getByRole("img", { name: "Overall match: not scored" });
+    expect(track.closest(".match-row")).toHaveTextContent("—");
   });
 
   it("the packet prints the score once", async () => {

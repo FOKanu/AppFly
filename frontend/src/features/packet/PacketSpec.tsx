@@ -80,6 +80,7 @@ export function PacketSpec({ job }: PacketSpecProps) {
       <div className="match-row">
         <span className="match-row__label">Overall</span>
         <Meter value={score === null ? null : score / 10} label="Overall match" />
+        {score === null ? <span className="match-row__value" aria-hidden="true">—</span> : null}
       </div>
 
       <p className="packet-spec__label">Company note</p>
