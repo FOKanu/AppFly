@@ -18,6 +18,7 @@ const STAGES = [
 
 /**
  * Purpose: Conversion funnel — how many listings survive each stage.
+ *          Shows a dash for every stage when there is no data (loading, offline-empty, or no runs in the window).
  * Does not: start runs or list individual job packets.
  */
 export function FunnelSummary({ funnel, windowDays = 30 }: FunnelSummaryProps) {
@@ -28,6 +29,7 @@ export function FunnelSummary({ funnel, windowDays = 30 }: FunnelSummaryProps) {
     Approved: funnel.jobs.approved,
     Applied: funnel.jobs.applied,
   };
+  const empty = Object.values(values).every((v) => !v);
   const top = values.Scouted || 0;
 
   return (
@@ -43,7 +45,7 @@ export function FunnelSummary({ funnel, windowDays = 30 }: FunnelSummaryProps) {
           <div className="funnel-stage" key={stage.label}>
             <p className="funnel-stage__head">
               <span className="funnel-stage__label">{stage.label}</span>
-              <span className="funnel-stage__value">{value.toLocaleString()}</span>
+              <span className="funnel-stage__value">{empty ? "—" : value.toLocaleString()}</span>
               <span className="funnel-stage__pct">{percent(value, top)}</span>
             </p>
             <Meter value={top > 0 ? value / top : 0} tone={stage.tone} label={stage.label} />
