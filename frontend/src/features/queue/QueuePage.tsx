@@ -135,6 +135,7 @@ export function QueuePage() {
   const onUndo = useCallback(async () => {
     if (!undo) return;
     const job = jobs.find((row) => row.source_id === undo.sourceId);
+    setSaveError(null);
     setUndo(null);
     if (!job) return;
     setJobs((current) =>
@@ -144,8 +145,13 @@ export function QueuePage() {
     );
     try {
       await patchJobStatus(undo.sourceId, undo.previous);
-    } catch {
-      setSaveError(`Could not undo ${job.title}.`);
+    } catch (err: unknown) {
+      setJobs((current) =>
+        current.map((row) =>
+          row.source_id === undo.sourceId && row.status === undo.previous ? { ...row, status: undo.status } : row,
+        ),
+      );
+      setSaveError(`Could not undo ${job.title}. ${asFailure(err)?.message ?? ""}`.trim());
     }
   }, [undo, jobs]);
 

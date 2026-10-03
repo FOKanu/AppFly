@@ -79,5 +79,23 @@ describe("QueuePage", () => {
     expect(await screen.findByText("Couldn't save")).toBeInTheDocument();
     expect(within(screen.getByTestId("queue-detail")).getByTestId("status-chip")).toHaveAttribute("data-status", "shortlist");
     expect(screen.queryByText("Couldn't load Queue")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Undo/ })).not.toBeInTheDocument();
+  });
+
+  it("keeps the new status and says so when Undo fails", async () => {
+    let patches = 0;
+    vi.stubGlobal("fetch", vi.fn((_url: unknown, init?: RequestInit) => {
+      if (init?.method === "PATCH" && patches++ > 0) {
+        return Promise.resolve(new Response(JSON.stringify({ detail: "boom" }), { status: 500 }));
+      }
+      return Promise.reject(new Error("offline"));
+    }));
+    const user = userEvent.setup();
+    renderQueue();
+    await screen.findAllByTestId("job-row");
+    await user.click(screen.getByRole("button", { name: /Approve packet/ }));
+    await user.click(await screen.findByRole("button", { name: /^Undo/ }));
+    expect(await screen.findByText("Couldn't save")).toBeInTheDocument();
+    expect(within(screen.getByTestId("queue-detail")).getByTestId("status-chip")).toHaveAttribute("data-status", "approved");
   });
 });
