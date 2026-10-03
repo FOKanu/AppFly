@@ -98,4 +98,19 @@ describe("QueuePage", () => {
     expect(await screen.findByText("Couldn't save")).toBeInTheDocument();
     expect(within(screen.getByTestId("queue-detail")).getByTestId("status-chip")).toHaveAttribute("data-status", "approved");
   });
+
+  it("counts bulk failures instead of showing only the last one", async () => {
+    vi.stubGlobal("fetch", vi.fn((_url: unknown, init?: RequestInit) =>
+      init?.method === "PATCH"
+        ? Promise.resolve(new Response(JSON.stringify({ detail: "boom" }), { status: 500 }))
+        : Promise.reject(new Error("offline")),
+    ));
+    const user = userEvent.setup();
+    renderQueue();
+    await screen.findAllByTestId("job-row");
+    await user.click(screen.getByRole("checkbox", { name: "Select ML Platform Engineer" }));
+    await user.click(screen.getByRole("checkbox", { name: "Select Engineering Manager, Search" }));
+    await user.click(within(screen.getByTestId("job-list")).getByRole("button", { name: /^Approve/ }));
+    expect(await screen.findByText(/Could not save 2 of 2 jobs\./)).toBeInTheDocument();
+  });
 });
