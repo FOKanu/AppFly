@@ -37,6 +37,7 @@ describe("PacketPage", () => {
       expect(screen.queryByRole("heading", { name: job.title })).not.toBeInTheDocument();
     }
     expect(screen.queryByText(/Master\.md|Voice-samples|CV slice/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Jobs\/.*\.md/)).not.toBeInTheDocument();
   });
 
   it("approves and skips via PATCH status", async () => {
