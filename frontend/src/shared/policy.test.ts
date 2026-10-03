@@ -19,4 +19,18 @@ describe("policy", () => {
     expect(hosts).toHaveLength(10);
     expect([...BANNED_HOSTS].sort()).toEqual([...hosts].sort());
   });
+
+  it("pages use the shared list", () => {
+    const workflowPath = resolve(process.cwd(), "src/features/workflow/WorkflowPage.tsx");
+    const profilePath = resolve(process.cwd(), "src/features/profiles/ProfileRequirements.tsx");
+
+    const workflowContent = readFileSync(workflowPath, "utf-8");
+    const profileContent = readFileSync(profilePath, "utf-8");
+
+    expect(workflowContent).not.toMatch(/const BANNED_HOSTS\s*=/);
+    expect(workflowContent).toContain("shared/policy");
+
+    expect(profileContent).not.toMatch(/const BANNED_HOSTS\s*=/);
+    expect(profileContent).toContain("shared/policy");
+  });
 });
