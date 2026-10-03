@@ -111,7 +111,8 @@ describe("QueuePage", () => {
     await user.click(screen.getByRole("checkbox", { name: "Select ML Platform Engineer" }));
     await user.click(screen.getByRole("checkbox", { name: "Select Engineering Manager, Search" }));
     await user.click(within(screen.getByTestId("job-list")).getByRole("button", { name: /^Approve/ }));
-    expect(await screen.findByText(/Could not save 2 of 2 jobs\./)).toBeInTheDocument();
+    expect(await screen.findByText(/Could not move 2 of 2 jobs to Approved\. First error:/)).toBeInTheDocument();
+    expect(screen.queryByText(/Could not save/)).not.toBeInTheDocument();
   });
 
   it("A approves the selected job", async () => {
@@ -151,7 +152,7 @@ describe("QueuePage", () => {
     await user.click(screen.getByRole("checkbox", { name: "Select ML Platform Engineer" }));
     await user.click(screen.getByRole("checkbox", { name: "Select Engineering Manager, Search" }));
     fireEvent.keyDown(document.activeElement ?? window, { key: "A", shiftKey: true });
-    expect(await screen.findByText(/2 of 2 jobs/)).toBeInTheDocument();
+    expect(await screen.findByText(/Could not move 2 of 2 jobs to Approved/)).toBeInTheDocument();
   });
 
   it("Shift+A does nothing with nothing checked", async () => {
@@ -160,6 +161,56 @@ describe("QueuePage", () => {
     renderQueue();
     await screen.findAllByTestId("job-row");
     fireEvent.keyDown(window, { key: "A", shiftKey: true });
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(false);
+  });
+
+  it("one failed job reads 1 of 1 job", async () => {
+    vi.stubGlobal("fetch", vi.fn((_url: unknown, init?: RequestInit) =>
+      init?.method === "PATCH"
+        ? Promise.resolve(new Response(JSON.stringify({ detail: "boom" }), { status: 500 }))
+        : Promise.reject(new Error("offline")),
+    ));
+    const user = userEvent.setup();
+    renderQueue();
+    await screen.findAllByTestId("job-row");
+    await user.click(screen.getByRole("checkbox", { name: "Select ML Platform Engineer" }));
+    await user.click(within(screen.getByTestId("job-list")).getByRole("button", { name: /^Approve/ }));
+    expect(await screen.findByText(/Could not move 1 of 1 job to Approved\. First error:/)).toBeInTheDocument();
+  });
+
+  it("a partial bulk failure counts only the failed row and rolls only it back", async () => {
+    vi.stubGlobal("fetch", vi.fn((url: unknown, init?: RequestInit) => {
+      if (init?.method !== "PATCH") return Promise.reject(new Error("offline"));
+      if (String(url).includes("agentur-ref-77401")) {
+        return Promise.resolve(new Response(JSON.stringify({ detail: "boom" }), { status: 500 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({ source_id: "inbox-clip-linkedin-4f2a", status: "approved" }), { status: 200 }));
+    }));
+    const user = userEvent.setup();
+    renderQueue();
+    await screen.findAllByTestId("job-row");
+    await user.click(screen.getByRole("checkbox", { name: "Select ML Platform Engineer" }));
+    await user.click(screen.getByRole("checkbox", { name: "Select Engineering Manager, Search" }));
+    await user.click(within(screen.getByTestId("job-list")).getByRole("button", { name: /^Approve/ }));
+    expect(await screen.findByText(/Could not move 1 of 2 jobs to Approved\./)).toBeInTheDocument();
+    const chip = (id: string) =>
+      within(document.querySelector(`[data-source-id="${id}"]`) as HTMLElement).getByTestId("status-chip");
+    expect(chip("agentur-ref-77401")).toHaveAttribute("data-status", "shortlist");
+    expect(chip("inbox-clip-linkedin-4f2a")).toHaveAttribute("data-status", "approved");
+  });
+
+  it("Shift+D skips the checked jobs", async () => {
+    vi.stubGlobal("fetch", vi.fn((_url: unknown, init?: RequestInit) =>
+      init?.method === "PATCH"
+        ? Promise.resolve(new Response(JSON.stringify({ detail: "boom" }), { status: 500 }))
+        : Promise.reject(new Error("offline")),
+    ));
+    const user = userEvent.setup();
+    renderQueue();
+    await screen.findAllByTestId("job-row");
+    await user.click(screen.getByRole("checkbox", { name: "Select ML Platform Engineer" }));
+    fireEvent.keyDown(document.activeElement ?? window, { key: "D", shiftKey: true });
+    expect(await screen.findByText(/Could not move 1 of 1 job to Skipped\./)).toBeInTheDocument();
   });
 });
