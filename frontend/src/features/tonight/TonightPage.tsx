@@ -139,7 +139,7 @@ export function TonightPage() {
             approved: undefined,
             applied: undefined,
           }}
-          writer={{ mode: "auto" }}
+          writer={{ mode: "cloud", cloudLabel: writerModel ?? undefined }}
           refusals={refusals}
         />
       </div>
