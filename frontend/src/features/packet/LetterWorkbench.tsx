@@ -87,7 +87,7 @@ export function LetterWorkbench({
           <span className="letter__added">+{added}</span>{" "}
           <span className="letter__removed">−{removed}</span>
         </span>
-        <Button variant="primary" shortcut="⌘S" title={SAVE_HINT} disabled={busy} onClick={() => onSave(text)}>
+        <Button variant="primary" title={SAVE_HINT} disabled={busy} onClick={() => onSave(text)}>
           Save letter
         </Button>
       </header>

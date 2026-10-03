@@ -14,4 +14,9 @@ describe("LetterWorkbench", () => {
     expect(screen.getByRole("button", { name: "Regenerate letter" })).toBeEnabled();
     expect(screen.getByRole("button", { name: /Save letter/ })).toBeEnabled();
   });
+
+  it("Save shows no shortcut it does not have", () => {
+    render(<LetterWorkbench aiDraft="Hi" onSave={vi.fn()} onRegenerate={vi.fn()} />);
+    expect(screen.getByRole("button", { name: /Save letter/ }).querySelector(".button__kbd")).toBeNull();
+  });
 });
