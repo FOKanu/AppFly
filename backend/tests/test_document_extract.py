@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 from fastapi.testclient import TestClient
 
 from jobhunt.api.app import create_app
 from jobhunt.features.documents.extract import extract_document_text
 from jobhunt.features.secrets.store import SecretStore
 from jobhunt.store.sqlite.store import SqliteStore
+from jobhunt.store.sqlite.schema import SCHEMA_VERSION
 
 
 def test_extract_plain_text_ok() -> None:
@@ -100,6 +100,6 @@ def test_upload_sets_extract_status(
 
     store = SqliteStore(tmp_path / "data")
     try:
-        assert store._conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0] == "3"
+        assert store._conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0] == str(SCHEMA_VERSION)
     finally:
         store.close()

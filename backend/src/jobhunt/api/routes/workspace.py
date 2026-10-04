@@ -46,7 +46,7 @@ def _readiness(request: Request) -> WorkspaceReadiness:
     return WorkspaceReadiness(
         storage_backend=getattr(store, "backend_name", config.storage_backend),
         data_path=str(store.data_path()),
-        has_cv=any(d.kind == "cv" for d in docs) or bool(store.read_cv()),
+        has_cv=bool((store.read_cv() or "").strip()) or any(d.kind == "cv" and getattr(d, "extract_status", "") == "ok" for d in docs),
         has_voice=any(d.kind == "voice" for d in docs) or bool(store.read_voice_samples()),
         has_gemini=secrets.is_configured(SecretName.gemini) or bool(config.gemini_api_key),
         has_keywords=bool(config.keywords),

@@ -1,5 +1,7 @@
 import { Meter } from "../../shared/ui/Meter";
 import { Tag } from "../../shared/ui/Tag";
+import { writerLabel } from "../../shared/writerLabel";
+import { BANNED_BRANDS } from "../../shared/policy";
 import type { Run } from "./types";
 
 /** Cumulative funnel counts the Activity screen also reports. */
@@ -10,13 +12,11 @@ export interface FunnelTotals {
   applied?: number;
 }
 
-/** Writer token usage for the run, split by backend. */
+/** Writer token usage for the run (Gemini is the only writer). */
 export interface WriterUsage {
   mode?: string;
   cloudLabel?: string;
   cloudTokens?: number;
-  localLabel?: string;
-  localTokens?: number;
 }
 
 interface LastRunSummaryProps {
@@ -27,22 +27,12 @@ interface LastRunSummaryProps {
   refusals: string[] | null;
 }
 
-/** Hosts `backend/src/jobhunt/policy.py` refuses; shown read-only. */
-const BANNED_HOSTS = [
-  "LinkedIn",
-  "Indeed",
-  "Stepstone",
-  "ZipRecruiter",
-  "Xing",
-  "Glassdoor",
-];
-
 /**
  * Purpose: Right rail on Tonight — last run's funnel, writer token split, and the
  *          crawl-policy card.
  * Does not: enforce policy; policy.py refuses before any request is made.
  */
-export function LastRunSummary({ funnel, writer, refusals }: LastRunSummaryProps) {
+export function LastRunSummary({ run, funnel, writer, refusals }: LastRunSummaryProps) {
   const top = funnel.scouted ?? 0;
 
   return (
@@ -69,24 +59,11 @@ export function LastRunSummary({ funnel, writer, refusals }: LastRunSummaryProps
           <span className="run-summary__rule" />
           <span className="run-summary__value">{formatTokens(totalTokens(writer))}</span>
         </div>
-        <div
-          className="writer-split"
-          data-empty={totalTokens(writer) === undefined}
-          role="img"
-          aria-label={`Writer token split, ${formatTokens(writer.cloudTokens)} cloud and ${formatTokens(writer.localTokens)} local`}
-        >
-          <span
-            className="writer-split__cloud"
-            style={{ width: `${splitPercent(writer)}%` }}
-          />
-          <span className="writer-split__local" />
-        </div>
         <p className="run-summary__legend">
           <span>
-            {writer.cloudLabel ?? "gemini-flash"} · {formatTokens(writer.cloudTokens)}
-          </span>
-          <span>
-            {writer.localLabel ?? "llama3.1:8b"} · {formatTokens(writer.localTokens)}
+            {run === null
+              ? "No runs yet"
+              : `${writerLabel(writer.cloudLabel)} · ${formatTokens(writer.cloudTokens)}`}
           </span>
         </p>
       </section>
@@ -103,7 +80,7 @@ export function LastRunSummary({ funnel, writer, refusals }: LastRunSummaryProps
           </span>
         </div>
         <p className="run-summary__policy-copy">
-          0 fetches to {BANNED_HOSTS.join(" \u00b7 ")}.
+          Blocked before any request: {BANNED_BRANDS.join(" \u00b7 ")}.
           {refusals === null
             ? ""
             : refusals.length > 0
@@ -129,7 +106,11 @@ function FunnelRow({
   return (
     <div className="funnel-row">
       <span className="funnel-row__label">{label}</span>
-      <Meter value={of > 0 ? (value ?? 0) / of : 0} tone={tone} label={label} />
+      {value !== undefined && of > 0 ? (
+        <Meter value={value / of} tone={tone} label={label} />
+      ) : (
+        <span className="funnel-row__track" aria-hidden="true" />
+      )}
       <span className="funnel-row__value">
         {value === undefined ? "—" : value.toLocaleString()}
       </span>
@@ -138,14 +119,7 @@ function FunnelRow({
 }
 
 function totalTokens(writer: WriterUsage): number | undefined {
-  if (writer.cloudTokens === undefined && writer.localTokens === undefined) return undefined;
-  return (writer.cloudTokens ?? 0) + (writer.localTokens ?? 0);
-}
-
-function splitPercent(writer: WriterUsage): number {
-  const total = totalTokens(writer);
-  if (!total) return 0;
-  return Math.round(((writer.cloudTokens ?? 0) / total) * 100);
+  return writer.cloudTokens;
 }
 
 function formatTokens(value: number | undefined): string {

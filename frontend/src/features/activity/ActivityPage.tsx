@@ -81,6 +81,7 @@ export function ActivityPage() {
           <FunnelSummary
             funnel={view?.funnel ?? EMPTY_FUNNEL}
             windowDays={WINDOW_DAYS}
+            loaded={Boolean(view)}
           />
           <PolicyRefusals
             refusals={refusals}

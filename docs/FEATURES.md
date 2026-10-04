@@ -4,10 +4,10 @@ One row per Cloud Agent package. Sibling agents add folders on parallel branches
 
 | ID | Package | Surface | Status | Notes |
 | --- | --- | --- | --- | --- |
-| A0 | Monorepo layout | `backend/` Python move, `frontend/` Vite scaffold, `docs/` | **This tree** | No real screens, no business API routes, no keychain. Health-only API. |
+| A0 | Monorepo layout | `backend/` Python move, `frontend/` Vite scaffold, `docs/` | **This tree** | Historical scaffold (started as a health-only API); routes, screens and keychain landed in A1–A8. |
 | A1 | HTTP API | `GET/PATCH /jobs`, `POST/GET /runs`, `GET/PUT /settings`, secret PUT/DELETE | **This tree** | Routes under `backend/src/jobhunt/api/`. GET must not return secret values. |
 | A2 | Write-only secrets | `PUT/DELETE /settings/secrets/{name}`, Keychain store | **This tree** | `backend/src/jobhunt/features/secrets/`. Flags only on GET `/settings`. |
-| A3 | App chrome | `frontend/src/app/layout/`, routes, shared controls | **This tree** | Sidebar, header, run bar. Feature screens are still placeholders. |
+| A3 | App chrome | `frontend/src/app/layout/`, routes, shared controls | **This tree** | Sidebar, header, run bar. Feature screens landed in A4–A8. |
 | A4 | Tonight | `frontend/src/features/tonight/` | **This tree** | Home dashboard; mock fallback if the API is down. |
 | A5 | Workflow | `frontend/src/features/workflow/` | **This tree** | Scout → Match → Write stepper. Same handover as Tonight. |
 | A6 | Packet | `frontend/src/features/packet/` | **This tree** | Sealed one-job packet. Approve/skip via PATCH; human submits. |
@@ -16,7 +16,7 @@ One row per Cloud Agent package. Sibling agents add folders on parallel branches
 | A7 | Activity | `frontend/src/features/activity/` | **This tree** | Run log timeline; error text is redacted. |
 | A8 | Settings | `frontend/src/features/settings/` | **This tree** | Write-only key fields. GET never shows secret values. |
 | — | Mobile / tablet | Shared banners, `useBreakpoint`, queue/workflow empty states | **This tree** | Keeps `AppShell` chrome. Does not swap in `ResponsiveShell`. |
-| — | CV variants | Upload Word/PDF, extract to `CV/<variant>.md`, pick CV per run | **Planned** | See backlog below. Do not render CV body in the UI. |
+| — | CV variants | Upload Word/PDF, extract text, pick CV per run | **This tree** | M1 extract (#50; PDF/DOCX need the `[extract]` extra; DOCX tables since gaps-v1 #65), M2 CV on `POST /runs` (#52), M3 CV picker (#55). Do not render CV body in the UI. |
 | S0 | Native storage | `store/`, SQLite + files, Documents + Workspace APIs, Vault UI | **This tree** | Obsidian optional one-shot import. See [STORAGE.md](STORAGE.md). Landed via `storage-v1`. |
 | P0 | Prototype stabilize | CI workflow, `uv.lock`, profile→Vault, agent playbooks | **This tree** | On `integrate/prototype-v1`. |
 | P3 | UI first-run truth | Settings/Vault copy matches live storage APIs | **This tree** | #25 (`feat/ui-firstrun-truth`). Error classification; Vault/Settings truth; Packet no longer calls missing `POST /jobs/{id}/fetch` (F1 deferred). |

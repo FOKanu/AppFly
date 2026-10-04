@@ -20,7 +20,7 @@ Local FastAPI app (`jobhunt.api.app:app`), default bind `http://127.0.0.1:8787`.
 | DELETE | `/settings/secrets/{name}` | Remove a named secret | path `name` | `{ "configured": false }` | Return the old value |
 | GET | `/jobs/{id}/letter` | Full letter body | path | `{ body, model, … }` | CV body |
 | PUT | `/jobs/{id}/letter` | Save edited letter | `{ body }` | Saved letter | Auto-submit |
-| POST | `/jobs/{id}/letter/regenerate` | Force Gemini rewrite | none | New letter body | Include other jobs |
+| POST | `/jobs/{id}/letter/regenerate` | Force Gemini rewrite | none | `{ source_id, body, model }` (`model` = configured Gemini model) | Include other jobs |
 | GET | `/runs/{id}` | Run status (memory, then store; survives restart) | path | counts (live while running), errors, status, `interrupted`, `stage`, `write_cap` | Secrets |
 | POST | `/runs/{id}/cancel` | Cooperative cancel (checked between stages and letters) | path | `{ cancelled }`; `404` if the run is not in this process | Kill Gemini mid-call |
 | GET/POST | `/documents` | List / upload Vault docs | multipart on POST | metadata only (incl. `extract_status`) | CV body / file bytes in list |

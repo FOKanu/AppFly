@@ -5,8 +5,7 @@ Status: **Closed** — landed on `main` @ `5a5adc9` via #61 (2026-09-27). M1–M
 Owner was Grok (or Cursor as temp planner). Implementer: 5090 local coder under briefs.
 Composer gated every M* PR; owned M5 and M8. Claude: on call only where noted.
 
-Post-MVP work branches from **`main`** until the next `integrate/<epic>` opens.
-See [ORCHESTRATOR_HANDOFF.md](ORCHESTRATOR_HANDOFF.md) and [FOLLOW_UPS.md](../design/FOLLOW_UPS.md) (F3 Vitest in flight).
+Post-MVP: F3 Vitest landed in #62 (`main` @ `d9d7d15`). Epic `integrate/gaps-v1` (opened 2026-10-03) merged into `main` via #70 (`460c14c`). The current epic is **`integrate/ui-honesty-v1`** (opened 2026-10-03 from `460c14c`). See [ORCHESTRATOR_HANDOFF.md](ORCHESTRATOR_HANDOFF.md) and [FOLLOW_UPS.md](../design/FOLLOW_UPS.md).
 
 ---
 
@@ -59,7 +58,7 @@ Do **not** use the Cursor IDE Claude agent for these calls (`.cursor/rules/claud
 
 ## Definition of done for Stage 2 start
 
-- [ ] Prototype on `main` (P7 + human sign-off)
-- [ ] `integrate/mvp-v1` pushed and announced
-- [ ] M1 brief ready for 5090 (ALLOWED FILES + extract contract)
-- [ ] Claude **not** yet — wait until M1+M2 land before M3 design call
+- [x] Prototype on `main` (P7 + human sign-off)
+- [x] `integrate/mvp-v1` pushed and announced
+- [x] M1 brief ready for 5090 (ALLOWED FILES + extract contract)
+- [x] Claude **not** yet — wait until M1+M2 land before M3 design call

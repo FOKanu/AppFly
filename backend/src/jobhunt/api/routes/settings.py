@@ -152,6 +152,9 @@ def _settings_response(request: Request) -> SettingsResponse:
         ),
         health=_health_flags(config, vault, config_path),
         secrets=_secret_flags(request),
+        letter_cap=config.letter_cap,
+        shortlist_size=config.shortlist_size,
+        gemini_model=config.gemini_model,
     )
 
 

@@ -244,8 +244,6 @@ def _embed(config: AppConfig, text: str) -> list[float]:
 
 
 def _model_embed(text: str) -> list[float]:
-    from sentence_transformers import SentenceTransformer
-
     model = _load_model()
     vector = model.encode(text, normalize_embeddings=True)
     return [float(x) for x in vector.tolist()]
