@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import type { ApiFailure } from "../../shared/api/errors";
+import { Banner } from "../../shared/ui/Banner";
+import { SampleDataBanner } from "../../shared/ui/SampleDataBanner";
 import { EMPTY_FILTERS, filterJobs, type QueueFilterState } from "./filterJobs";
 import { listJobs, patchJobStatus } from "./jobsApi";
 import { JobList } from "./JobList";
@@ -8,8 +11,15 @@ import { QueueDetail } from "./QueueDetail";
 import { QueueToolbar, type QueueSort, type QueueView } from "./QueueToolbar";
 import { UndoToast, type UndoEntry } from "./UndoToast";
 import { EmptyQueueState } from "./states/EmptyQueueState";
-import { JOB_STATUSES, type JobRecord, type JobStatus } from "./types";
+import { JOB_STATUSES, statusLabel, type JobRecord, type JobStatus } from "./types";
 import "./queue.css";
+
+function asFailure(err: unknown): ApiFailure | null {
+  if (err && typeof err === "object" && "kind" in err && "message" in err) {
+    return err as ApiFailure;
+  }
+  return null;
+}
 
 /**
  * Purpose: Queue master-detail — filterable job list plus one selected packet.
@@ -21,6 +31,7 @@ export function QueuePage() {
   const [jobs, setJobs] = useState<JobRecord[]>([]);
   const [usingMock, setUsingMock] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
   const [filters, setFilters] = useState<QueueFilterState>(EMPTY_FILTERS);
   const [view, setView] = useState<QueueView>("list");
@@ -49,7 +60,10 @@ export function QueuePage() {
         setError(null);
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load jobs");
+        if (cancelled) return;
+        const failure = asFailure(err);
+        setError(failure?.message ?? (err instanceof Error ? err.message : "Failed to load jobs"));
+        setUsingMock(false);
       });
     return () => {
       cancelled = true;
@@ -95,16 +109,28 @@ export function QueuePage() {
   }, []);
 
   const setStatus = useCallback(
-    async (job: JobRecord, status: JobStatus) => {
+    async (job: JobRecord, status: JobStatus, bulk = false): Promise<string | null> => {
+      if (!bulk) setSaveError(null);
       const previous = job.status;
       setJobs((current) =>
         current.map((row) => (row.source_id === job.source_id ? { ...row, status } : row)),
       );
-      setUndo({ title: job.title, status, sourceId: job.source_id, previous });
+      if (!bulk) setUndo({ status, changes: [{ sourceId: job.source_id, title: job.title, previous }] });
       try {
         await patchJobStatus(job.source_id, status);
-      } catch {
-        setError(`Could not save ${job.title} as ${status}.`);
+        return null;
+      } catch (err: unknown) {
+        setJobs((current) =>
+          current.map((row) =>
+            row.source_id === job.source_id && row.status === status ? { ...row, status: previous } : row,
+          ),
+        );
+        const reason = asFailure(err)?.message || "unknown error";
+        if (!bulk) {
+          setUndo(null);
+          setSaveError(`Could not move ${job.title} to ${statusLabel(status)}. ${reason}`);
+        }
+        return reason;
       }
     },
     [],
@@ -112,40 +138,73 @@ export function QueuePage() {
 
   const onUndo = useCallback(async () => {
     if (!undo) return;
-    const job = jobs.find((row) => row.source_id === undo.sourceId);
+    setSaveError(null);
     setUndo(null);
-    if (!job) return;
+    const { status, changes } = undo;
+    const previousOf = new Map(changes.map((change) => [change.sourceId, change.previous]));
     setJobs((current) =>
-      current.map((row) =>
-        row.source_id === undo.sourceId ? { ...row, status: undo.previous } : row,
-      ),
+      current.map((row) => (previousOf.has(row.source_id) ? { ...row, status: previousOf.get(row.source_id) as JobStatus } : row)),
     );
-    try {
-      await patchJobStatus(undo.sourceId, undo.previous);
-    } catch {
-      setError(`Could not undo ${job.title}.`);
+    const results = await Promise.all(
+      changes.map(async (change) => {
+        try {
+          await patchJobStatus(change.sourceId, change.previous);
+          return null;
+        } catch (err: unknown) {
+          setJobs((current) =>
+            current.map((row) =>
+              row.source_id === change.sourceId && row.status === change.previous ? { ...row, status } : row,
+            ),
+          );
+          return asFailure(err)?.message || "unknown error";
+        }
+      }),
+    );
+    const failed = results.filter((message): message is string => Boolean(message));
+    if (failed.length === 0) return;
+    if (changes.length === 1) {
+      setSaveError(`Could not undo ${changes[0].title}. ${failed[0]}`);
+    } else {
+      setSaveError(`Could not undo ${failed.length} of ${changes.length} jobs. First error: ${failed[0]}`);
     }
-  }, [undo, jobs]);
+  }, [undo]);
 
   const onBulk = useCallback(
-    (status: JobStatus) => {
-      jobs
-        .filter((job) => checkedIds.has(job.source_id))
-        .forEach((job) => void setStatus(job, status));
+    async (status: JobStatus) => {
+      const rows = jobs.filter((job) => checkedIds.has(job.source_id));
       setCheckedIds(new Set());
+      setSaveError(null);
+      const results = await Promise.all(rows.map((job) => setStatus(job, status, true)));
+      const failed = results.filter((message): message is string => Boolean(message));
+      if (failed.length > 0) {
+        const noun = rows.length === 1 ? "job" : "jobs";
+        setSaveError(`Could not move ${failed.length} of ${rows.length} ${noun} to ${statusLabel(status)}. First error: ${failed[0]}`);
+      }
+      const moved = rows.filter((_job, index) => results[index] === null);
+      if (moved.length > 0) {
+        setUndo({
+          status,
+          changes: moved.map((job) => ({ sourceId: job.source_id, title: job.title, previous: job.status })),
+        });
+      }
     },
     [jobs, checkedIds, setStatus],
   );
 
   return (
     <section className="queue-page page-flush" data-testid="queue-page">
-      {usingMock ? (
-        <p className="queue-page__banner" data-testid="mock-banner">
-          Sample queue — GET /jobs is unavailable. Status changes stay local until the API is
-          up.
-        </p>
+      {usingMock ? <SampleDataBanner noun="jobs" /> : null}
+      {error ? (
+        <Banner tone="danger" title="Couldn't load Queue" role="alert">
+          {error}
+        </Banner>
       ) : null}
-      {error ? <p className="queue-page__banner">{error}</p> : null}
+
+      {saveError ? (
+        <Banner tone="danger" title="Couldn't save" role="alert">
+          {saveError}
+        </Banner>
+      ) : null}
 
       <QueueToolbar
         filters={filters}
@@ -184,8 +243,8 @@ export function QueuePage() {
             checkedIds={checkedIds}
             onToggleChecked={onToggleChecked}
             onClearChecked={() => setCheckedIds(new Set())}
-            onApproveChecked={() => onBulk("approved")}
-            onSkipChecked={() => onBulk("skipped")}
+            onApproveChecked={() => void onBulk("approved")}
+            onSkipChecked={() => void onBulk("skipped")}
           />
         )}
         <QueueDetail

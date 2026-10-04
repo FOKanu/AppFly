@@ -88,7 +88,6 @@ class MarkdownVaultStore:
             "nice_to_have": list(requirements.nice_to_have),
             "tone": requirements.tone,
         }
-        body = path.read_text(encoding="utf-8") if path.exists() else "# Requirements\n"
         # Keep body; replace frontmatter via frontmatter dump of empty content + meta if needed
         if path.exists():
             post = frontmatter.loads(path.read_text(encoding="utf-8"))
@@ -212,6 +211,7 @@ class MarkdownVaultStore:
         mime: str,
         raw: bytes,
         extracted_text: str = "",
+        extract_status: str = "empty",
         active_cv: bool = False,
         active_voice: bool = False,
     ) -> DocumentMeta:
@@ -222,15 +222,19 @@ class MarkdownVaultStore:
         suffix = Path(original_name).suffix or ".bin"
         original_path = folder / f"original{suffix}"
         original_path.write_bytes(raw)
+        status = extract_status if extract_status in {"ok", "empty", "unsupported", "error"} else "empty"
         if extracted_text:
             (folder / "extracted.txt").write_text(extracted_text, encoding="utf-8")
+            status = status if status != "empty" else "ok"
         elif mime.startswith("text/") or suffix.lower() in {".md", ".txt"}:
             try:
                 text = raw.decode("utf-8")
                 (folder / "extracted.txt").write_text(text, encoding="utf-8")
                 extracted_text = text
+                status = "ok" if text.strip() else "empty"
             except UnicodeDecodeError:
                 extracted_text = ""
+                status = "error"
         words = len(extracted_text.split()) if extracted_text else 0
         now = utc_now()
         meta = DocumentMeta(
@@ -244,6 +248,7 @@ class MarkdownVaultStore:
             created_at=now,
             updated_at=now,
             original_name=original_name,
+            extract_status=status,  # type: ignore[arg-type]
         )
         rows = self._load_doc_index()
         if active_cv:

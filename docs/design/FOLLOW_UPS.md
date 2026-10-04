@@ -1,25 +1,24 @@
 # Follow-ups from the UI waves 1-2 spec
 
 Source: decisions of 2026-09-27 in [UI_WAVES_1_2.md](UI_WAVES_1_2.md).
-Baseline: `integrate/prototype-v1` @ `bd43eee`.
+Baseline: `integrate/prototype-v1` @ `bd43eee` (historical). Status below re-checked against `main` @ `d9d7d15`
+and `integrate/gaps-v1` on 2026-10-03.
 
-> **Reminder: when `feat/ui-firstrun-truth` and `feat/ui-run-progress` have merged into
-> `integrate/prototype-v1`, implement backend tasks B1 to B4 below** (local coder under Grok
-> briefs; the contract prompt is at the bottom). The UI already reads the new fields if they're
-> present, so each task lights up in the UI as soon as it merges. The UI fallbacks are removed in
-> two passes, after B1 and after B4 (see "Compatibility rule" in the spec).
+> B1 to B4 are done: B2 + B3 in #34, B1 in #35, B4 (with F4) in #40, all on `main` since Stage 1 (#48).
+> Since gaps-v1 (#66, schema v4) `stage` and `write_cap` are also stored in SQLite while a run is
+> queued/running, so CLI/nightly runs show their stage too. The contract below stays as reference.
 
 | ID | What | When | Owner |
 | --- | --- | --- | --- |
-| B1 | Run stage + live counts | After the UI waves | Local coder under Grok briefs |
-| B2 | `completed_with_errors` status | After the UI waves | Local coder under Grok briefs |
-| B3 | `interrupted` flag | After the UI waves | Local coder under Grok briefs |
-| B4 | Nightly / CLI runs visible (including `jobhunt scout\|match\|write`), one lock across processes | After the UI waves, **before prototype close (P7)** because D-7 says the prototype needs it | Local coder under Grok briefs |
+| B1 | Run stage + live counts | **Done** (#35; stage/write_cap persisted in gaps-v1 #66) | Local coder under Grok briefs |
+| B2 | `completed_with_errors` status | **Done** (#34) | Local coder under Grok briefs |
+| B3 | `interrupted` flag | **Done** (#34) | Local coder under Grok briefs |
+| B4 | Nightly / CLI runs visible (including `jobhunt scout\|match\|write`), one lock across processes | **Done** (#40) | Local coder under Grok briefs |
 | F1 | Fetch listing (server-side, allowed hosts only) | Post-MVP, after a policy review | Decide then |
-| F2 | Mock-data rule for Tonight / Workflow / Activity loaders, plus the Queue / Packet loader items from the W1 review | M7 (`integrate/mvp-v1`) | Grok plans, local coder |
-| F3 | Vitest + Testing Library + `test` script | When you allow `package.json` / lockfile changes | Composer (CI area) |
-| F4 | Nightly plist points at an old checkout | With B4 | Local coder under Grok briefs |
-| F5 | Low-priority cleanups from the W1 review | Deferred, no date | Grok decides |
+| F2 | Mock-data rule for Tonight / Workflow / Activity loaders, plus the Queue / Packet loader items from the W1 review | **Done** (M7 #59) | Grok plans, local coder |
+| F3 | Vitest + Testing Library + `test` script | **Done** (#62, `main` @ `d9d7d15`; runs in CI) | Composer (CI area) |
+| F4 | Nightly plist points at an old checkout | **Done** (#40; plist uses `backend/.venv`) | Local coder under Grok briefs |
+| F5 | Low-priority cleanups from the W1 review | **Partial** (redact → `shared/api/`, Obsidian toast pluralize in F3 PR) | Composer / Grok |
 
 ---
 
@@ -83,8 +82,8 @@ F4: `launchd/com.jobhunt.nightly.plist:13` runs `/Users/franciskanu/Projects/Job
   - **Raw error strings.** `QueuePage.tsx:52` and `ActivityPage.tsx:33` put a thrown `err.message` straight into the page (for Activity, text like `GET {path} failed (500)` from `features/activity/api.ts:170-176`). Use the section 1 messages from `shared/api/errors.ts` instead.
   - **Offline banner spacing.** The global `OfflineBanner` sits directly on the page kicker, with no gap (`w2a-offline-1440.png`). Add a bottom margin on the banner stack (`shared/ui/OfflineBanner.module.css`) equal to the page's normal section gap.
   - **Sample packet banner.** `Sample packet — GET /jobs/{id} is unavailable.` (`PacketPage.tsx`, `data-testid="mock-banner"`) becomes the shared `Sample data` banner from W1 item 3, with `{jobs}` as the noun.
-- **F5 Low-priority cleanups.** (1) `shared/api/client.ts` imports `features/activity/redact.ts`; move `redact.ts` to `shared/` so the shared layer doesn't depend on a feature folder. (2) Pluralize the Obsidian import toast (`Imported 1 jobs` today).
-- **F3 Vitest.** Every acceptance item marked *(deferred, F3)* in the spec becomes a real test once vitest, `@testing-library/react`, `jsdom` and a `test` script exist, plus the CI step. This needs `package.json` + `package-lock.json` changes, which are currently not allowed.
+- **F5 Low-priority cleanups.** (1) ~~`shared/api/client.ts` imports `features/activity/redact.ts`; move `redact.ts` to `shared/`~~ **Done** (`shared/api/redact.ts`). (2) ~~Pluralize the Obsidian import toast~~ **Done** (`countLabel` in `ImportObsidianPanel`). Remaining deferred items from the W1 review stay open until scheduled.
+- **F3 Vitest.** **Wired:** `vitest`, Testing Library, `jsdom`, `npm test`, and CI `npm test` before build. Existing `*.test.*` files run green; fill remaining *(deferred, F3)* acceptance items from the UI waves spec as follow-on PRs.
 
 ---
 
@@ -164,6 +163,24 @@ The user delegated these calls to Grok. Where they conflict with the sections ab
    Written into the B4 contract above.
 2. **Order.** W1, then W2 (with the spec fallbacks), then B2 + B3, then B1, then a small UI pass
    that replaces the fallbacks with the real fields, then B4 together with F4.
-3. **D-6 stands.** No vitest and no `package.json` / lockfile changes. The vitest proposal (F3)
-   is parked for the user.
+3. ~~**D-6 stands.** No vitest and no `package.json` / lockfile changes. The vitest proposal (F3)
+   is parked for the user.~~ **Reversed** by #62 (2026-09-27): Vitest + Testing Library are in
+   `frontend/` and `npm test` runs in CI.
 4. **Deferred items.** F1 is deferred until after the MVP. F2 moves to M7. F4 ships with B4.
+
+## Still open after gaps-v1 (2026-10-03)
+
+gaps-v1 fixed: desktop `prepare-resources` crash (#63), crashed-run heartbeat thread leak (#64), DOCX
+table text + `has_cv` needs a readable CV (#65), stage/write_cap persistence (#66), read-only
+`letter_cap` / `shortlist_size` / `gemini_model` on `GET /settings` (#67), CI ruff + `build:secure` +
+`[extract]` + desktop job (#68). Not done yet:
+
+- **F1** fetch listing: post-MVP, after a policy review.
+- **UI honesty pass:** Workflow/Tonight still show hardcoded schedule, caps and shortlist rules (the
+  backend values are now on `GET /settings`); the UI advertises a local "8B" writer fallback that
+  doesn't exist; banned-host lists in the UI differ from `policy.py`; a failed Queue status change is
+  not rolled back; Packet approve/skip errors read "PATCH failed".
+- **Decisions for the user:** packaging of a self-contained desktop build; whether `[extract]` becomes
+  a core dependency; Workflow caps wording; Tonight switcher and the rate-limit banner (the backend
+  never reports `rate_limited`).
+- **Test coverage:** no dedicated PRs yet.

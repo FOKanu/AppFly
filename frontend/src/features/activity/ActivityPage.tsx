@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ApiFailure } from "../../shared/api/errors";
+import { Banner } from "../../shared/ui/Banner";
+import { SampleDataBanner } from "../../shared/ui/SampleDataBanner";
 import { loadActivity } from "./api";
 import { ExecutionLog, type LogEvent, type LogLevel } from "./ExecutionLog";
 import { FunnelSummary } from "./FunnelSummary";
@@ -20,7 +23,7 @@ const WINDOW_DAYS = 30;
  */
 export function ActivityPage() {
   const [view, setView] = useState<ActivityView | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<ApiFailure | null>(null);
   const { ui } = useRun();
   const [reloadKey, setReloadKey] = useState(0);
   const previousUi = useRef(ui);
@@ -40,11 +43,15 @@ export function ActivityPage() {
   useEffect(() => {
     let cancelled = false;
     loadActivity()
-      .then((data) => {
-        if (!cancelled) setView(data);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load activity");
+      .then((result) => {
+        if (cancelled) return;
+        if (result.source === "error") {
+          setView(null);
+          setFailure(result.failure);
+          return;
+        }
+        setView(result.data);
+        setFailure(null);
       });
     return () => {
       cancelled = true;
@@ -55,29 +62,26 @@ export function ActivityPage() {
   const events = useMemo(() => eventsFrom(runs), [runs]);
   const refusals = useMemo(() => refusalsFrom(runs), [runs]);
 
-  if (error) {
+  if (failure) {
     return (
       <div className="activity">
-        <p className="activity__banner" role="alert">
-          {error}
-        </p>
+        <Banner tone="danger" title="Couldn't load Activity" role="alert">
+          {failure.message}
+        </Banner>
       </div>
     );
   }
 
   return (
     <div className="activity" aria-busy={view ? undefined : true}>
-      {view?.source === "mock" ? (
-        <p className="activity__banner" role="status">
-          Local API unreachable — showing sample run history with secrets already stripped.
-        </p>
-      ) : null}
+      {view?.source === "mock" ? <SampleDataBanner noun="activity" /> : null}
 
       <div className="activity__columns">
         <div className="activity__col">
           <FunnelSummary
             funnel={view?.funnel ?? EMPTY_FUNNEL}
             windowDays={WINDOW_DAYS}
+            loaded={Boolean(view)}
           />
           <PolicyRefusals
             refusals={refusals}

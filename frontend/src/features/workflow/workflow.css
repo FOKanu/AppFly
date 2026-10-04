@@ -85,6 +85,12 @@
   flex: 0 0 auto;
 }
 
+.heartbeat-panel__using {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
 .nightly-toggle {
   display: inline-flex;
   align-items: center;
@@ -518,10 +524,6 @@
   height: 6px;
   border-radius: 50%;
   background: var(--accent);
-}
-
-.backend-row__dot[data-tone="local"] {
-  background: var(--warning);
 }
 
 /* Flex spacer, not a divider. */

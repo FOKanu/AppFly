@@ -1,25 +1,22 @@
 # MVP epic sequence (`integrate/mvp-v1`)
 
-Status: **Ready to open after** Composer merges `integrate/prototype-v1` → `main`
-(P7 smoke + human sign-off). Do not cut `mvp-v1` from `main` until that lands.
+Status: **Closed** — landed on `main` @ `5a5adc9` via #61 (2026-09-27). M1–M8 complete.
 
-Owner: Grok (or Cursor as temp planner). Implementer: 5090 local coder under briefs.
-Composer: gate every M* PR; owns M5 and M8. Claude: on call only where noted.
+Owner was Grok (or Cursor as temp planner). Implementer: 5090 local coder under briefs.
+Composer gated every M* PR; owned M5 and M8. Claude: on call only where noted.
 
-Compute mode: **default** (current mixed split) unless the human opts into
-**optimized** or cloud is near token limits — [MULTI_AGENT.md §1a](../workflow/MULTI_AGENT.md).
+Post-MVP: F3 Vitest landed in #62 (`main` @ `d9d7d15`). Epic `integrate/gaps-v1` (opened 2026-10-03) merged into `main` via #70 (`460c14c`). The current epic is **`integrate/ui-honesty-v1`** (opened 2026-10-03 from `460c14c`). See [ORCHESTRATOR_HANDOFF.md](ORCHESTRATOR_HANDOFF.md) and [FOLLOW_UPS.md](../design/FOLLOW_UPS.md).
 
 ---
 
 ## Open the epic
 
+Done 2026-09-27: `integrate/mvp-v1` pushed @ `ff61b86`. AGENTS / RULES / branch-strategy / FEATURES updated via `chore/docs-open-mvp-v1`.
+
 ```bash
 git fetch origin
-git checkout main && git pull --ff-only   # tip must include prototype Stage 1
-git checkout -b integrate/mvp-v1
-git push -u origin integrate/mvp-v1
-# announce: integrate/mvp-v1 @ <SHA>
-# chore PR: AGENTS.md / RULES / branch-strategy / FEATURES MVP rows
+git checkout integrate/mvp-v1 && git pull --ff-only
+git checkout -b feat/backend-doc-extract   # M1 first
 ```
 
 ---
@@ -43,22 +40,25 @@ Deferred outside MVP waves: **F1** fetch listing (policy review first).
 
 ## When to call Claude
 
-Call Claude **only** with a focused question + screen/route + privacy check ask.
-Paste Claude’s copy/states/acceptance into the 5090 brief.
+Call Claude **only** with a focused question + a rich pack when useful (screens,
+API rows, privacy). Prefer the Mac Claude pack template under `docs/workflow/briefs/`
+(e.g. [M3-claude-ask.md](briefs/M3-claude-ask.md)). Paste Claude’s copy/states/acceptance
+into **sliced** 5090 briefs after a cloud check-in.
 
 | Gate | Call Claude when |
 | --- | --- |
-| **M3** | After M1+M2 are on `integrate/mvp-v1`. Ask for picker placement, empty/offline/error copy, and “metadata only / never CV body” acceptance. |
+| **M3** | After M1+M2 are on `integrate/mvp-v1`. Ask for picker placement, empty/offline/error copy, and “metadata only / never CV body” acceptance. Mac Claude only. |
 | **M6** | After M5 shell can launch the UI. Ask for wizard step order and first-run honesty. |
 | **M7** | Before mock-stripping briefs if banner/empty-state copy is unclear. |
 
 Do **not** call Claude for M1/M2/M4 backend mechanics, M5 packaging choice (Composer + Grok), or M8 audit.
+Do **not** use the Cursor IDE Claude agent for these calls (`.cursor/rules/claude-handoff.mdc`).
 
 ---
 
 ## Definition of done for Stage 2 start
 
-- [ ] Prototype on `main` (P7 + human sign-off)
-- [ ] `integrate/mvp-v1` pushed and announced
-- [ ] M1 brief ready for 5090 (ALLOWED FILES + extract contract)
-- [ ] Claude **not** yet — wait until M1+M2 land before M3 design call
+- [x] Prototype on `main` (P7 + human sign-off)
+- [x] `integrate/mvp-v1` pushed and announced
+- [x] M1 brief ready for 5090 (ALLOWED FILES + extract contract)
+- [x] Claude **not** yet — wait until M1+M2 land before M3 design call

@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Any, Literal
 
 DocumentKind = Literal["cv", "voice", "cert", "portfolio", "inbox", "other"]
+ExtractStatus = Literal["ok", "empty", "unsupported", "error"]
 
 
 @dataclass
@@ -35,6 +36,7 @@ class DocumentMeta:
     created_at: str = ""
     updated_at: str = ""
     original_name: str = ""
+    extract_status: ExtractStatus = "empty"
 
 
 @dataclass
@@ -81,9 +83,10 @@ class RunRecord:
     # Computed at read time, not stored in the runs table.
     interrupted: bool = False
     # B1: current stage while running ("scout" | "match" | "write"); None when queued or finished.
-    # Kept in memory only, not stored in the runs table.
+    # Stored in the runs table while queued/running and cleared (None) when the run ends.
     stage: str | None = None
     # B1: letter cap for this run (config letter_cap); None when unknown (for example read back from the store).
+    # Stored in the runs table while queued/running and cleared (None) when the run ends.
     write_cap: int | None = None
     # B4: trigger source ("api", "cli", or "nightly")
     trigger: str = "api"

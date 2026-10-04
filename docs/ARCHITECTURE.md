@@ -7,6 +7,7 @@ Jobhunt Copilot is a **local-first** job assistant. The human submits applicatio
 ```
 frontend/          React UI (Vite). Feature folders under src/features/
     └── HTTP       127.0.0.1:8787  — never puts secret values in GET bodies
+desktop/           Neutralino shell (M5). Serves built UI; spawns uvicorn on loopback
 backend/          Python package `jobhunt`
     cli.py         `jobhunt init|scout|match|write|run`
     api/           FastAPI (jobs, runs, settings, secrets, documents, workspace)
@@ -50,6 +51,12 @@ Config and `.env` are read from the **git repository root**, even though the pac
 **UI:**
 
 Browser → `VITE_API_BASE_URL` (default `http://127.0.0.1:8787`) → FastAPI → `get_store(config)`. Routes: [API.md](API.md). The UI must not fetch listing URLs itself, especially deny-listed hosts. Vault (`/vault`) is the in-app document library; Obsidian is optional import only.
+
+**Desktop shell (M5):**
+
+[desktop/](../desktop/) uses **Neutralino** (chosen over Tauri for MVP: smaller toolchain, no Rust). The window serves the Vite production build from `desktop/resources/` on fixed port **5174**. On launch, `resources/js/bootstrap.js` probes `GET /health` and, if needed, spawns `python -m jobhunt.api` from the repo checkout (`backend/.venv` or `uv run`) on `127.0.0.1:8787`. Native data stays under Application Support / XDG (`native_data_dir`). Secrets stay in Keychain via the API; no keys in the renderer or `VITE_*`. See [desktop/README.md](../desktop/README.md).
+
+**Privacy (M8):** Production UI bundles are scanned for secret-shaped tokens (`frontend` `npm run scan-secrets`, also after `desktop` `prepare-resources`). GET list endpoints return metadata / presence flags only. Crawl deny-list remains enforced in the same process the shell spawns. Audit notes: [briefs/M8-privacy-pass.md](workflow/briefs/M8-privacy-pass.md).
 
 ## Crawl policy
 

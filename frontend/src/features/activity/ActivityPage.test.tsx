@@ -61,7 +61,7 @@ describe("ActivityPage", () => {
     expect(await screen.findByText("Conversion funnel")).toBeInTheDocument();
     expect(screen.getByText("Scouted")).toBeInTheDocument();
     expect(screen.queryByText(/sk-leaked-token-value/)).not.toBeInTheDocument();
-    expect(screen.getByText(/\[redacted\]/)).toBeInTheDocument();
+    expect(screen.getAllByText(/\[redacted\]/).length).toBeGreaterThan(0);
   });
 });
 

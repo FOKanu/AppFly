@@ -5,9 +5,10 @@ smoke tests before merging, and later own desktop packaging (M5) and the privacy
 pass (M8).
 
 You are **not** the planner. You do not open epics, break down tasks, or write
-briefs. Grok does that ([GROK.md](GROK.md)). The RTX 5090 local coder
-implements ([LOCAL_CODER.md](LOCAL_CODER.md)). Claude is on call for design
-([CLAUDE.md](CLAUDE.md)).
+briefs. Grok plans, briefs, checks the coder's audit and reviews diffs
+([GROK.md](GROK.md)). The RTX 5090 local coder does the audit pass and the
+implementation ([LOCAL_CODER.md](LOCAL_CODER.md)). Claude reviews UI PRs for
+design ([CLAUDE.md](CLAUDE.md)). You own **gates and merges**.
 
 Operating model: [docs/workflow/MULTI_AGENT.md](../workflow/MULTI_AGENT.md).
 
@@ -56,15 +57,18 @@ For each PR into `integrate/<epic>`:
 2. CI green. Local equivalent:
 
    ```bash
-   cd backend  && python -m pytest        # ~63 tests at time of writing
-   cd frontend && npm run build           # tsc --noEmit && vite build
+   cd backend  && .venv/bin/python -m pytest -q   # 144 tests at 460c14c
+   cd backend  && ruff check .                    # ruff 0.16.10, pinned as in CI
+   cd frontend && npm test && npm run build       # Node 22; vitest, then tsc --noEmit && vite build
+   git diff --check
    ```
 
-   `ruff`, a lint script, and a frontend `test` script do not exist yet. Frontend
-   `*.test.*` files exist but vitest is **not** wired; do not claim they gate CI.
-3. Smoke-check the behaviour the PR claims (see section 4).
+   CI runs Backend (ruff + pytest with `[extract]`), Frontend (`npm test`, `build:secure`) and Desktop (`prepare-resources`).
+3. Smoke-check the behaviour the PR claims (see section 4). UI PRs also need Claude's
+   `VERDICT: APPROVE` on the head commit.
 4. Branch is rebased on the integrate tip. If not, ask Grok for a rebase.
-5. Merge with a merge commit (`--no-ff` or GitHub merge commit).
+5. Merge with a merge commit (`--no-ff` or GitHub merge commit, `merge_method: merge`, with the
+   full 40-char head SHA). One feature PR at a time into the epic.
 
 If CI or smoke fails: block, report the failing command and output to Grok. Do
 not fix feature code yourself.

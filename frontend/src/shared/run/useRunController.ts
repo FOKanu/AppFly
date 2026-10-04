@@ -7,7 +7,8 @@ import { ApiError, apiGet, apiPost } from "../api/client";
 import { describeApiError, isUnreachable } from "../api/errors";
 import { ACTIVE_UI, countsFor, formatElapsed, id5, ledFor, runMessage, uiFromStatus } from "./format";
 import type { RunController } from "./RunContext";
-import type { RunAccepted, RunRow, RunStage, RunStatus, RunUiState } from "./types";
+import type { CvOption, RunAccepted, RunRow, RunStage, RunStatus, RunUiState } from "./types";
+import type { VaultDocument } from "../../features/vault/types";
 
 export interface RunControllerOptions {
   /** Show a toast. */
@@ -59,6 +60,9 @@ export function useRunController({ notify, onTick }: RunControllerOptions): RunC
   const [cancelSince, setCancelSince] = useState<number | null>(null);
   const [stopRequested, setStopRequested] = useState(false);
   const [stopBusy, setStopBusy] = useState(false);
+  const [cvId, setCvId] = useState<string | null>(null);
+  const [cvOptions, setCvOptions] = useState<CvOption[]>([]);
+  const [cvState, setCvState] = useState<"loading" | "ready" | "empty" | "error" | "offline">("loading");
 
   const uiRef = useRef<RunUiState>("idle");
   const startedRef = useRef<number | null>(null);
@@ -66,6 +70,7 @@ export function useRunController({ notify, onTick }: RunControllerOptions): RunC
   const failuresRef = useRef(0);
   const notifyRef = useRef(notify);
   const onTickRef = useRef(onTick);
+  const cvIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     notifyRef.current = notify;
@@ -113,6 +118,47 @@ export function useRunController({ notify, onTick }: RunControllerOptions): RunC
     [moveTo, setStarted],
   );
 
+  /** Refresh CV options from the vault (metadata only; never /documents/{id}/text). */
+  const refreshCvs = useCallback(async () => {
+    try {
+      setCvState("loading");
+      const snapshot = await apiGet<VaultDocument[]>("/documents");
+      const nextOptions: CvOption[] = snapshot
+        .filter((doc) => doc.kind === "cv")
+        .map((doc) => ({
+          id: doc.id,
+          label: doc.label,
+          word_count: doc.word_count,
+          active_cv: doc.active_cv,
+          extract_status: doc.extract_status,
+        }));
+
+      setCvOptions(nextOptions);
+
+      if (nextOptions.length === 0) {
+        setCvId(null);
+        cvIdRef.current = null;
+        setCvState("empty");
+        return;
+      }
+
+      const activeCv = nextOptions.find((cv) => cv.active_cv);
+      const nextId = activeCv?.id ?? null;
+      setCvId(nextId);
+      cvIdRef.current = nextId;
+      setCvState("ready");
+    } catch (error) {
+      if (isUnreachable(describeApiError(error, "Loading CVs").kind)) {
+        setCvState("offline");
+      } else {
+        setCvState("error");
+      }
+      setCvOptions([]);
+      setCvId(null);
+      cvIdRef.current = null;
+    }
+  }, []);
+
   /** G4: the button and the R shortcut both call this; a no-op while Run now is disabled. */
   const start = useCallback(() => {
     if (startBusyRef.current || ACTIVE_UI.has(uiRef.current)) return;
@@ -124,9 +170,14 @@ export function useRunController({ notify, onTick }: RunControllerOptions): RunC
     setCancelSince(null);
     setStopRequested(false);
     moveTo("starting");
+
     void (async () => {
       try {
-        const accepted = await apiPost<RunAccepted>("/runs");
+        const selected = cvIdRef.current;
+        const accepted =
+          selected !== null
+            ? await apiPost<RunAccepted>("/runs", { cv: selected })
+            : await apiPost<RunAccepted>("/runs");
         attach(accepted.id, accepted.started, accepted.model);
       } catch (error) {
         // G3: 409 -> attach to the active run named in the detail, else the active row.
@@ -151,13 +202,20 @@ export function useRunController({ notify, onTick }: RunControllerOptions): RunC
             return;
           }
         }
+        // M3: CV id gone — toast, reload list, reset to active, idle.
+        if (error instanceof ApiError && error.status === 404) {
+          notifyRef.current("That CV is no longer in Vault. Switched back to your active CV.");
+          await refreshCvs();
+          moveTo("idle");
+          return;
+        }
         moveTo("idle");
         notifyRef.current(failure.message);
       } finally {
         startBusyRef.current = false;
       }
     })();
-  }, [attach, moveTo, setStarted]);
+  }, [attach, moveTo, refreshCvs, setStarted]);
 
   /** Stop rules (section 4): cancel, 404 -> show the saved status, other error -> toast. */
   const stop = useCallback(() => {
@@ -281,6 +339,11 @@ export function useRunController({ notify, onTick }: RunControllerOptions): RunC
     return () => window.clearInterval(timer);
   }, [active]);
 
+  // Load CVs on mount
+  useEffect(() => {
+    void refreshCvs();
+  }, [refreshCvs]);
+
   const finishedMs = !active && status?.finished ? Date.parse(status.finished) : Number.NaN;
   const endMs = Number.isNaN(finishedMs) ? now : finishedMs;
   const elapsedMs = startedMs === null ? 0 : Math.max(0, endMs - startedMs);
@@ -293,6 +356,29 @@ export function useRunController({ notify, onTick }: RunControllerOptions): RunC
     finishedBeforeStop: stopRequested && (ui === "completed" || ui === "completed-empty"),
   });
 
+  const setCvIdAndRef = useCallback((id: string | null) => {
+    setCvId(id);
+    cvIdRef.current = id;
+  }, []);
+
+  // Determine if run should be disabled based on CV state
+  const selected = cvId !== null ? cvOptions.find((cv) => cv.id === cvId) : undefined;
+  const selectedExtractBad =
+    selected !== undefined && selected.extract_status !== undefined && selected.extract_status !== "ok";
+  const runDisabled = active || cvState === "empty" || selectedExtractBad;
+
+  // Set run title based on CV state
+  let runTitle = "";
+  if (ui === "lost-contact") {
+    runTitle = "Waiting for the local API to answer.";
+  } else if (active) {
+    runTitle = "A run is already in progress.";
+  } else if (cvState === "empty") {
+    runTitle = "Add a CV in Vault before running.";
+  } else if (selectedExtractBad) {
+    runTitle = "Your active CV has no readable text. Pick another or re-upload in Vault.";
+  }
+
   return {
     ui,
     runId,
@@ -304,17 +390,17 @@ export function useRunController({ notify, onTick }: RunControllerOptions): RunC
     model,
     elapsed: runId !== null && startedMs !== null ? formatElapsed(elapsedMs) : "",
     linkToActivity: runId !== null && active && elapsedMs >= 60_000,
-    runDisabled: active,
-    runTitle:
-      ui === "lost-contact"
-        ? "Waiting for the local API to answer."
-        : active
-          ? "A run is already in progress."
-          : "",
+    runDisabled,
+    runTitle,
     stopDisabled: !(ui === "queued" || ui === "running") || stopBusy,
     stopLabel: ui === "cancelling" ? "Stopping\u2026" : "Stop",
     stopTitle: !active ? "No run in progress." : "",
     start,
     stop,
+    cvId,
+    setCvId: setCvIdAndRef,
+    cvOptions,
+    cvState,
+    cvLabel: selected?.label ?? "",
   };
 }

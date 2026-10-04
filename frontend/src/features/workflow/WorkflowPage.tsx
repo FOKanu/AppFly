@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ROUTES } from "../../routes";
+import { Banner } from "../../shared/ui/Banner";
+import { SampleDataBanner } from "../../shared/ui/SampleDataBanner";
 import { Toast, useToast } from "../../shared/ui/Toast";
 import {
   fetchSettings,
@@ -21,15 +23,8 @@ import { ACTIVE_UI, id5 } from "../../shared/run/format";
 import type { Run } from "./types";
 import "./workflow.css";
 
-/** Hosts `backend/src/jobhunt/policy.py` refuses. Read-only here on purpose. */
-const BANNED_HOSTS = [
-  "linkedin.com",
-  "indeed.com",
-  "stepstone.de",
-  "ziprecruiter.de",
-  "xing.com",
-  "glassdoor.de",
-] as const;
+import { BANNED_HOSTS } from "../../shared/policy";
+import { writerLabel } from "../../shared/writerLabel";
 
 /** Schedule and caps live in config.yaml but PUT /settings cannot reach them. */
 const SCHEDULE_NOTE =
@@ -60,14 +55,15 @@ const DEFAULT_GUARDRAILS: Guardrails = {
  *           save for real; schedule, caps, writer and guardrails are read-only.
  */
 export function WorkflowPage() {
-  const { snapshot, reload } = useWorkflow();
+  const { snapshot, source, failure, reload } = useWorkflow();
   const toast = useToast();
 
   const [profile, setProfile] = useState<HuntProfile | null>(null);
   const [savingSources, setSavingSources] = useState(false);
   const [plan] = useState(DEFAULT_PLAN);
-  const [writerMode] = useState<WriterMode>("auto");
+  const [writerMode] = useState<WriterMode>("cloud");
   const [guardrails] = useState(DEFAULT_GUARDRAILS);
+  const [writerModel, setWriterModel] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = "AppFly · Workflow";
@@ -77,7 +73,10 @@ export function WorkflowPage() {
     let cancelled = false;
     fetchSettings()
       .then((settings) => {
-        if (!cancelled) setProfile(profileFromSettings(settings));
+        if (!cancelled) {
+          setProfile(profileFromSettings(settings));
+          setWriterModel(settings.gemini_model ?? null);
+        }
       })
       .catch(() => undefined);
     return () => {
@@ -148,6 +147,12 @@ export function WorkflowPage() {
 
   return (
     <div className="workflow">
+      {source === "mock" ? <SampleDataBanner noun="runs" /> : null}
+      {source === "error" && failure ? (
+        <Banner tone="danger" title="Couldn't load Workflow" role="alert">
+          {failure.message}
+        </Banner>
+      ) : null}
       {snapshot?.rateLimited ? (
         <GeminiRateLimitBanner
           onRunAgain={run.start}
@@ -170,6 +175,7 @@ export function WorkflowPage() {
         stopDisabled={run.stopDisabled}
         stopTitle={run.stopTitle}
         stopping={run.ui === "cancelling"}
+        cvUsingLabel={run.cvLabel}
       />
 
       <div className="workflow__columns">
@@ -189,8 +195,7 @@ export function WorkflowPage() {
             mode={writerMode}
             readOnlyReason={SCHEDULE_NOTE}
             tokenHistory={[]}
-            cloudLabel="gemini-3.8-flash"
-            localLabel="llama3.1:8b (fallback)"
+            cloudLabel={writerLabel(writerModel)}
             fallbackNote={lastRun?.errors[0]}
           />
         </div>

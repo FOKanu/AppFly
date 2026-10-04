@@ -618,13 +618,14 @@ class SqliteStore:
         mime: str,
         raw: bytes,
         extracted_text: str = "",
+        extract_status: str = "empty",
         active_cv: bool = False,
         active_voice: bool = False,
     ) -> DocumentMeta:
         """Store uploaded bytes and index metadata in SQLite.
 
         Purpose: POST /documents multipart upload.
-        Inputs: Kind, label, mime, raw bytes, optional extracted text.
+        Inputs: Kind, label, mime, raw bytes, optional extracted text and status.
         Returns: New ``DocumentMeta``.
         Does not: Crawl URLs embedded in uploads.
         """
@@ -638,13 +639,24 @@ class SqliteStore:
         (folder / f"original{suffix}").write_bytes(raw)
 
         text = extracted_text
+        status = extract_status if extract_status in {"ok", "empty", "unsupported", "error"} else "empty"
         if not text and (mime.startswith("text/") or suffix.lower() in {".md", ".txt"}):
             try:
                 text = raw.decode("utf-8")
+                status = "ok" if text.strip() else "empty"
             except UnicodeDecodeError:
                 text = ""
+                status = "error"
         if text:
             (folder / "extracted.txt").write_text(text, encoding="utf-8")
+        elif status in {"ok", "empty", "error"} and (
+            mime.startswith("text/")
+            or suffix.lower() in {".md", ".txt", ".pdf", ".docx"}
+            or "pdf" in mime
+            or "wordprocessingml" in mime
+        ):
+            # Record an empty extract file so callers know extract was attempted.
+            (folder / "extracted.txt").write_text("", encoding="utf-8")
 
         words = len(text.split()) if text else 0
         now = utc_now()
@@ -658,8 +670,8 @@ class SqliteStore:
             """
             INSERT INTO documents (
                 id, kind, label, mime, word_count, active_cv, active_voice,
-                original_name, rel_dir, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                original_name, rel_dir, created_at, updated_at, extract_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 doc_id,
@@ -673,6 +685,7 @@ class SqliteStore:
                 rel_dir,
                 now,
                 now,
+                status,
             ),
         )
         self._conn.commit()
@@ -687,6 +700,7 @@ class SqliteStore:
             created_at=now,
             updated_at=now,
             original_name=original_name,
+            extract_status=status,  # type: ignore[arg-type]
         )
 
     def patch_document(self, doc_id: str, **updates: object) -> DocumentMeta | None:
@@ -934,12 +948,18 @@ class SqliteStore:
         """
 
         errors_json = json.dumps(list(record.errors))
+        # Stage and write cap are only meaningful while a run is queued/running; cleared at the end.
+        is_active = record.status in ("queued", "running")
+        stage_value = record.stage if is_active else None
+        write_cap_value = record.write_cap if is_active else None
+
         self._conn.execute(
             """
             INSERT INTO runs (
                 id, status, started, finished, scouted, shortlisted, skipped,
-                written, write_skipped, errors_json, model, preview, trigger, owner, heartbeat, cancel_requested
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                written, write_skipped, errors_json, model, preview, trigger, owner, heartbeat, cancel_requested,
+                stage, write_cap
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 status = excluded.status,
                 started = excluded.started,
@@ -955,7 +975,9 @@ class SqliteStore:
                 trigger = excluded.trigger,
                 owner = excluded.owner,
                 heartbeat = excluded.heartbeat,
-                cancel_requested = excluded.cancel_requested
+                cancel_requested = excluded.cancel_requested,
+                stage = excluded.stage,
+                write_cap = excluded.write_cap
             """,
             (
                 record.id,
@@ -974,6 +996,8 @@ class SqliteStore:
                 record.owner,
                 record.heartbeat,
                 int(record.cancel_requested),
+                stage_value,
+                write_cap_value,
             ),
         )
         self._conn.commit()
@@ -1132,7 +1156,9 @@ class SqliteStore:
                     UPDATE runs SET
                         status = 'failed',
                         errors_json = ?,
-                        cancel_requested = 0
+                        cancel_requested = 0,
+                        stage = NULL,
+                        write_cap = NULL
                     WHERE id = ?
                     """,
                     (errors_json, run_id)
@@ -1204,6 +1230,10 @@ class SqliteStore:
 
 
 def _document_row_to_meta(row: sqlite3.Row) -> DocumentMeta:
+    keys = set(row.keys())
+    status = str(row["extract_status"] or "empty") if "extract_status" in keys else "empty"
+    if status not in {"ok", "empty", "unsupported", "error"}:
+        status = "empty"
     return DocumentMeta(
         id=str(row["id"]),
         kind=row["kind"],  # type: ignore[arg-type]
@@ -1215,6 +1245,7 @@ def _document_row_to_meta(row: sqlite3.Row) -> DocumentMeta:
         created_at=str(row["created_at"] or ""),
         updated_at=str(row["updated_at"] or ""),
         original_name=str(row["original_name"] or ""),
+        extract_status=status,  # type: ignore[arg-type]
     )
 
 
@@ -1225,6 +1256,10 @@ def _run_row_to_record(row: sqlite3.Row) -> RunRecord:
         errors = []
     if not isinstance(errors, list):
         errors = []
+    # stage/write_cap columns exist from schema v4 on; guard for rows read mid-migration.
+    keys = set(row.keys())
+    stage = str(row["stage"]) if "stage" in keys and row["stage"] else None
+    write_cap = int(row["write_cap"]) if "write_cap" in keys and row["write_cap"] is not None else None
     return RunRecord(
         id=str(row["id"]),
         status=str(row["status"] or "completed"),
@@ -1242,6 +1277,8 @@ def _run_row_to_record(row: sqlite3.Row) -> RunRecord:
         owner=str(row["owner"] or ""),
         heartbeat=str(row["heartbeat"] or ""),
         cancel_requested=bool(int(row["cancel_requested"] or 0)),
+        stage=stage,
+        write_cap=write_cap,
     )
 
 

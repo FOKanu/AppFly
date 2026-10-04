@@ -22,7 +22,15 @@ AppFly/
     letters/{source_id}.md
     inbox/{id}.md
   imports/          # Obsidian import reports
+  cache/
+    embeddings/     # local sentence-transformer vectors (*.json); not secrets
 ```
+
+**Embeddings cache (M4):** Under native storage, match writes vectors to
+`{native_data_path}/cache/embeddings/`. First `ensure_native_layout` may one-shot
+copy from the legacy repo-root `.cache/embeddings/` (does not overwrite or delete
+the legacy tree). Markdown backend still uses `<repo>/.cache`. No size quota is
+enforced yet; wipe `cache/embeddings/` to rebuild.
 
 Secrets stay in the OS Keychain (see `features/secrets/`). Never in SQLite or document bodies returned by list APIs.
 
@@ -45,8 +53,9 @@ SQLite `runs` rows hold async/CLI pipeline status. B4 columns: `trigger` (`api`|
 
 Kinds: `cv`, `voice`, `cert`, `portfolio`, `inbox`, `other`.
 
-- `GET /documents` — metadata only (no bodies, no original bytes).
-- `POST /documents` — multipart upload; extract text for cv/voice when possible.
+- `GET /documents` — metadata only (no bodies, no original bytes). Includes `extract_status` (`ok` \| `empty` \| `unsupported` \| `error`).
+- `POST /documents` — multipart upload; extract `.md`/`.txt` always; PDF/DOCX when optional extras are installed (`pip install 'jobhunt[extract]'` → `pypdf`, `python-docx`).
+- `extracted.txt` lives under `files/documents/{id}/` when extract is attempted; list APIs never return that text.
 - Active CV / voice flags drive match and write packet slices in-process.
 - Never put connector secrets in documents. Size limits apply. Uploaded URLs are not crawled.
 

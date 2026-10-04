@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import sqlite3
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 4
 
 _STATEMENTS: list[str] = [
     """
@@ -64,7 +64,8 @@ _STATEMENTS: list[str] = [
         original_name TEXT NOT NULL DEFAULT '',
         rel_dir TEXT NOT NULL DEFAULT '',
         created_at TEXT NOT NULL DEFAULT '',
-        updated_at TEXT NOT NULL DEFAULT ''
+        updated_at TEXT NOT NULL DEFAULT '',
+        extract_status TEXT NOT NULL DEFAULT 'empty'
     )
     """,
     """
@@ -84,7 +85,9 @@ _STATEMENTS: list[str] = [
         trigger TEXT NOT NULL DEFAULT 'api',
         owner TEXT NOT NULL DEFAULT '',
         heartbeat TEXT NOT NULL DEFAULT '',
-        cancel_requested INTEGER NOT NULL DEFAULT 0
+        cancel_requested INTEGER NOT NULL DEFAULT 0,
+        stage TEXT,
+        write_cap INTEGER
     )
     """,
     """
@@ -131,6 +134,24 @@ def migrate(conn: sqlite3.Connection) -> None:
             for col_name, col_def in new_columns:
                 if col_name not in existing_columns:
                     conn.execute(f"ALTER TABLE runs ADD COLUMN {col_name} {col_def}")
+
+        if current < 3:
+            docs_info = conn.execute("PRAGMA table_info(documents)").fetchall()
+            doc_cols = {col[1] for col in docs_info}
+            if "extract_status" not in doc_cols:
+                conn.execute(
+                    "ALTER TABLE documents ADD COLUMN extract_status "
+                    "TEXT NOT NULL DEFAULT 'empty'"
+                )
+
+        # Add new columns for schema version 4
+        if current < 4:
+            run_info = conn.execute("PRAGMA table_info(runs)").fetchall()
+            run_cols = {col[1] for col in run_info}
+            if "stage" not in run_cols:
+                conn.execute("ALTER TABLE runs ADD COLUMN stage TEXT")
+            if "write_cap" not in run_cols:
+                conn.execute("ALTER TABLE runs ADD COLUMN write_cap INTEGER")
 
         conn.execute(
             "INSERT INTO meta(key, value) VALUES('schema_version', ?) "

@@ -6,14 +6,12 @@ Scout → Match → Write instrument strip. Desktop 1440.
 
 | Component | Role |
 | --- | --- |
-| `WorkflowPage` | Loads health + runs + shortlist/inbox jobs. Hosts stepper and banners. |
-| `PipelineStepper` | Stage lights and connectors. |
-| `StageCard` | One stage: counts, status, detail. |
-| `QueuedBehindMatch` | Jobs still in inbox / waiting on Match. |
-| `GeminiRateLimitBanner` | Gemini 429 (preview fixture only). **Run again** starts a new full run through the shared run controller; no scraping. |
-| `states/GeminiRateLimitedState` | FigJam empty canvas for the rate-limit preview. |
-| `WorkflowEmpty` | No pipeline activity. |
-| `WorkflowRunning` | Live run. |
-| `WorkflowFailed` | `states/RunFailedState` — run failed; human still submits. |
+| `WorkflowPage` | Loads health, runs and jobs via `useWorkflow`; hosts the panels and banners. |
+| `HeartbeatPanel` | Heartbeat steps (`HEARTBEAT_STATES`) for the latest or live run. |
+| `SchedulePanel` | Nightly schedule and the caps that bound one run. |
+| `SourcesPanel` | Scout sources the nightly run may read; never a deny-listed job board. |
+| `RequirementsPanel` | Requirements.md as the matcher and writer read it. |
+| `GeminiRateLimitBanner` | Gemini 429 banner (preview fixture only; the API never reports rate_limited). **Run again** uses the shared run controller. |
+| `useWorkflow` / `api.ts` | Snapshot loader; `?preview=` fixtures from `mock.ts`. |
 
-Preview: `/workflow?preview=empty|running|failed|rate_limited`.
+Preview: `/workflow?preview=running|failed|rate_limited` (fixtures in `mock.ts`).

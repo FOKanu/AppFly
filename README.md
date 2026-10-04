@@ -1,4 +1,4 @@
-# Jobhunt Copilot
+# AppFly
 
 Local-first job copilot. Scout and matching stay on your machine. Gemini writes cover letters from a sealed packet. You review and approve in the local UI and submit applications yourself.
 
@@ -8,15 +8,17 @@ Python lives in `backend/`. The UI lives in `frontend/`.
 
 ## Setup
 
-Python 3.12+ and Node.js 20+ for the UI (CI builds with Node 20; the 5090 dev host uses Node 24 via nvm). 16 GB is enough. The embedding model is ~470 MB on first `match`.
+Python 3.12+ and Node.js 22 for the UI (`.nvmrc`; Vitest's jsdom needs Node 22, and CI uses 22). 16 GB is enough. The embedding model is ~470 MB on first `match`.
 
 ```bash
-python3.12 -m venv .venv
-source .venv/bin/activate
-pip install -e "./backend[dev]"
+python3.12 -m venv backend/.venv
+source backend/.venv/bin/activate
+pip install -e "./backend[dev,extract]"   # extract = pypdf + python-docx for PDF/DOCX CVs
 jobhunt init           # writes config.yaml (+ .env from .env.example) and the native store
 python -m jobhunt.api  # local API on http://127.0.0.1:8787
 ```
+
+The venv lives in `backend/.venv` because the nightly plist and the desktop shell start the API from there. Without the `extract` extra, PDF/DOCX uploads are stored with `extract_status: unsupported` and do not count as a CV.
 
 Storage: the **native store is the source of truth**. `jobhunt init` sets `storage_backend: native` and creates `appfly.sqlite` plus `files/` under the app data dir: `~/Library/Application Support/AppFly/` on macOS, `~/.local/share/appfly/` on Linux. Override it with `native_data_dir` in `config.yaml` or `APPFLY_DATA_DIR`. `jobhunt init --markdown` keeps the legacy Obsidian-vault backend (`vault_path`, default `~/Documents/Job Search`). Details: [docs/STORAGE.md](docs/STORAGE.md).
 
@@ -24,12 +26,25 @@ Frontend:
 
 ```bash
 cd frontend
-npm install
-npm run dev      # Vite
-npm run build    # production check
+nvm use               # Node 22 from .nvmrc
+npm ci
+npm run dev           # Vite
+npm test              # Vitest + Testing Library
+npm run build         # tsc + production build
+npm run build:secure  # build + bundle secret scan (what CI runs)
 ```
 
 Copy `frontend/.env.example` to `frontend/.env` if you need to point at the API (`VITE_API_BASE_URL=http://127.0.0.1:8787`).
+
+Desktop shell (Neutralino, M5):
+
+```bash
+cd desktop
+npm install && npm run update
+npm run dev    # builds UI into resources/, opens the window, spawns API if needed
+```
+
+Details: [desktop/README.md](desktop/README.md).
 
 Then, in the UI:
 
@@ -66,7 +81,8 @@ Run backend tests from `backend/`:
 
 ```bash
 cd backend
-pytest
+python -m pytest
+ruff check .     # classic rules from pyproject.toml; CI pins ruff 0.16.10
 ```
 
 API contract: [docs/API.md](docs/API.md).
@@ -96,9 +112,9 @@ Allowed automated ingest: Arbeitsagentur API, RSS on other hosts, public company
 
 ## Branching
 
-GitHub Flow: protect `main`. While an epic is open, **all** related changes (backend, frontend, docs) land on `integrate/<epic>` — from agents or collaborators. Current epic: **`integrate/prototype-v1`**. Full rules: [AGENTS.md](AGENTS.md) and `.cursor/rules/branch-strategy.mdc`.
+GitHub Flow: protect `main`. While an epic is open, **all** related changes (backend, frontend, docs) land on `integrate/<epic>` — from agents or collaborators — and reach `main` only through a Stage PR the user merges. Current epic: **`integrate/ui-honesty-v1`** (opened 2026-10-03 from `main` @ `460c14c`). Full rules: [AGENTS.md](AGENTS.md) and `.cursor/rules/branch-strategy.mdc`.
 
-Cut new epic work from `integrate/prototype-v1`, not from `main`, until that branch is merged.
+Cut feature branches from `integrate/ui-honesty-v1` and PR into it until it is merged; with no epic open, branch from `main`.
 
 Agent roles: Grok plans and opens epics, an RTX 5090 local coder implements, Composer runs CI/smoke and merges, Claude is on call for UI design. See [docs/agents/](docs/agents/README.md) and [docs/workflow/MULTI_AGENT.md](docs/workflow/MULTI_AGENT.md).
 

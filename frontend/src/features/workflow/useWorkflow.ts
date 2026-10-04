@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import type { ApiFailure } from "../../shared/api/errors";
 import { fetchWorkflow } from "./api";
 import type { DataSource, PreviewState, WorkflowSnapshot } from "./types";
 import { MOCK_FAILED, MOCK_RATE_LIMITED, MOCK_RUNNING } from "./mock";
@@ -34,12 +35,14 @@ export function previewSnapshot(preview: PreviewState): WorkflowSnapshot | null 
  */
 export function useWorkflow(): {
   snapshot: WorkflowSnapshot | null;
-  source: DataSource;
+  source: DataSource | "error";
+  failure: ApiFailure | null;
   loading: boolean;
   reload: () => void;
 } {
   const [snapshot, setSnapshot] = useState<WorkflowSnapshot | null>(null);
-  const [source, setSource] = useState<DataSource>("mock");
+  const [source, setSource] = useState<DataSource | "error">("mock");
+  const [failure, setFailure] = useState<ApiFailure | null>(null);
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
   const reload = useCallback(() => setReloadKey((key) => key + 1), []);
@@ -51,6 +54,7 @@ export function useWorkflow(): {
     if (fixture) {
       setSnapshot(fixture);
       setSource("mock");
+      setFailure(null);
       setLoading(false);
       return;
     }
@@ -58,8 +62,15 @@ export function useWorkflow(): {
     fetchWorkflow()
       .then((result) => {
         if (cancelled) return;
+        if (result.source === "error") {
+          setSnapshot(null);
+          setSource("error");
+          setFailure(result.failure);
+          return;
+        }
         setSnapshot(result.data);
         setSource(result.source);
+        setFailure(null);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -69,5 +80,5 @@ export function useWorkflow(): {
     };
   }, [reloadKey]);
 
-  return { snapshot, source, loading, reload };
+  return { snapshot, source, failure, loading, reload };
 }

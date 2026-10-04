@@ -1,4 +1,8 @@
 import { EmptyState } from "../../../shared/ui/EmptyState";
+import { BANNED_BRANDS } from "../../../shared/policy";
+
+/** "A, B, and C": the deny-listed brands as one English list. */
+const BRAND_LIST = new Intl.ListFormat("en", { style: "long", type: "conjunction" }).format(BANNED_BRANDS);
 
 /**
  * FigJam 05 empty queue. Allowed ingest only — never crawl deny-listed boards.
@@ -16,8 +20,7 @@ export function EmptyQueueState() {
         into <code>_inbox/</code>.
       </p>
       <p>
-        LinkedIn, Indeed, Stepstone, ZipRecruiter, Xing, and Glassdoor never
-        enter through crawl or Apify.
+        {BRAND_LIST} never enter through crawl or Apify.
       </p>
     </EmptyState>
   );

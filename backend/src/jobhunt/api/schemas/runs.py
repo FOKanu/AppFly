@@ -11,6 +11,20 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class RunStartRequest(BaseModel):
+    """Optional body for ``POST /runs``.
+
+    Purpose: Let the UI pick a CV document for this run only.
+    Inputs: Optional ``cv`` document id.
+    Returns: Validated request model.
+    Does not: Include CV text or secrets.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    cv: str | None = None
+
+
 class RunResponse(BaseModel):
     """Result of POST /runs (one scout → match → write pass).
 

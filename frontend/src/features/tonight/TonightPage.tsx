@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ROUTES } from "../../routes";
+import { Banner } from "../../shared/ui/Banner";
+import { SampleDataBanner } from "../../shared/ui/SampleDataBanner";
 import { Toast, useToast } from "../../shared/ui/Toast";
 import { copyToClipboard } from "../../app/layout/AppShell";
 import { patchJobStatus } from "../queue/jobsApi";
@@ -14,6 +16,7 @@ import { TonightHero } from "./TonightHero";
 import { liveRun, refusalsOf } from "./api";
 import { readPreview, useTonight } from "./useTonight";
 import type { Job } from "./types";
+import { fetchSettings } from "../profiles/api";
 import "./tonight.css";
 
 /**
@@ -25,11 +28,24 @@ export function TonightPage() {
   const navigate = useNavigate();
   const toast = useToast();
   const preview = readPreview(search);
-  const { snapshot, loading, reload } = useTonight();
+  const { snapshot, source, failure, loading, reload } = useTonight();
 
   // Approve/deny write through to the API, so the list has to update locally.
   const [decided, setDecided] = useState<Record<string, JobStatus>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [writerModel, setWriterModel] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchSettings()
+      .then((settings) => {
+        if (!cancelled) setWriterModel(settings.gemini_model ?? null);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     document.title = "AppFly · Tonight";
@@ -90,6 +106,12 @@ export function TonightPage() {
   return (
     <div className="tonight" aria-busy={loading || undefined}>
       {preview ? <PreviewStrip active={preview} /> : null}
+      {source === "mock" && !preview ? <SampleDataBanner noun="jobs" /> : null}
+      {source === "error" && failure ? (
+        <Banner tone="danger" title="Couldn't load Tonight" role="alert">
+          {failure.message}
+        </Banner>
+      ) : null}
 
       <TonightHero
         run={run}
@@ -100,7 +122,7 @@ export function TonightPage() {
       />
 
       {/* The API reports no vault-notes count (the shortlist length is not one), so the row reads a dash. */}
-      <PipelineOrganism run={run} vaultNotes={undefined} />
+      <PipelineOrganism run={run} vaultNotes={undefined} writerModel={writerModel} />
 
       <div className="tonight__lower">
         <NeedsYou
@@ -117,7 +139,7 @@ export function TonightPage() {
             approved: undefined,
             applied: undefined,
           }}
-          writer={{ mode: "auto" }}
+          writer={{ mode: "cloud", cloudLabel: writerModel ?? undefined }}
           refusals={refusals}
         />
       </div>

@@ -1,6 +1,6 @@
-import { apiBaseUrl } from "../../shared/api/client";
+import { resolveMockPolicy, tryApiGet, type MockPolicyLoad } from "../../shared/api/mockPolicy";
 import { knownCounts } from "../../shared/run/progress";
-import { redactError, redactSecrets } from "./redact";
+import { redactError, redactSecrets } from "../../shared/api/redact";
 import type { ActivityView, FunnelView, RunFunnel, RunSummary } from "./types";
 
 const JOB_STATUSES = ["inbox", "shortlist", "draft", "approved", "applied", "skipped"] as const;
@@ -8,19 +8,26 @@ const JOB_STATUSES = ["inbox", "shortlist", "draft", "approved", "applied", "ski
 /**
  * Purpose: Load run history and job-status funnel from GET /runs and GET /jobs.
  * Does not: start a pipeline run, display API keys, or crawl job boards.
+ * Samples only when the API is offline/timeout (M7 / F2).
  */
-export async function loadActivity(): Promise<ActivityView> {
-  try {
-    const [runsPayload, jobsPayload] = await Promise.all([getJson("/runs"), getJson("/jobs")]);
-    const runs = normalizeRuns(runsPayload);
-    return {
-      runs,
-      funnel: buildFunnel(runs, jobsPayload),
-      source: "api",
-    };
-  } catch {
-    return { ...MOCK_ACTIVITY };
-  }
+export async function loadActivity(): Promise<MockPolicyLoad<ActivityView>> {
+  const [runsPayload, jobsPayload] = await Promise.all([
+    tryApiGet<unknown>("/runs", "Loading Activity"),
+    tryApiGet<unknown>("/jobs", "Loading Activity"),
+  ]);
+
+  return resolveMockPolicy(
+    [runsPayload, jobsPayload],
+    () => {
+      const runs = normalizeRuns(runsPayload.ok ? runsPayload.data : { runs: [] });
+      return {
+        runs,
+        funnel: buildFunnel(runs, jobsPayload.ok ? jobsPayload.data : {}),
+        source: "api" as const,
+      };
+    },
+    { ...MOCK_ACTIVITY },
+  );
 }
 
 /**
@@ -34,10 +41,11 @@ export function normalizeRuns(payload: unknown): RunSummary[] {
 }
 
 /**
- * Purpose: Combine latest-run pipeline counts with vault job-status counts.
- * Does not: fetch additional endpoints.
+ * Purpose: Combine pipeline counts from runs in the last `windowDays` days (default 30, matching the
+ *          "last 30 days" label) with vault job-status counts (all time).
+ * Does not: fetch additional endpoints or count undated runs.
  */
-export function buildFunnel(runs: RunSummary[], jobsPayload: unknown): FunnelView {
+export function buildFunnel(runs: RunSummary[], jobsPayload: unknown, now: Date = new Date(), windowDays = 30): FunnelView {
   const jobs = emptyJobCounts();
   const nested = asRecord(jobsPayload).counts ?? asRecord(jobsPayload).by_status;
   if (nested && typeof nested === "object") {
@@ -53,7 +61,12 @@ export function buildFunnel(runs: RunSummary[], jobsPayload: unknown): FunnelVie
       }
     }
   }
-  const pipeline = runs.reduce<RunFunnel>(
+  const cutoff = now.getTime() - windowDays * 24 * 60 * 60 * 1000;
+  const recent = runs.filter((run) => {
+    const stamp = Date.parse(run.started || run.date);
+    return Number.isFinite(stamp) && stamp >= cutoff && stamp <= now.getTime();
+  });
+  const pipeline = recent.reduce<RunFunnel>(
     (acc, run) => ({
       scouted: acc.scouted + (run.scouted ?? 0),
       shortlisted: acc.shortlisted + (run.shortlisted ?? 0),
@@ -80,7 +93,8 @@ const MOCK_RUNS_PAYLOAD = [
     model: "gemini-3.8-flash",
     path: "Runs/2026-09-18.md",
     errors: [
-      "write: GEMINI_API_KEY=AIzaSyFakeSecretThatMustNeverRender012345 is invalid",
+      // Already redacted — never plant a Google-shaped key in production bundles (M8).
+      "write: GEMINI_API_KEY=[redacted] is invalid",
       "scout: rss timeout for https://example.com/jobs/feed.xml",
     ],
   },
@@ -132,7 +146,7 @@ const MOCK_JOB_COUNTS = {
 export const MOCK_ACTIVITY: ActivityView = {
   source: "mock",
   runs: normalizeRuns(MOCK_RUNS_PAYLOAD),
-  funnel: buildFunnel(normalizeRuns(MOCK_RUNS_PAYLOAD), MOCK_JOB_COUNTS),
+  funnel: buildFunnel(normalizeRuns(MOCK_RUNS_PAYLOAD), MOCK_JOB_COUNTS, new Date("2026-09-19T00:00:00+02:00")),
 };
 
 function normalizeRun(item: unknown, index: number): RunSummary {
@@ -190,15 +204,6 @@ function normalizeRun(item: unknown, index: number): RunSummary {
 
 function emptyJobCounts(): FunnelView["jobs"] {
   return { inbox: 0, shortlist: 0, draft: 0, approved: 0, applied: 0, skipped: 0 };
-}
-
-async function getJson(path: string): Promise<unknown> {
-  const response = await fetch(`${apiBaseUrl()}${path}`, {
-    headers: { Accept: "application/json" },
-    signal: AbortSignal.timeout(4000),
-  });
-  if (!response.ok) throw new Error(`GET ${path} failed (${response.status})`);
-  return response.json();
 }
 
 function unwrapList(payload: unknown, keys: string[]): unknown[] {

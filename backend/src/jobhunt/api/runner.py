@@ -109,8 +109,14 @@ def start_async_run(
     store: Any = None,
     on_update: OnUpdate | None = None,
     trigger: str = "api",
+    cv_text: str | None = None,
 ) -> RunRecord:
     """Queue a background ``run_all`` and return the queued record immediately.
+
+    Purpose: Single active async pipeline with optional CV text override (M2).
+    Inputs: Config; store; optional ``cv_text`` already resolved by the route (or None → active CV inside match/write).
+    Returns: Queued ``RunRecord``.
+    Does not: Resolve document ids here; raise on missing CV (route does that).
 
     Raises ``RunConflictError`` when another run is queued or running.
     """
@@ -196,11 +202,38 @@ def start_async_run(
                 # Wait 10 seconds before next heartbeat
                 event.wait(timeout=10.0)
 
-        heartbeat = threading.Thread(target=heartbeat_thread, daemon=True)
+        heartbeat = threading.Thread(target=heartbeat_thread, name=f"heartbeat-{run_id}", daemon=True)
         heartbeat.start()
 
         try:
-            result = run_all(config, store, cancel=event, on_progress=progress)
+            result = run_all(
+                config, store, cancel=event, on_progress=progress, cv_text=cv_text
+            )
+            if result.cancelled:
+                status = "cancelled"
+            elif result.errors:
+                status = "completed_with_errors"
+            else:
+                status = "completed"
+
+            _update(
+                run_id,
+                on_update,
+                status=status,
+                finished=utc_now(),
+                stage=None,
+                scouted=result.scouted,
+                shortlisted=result.shortlisted,
+                skipped=result.skipped,
+                written=result.written,
+                write_skipped=result.write_skipped,
+                errors=list(result.errors),
+                model=result.model,
+                preview=(
+                    f"scouted={result.scouted} shortlisted={result.shortlisted} "
+                    f"written={result.written}"
+                ),
+            )
         except Exception as exc:  # noqa: BLE001 - a crashed run must still be recorded
             _update(
                 run_id,
@@ -211,34 +244,10 @@ def start_async_run(
                 errors=[f"{type(exc).__name__}: {exc}"],
             )
             return
-        if result.cancelled:
-            status = "cancelled"
-        elif result.errors:
-            status = "completed_with_errors"
-        else:
-            status = "completed"
-        _update(
-            run_id,
-            on_update,
-            status=status,
-            finished=utc_now(),
-            stage=None,
-            scouted=result.scouted,
-            shortlisted=result.shortlisted,
-            skipped=result.skipped,
-            written=result.written,
-            write_skipped=result.write_skipped,
-            errors=list(result.errors),
-            model=result.model,
-            preview=(
-                f"scouted={result.scouted} shortlisted={result.shortlisted} "
-                f"written={result.written}"
-            ),
-        )
-
-        # Clean up heartbeat thread
-        event.set()
-        heartbeat.join(timeout=1.0)
+        finally:
+            # Clean up heartbeat thread
+            event.set()
+            heartbeat.join(timeout=1.0)
 
     threading.Thread(target=worker, name=f"run-{run_id}", daemon=True).start()
     return queued

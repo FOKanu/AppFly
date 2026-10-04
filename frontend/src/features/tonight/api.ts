@@ -1,26 +1,8 @@
-import { apiBaseUrl } from "../../shared/api/client";
+import { resolveMockPolicy, tryApiGet, type MockPolicyLoad } from "../../shared/api/mockPolicy";
 import { MOCK_DRAFTS, MOCK_RUN, MOCK_SHORTLIST, MOCK_TONIGHT } from "./mock";
-import type { DataSource, Health, Job, Run, StageStatus, TonightSnapshot } from "./types";
+import type { Health, Job, Run, StageStatus, TonightSnapshot } from "./types";
 import type { RunCounts, RunStage, RunUiState } from "../../shared/run/types";
 import { knownCounts } from "../../shared/run/progress";
-
-/**
- * GET helper that never follows job-board URLs.
- * On network / non-OK responses, returns mock so the dashboard still paints.
- */
-async function getJson<T>(path: string, fallback: T): Promise<{ data: T; source: DataSource }> {
-  try {
-    const response = await fetch(`${apiBaseUrl()}${path}`, {
-      headers: { Accept: "application/json" },
-    });
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    return { data: (await response.json()) as T, source: "api" };
-  } catch {
-    return { data: fallback, source: "mock" };
-  }
-}
 
 function asHealth(payload: unknown): Health {
   const ok = Boolean(payload && typeof payload === "object" && (payload as { ok?: boolean }).ok);
@@ -189,28 +171,38 @@ export function refusalsOf(run: Run | null): string[] | null {
 }
 
 /**
- * Load Tonight dashboard data from the local API, with mock fallback.
+ * Load Tonight dashboard data from the local API.
+ * Samples only when the API is offline/timeout (M7 / F2); HTTP errors stay errors.
  */
-export async function fetchTonight(): Promise<{ data: TonightSnapshot; source: DataSource }> {
-  const health = await getJson<Health>("/health", MOCK_TONIGHT.health);
-  const settings = await getJson<{ vault_path?: string }>("/settings", {});
-  const runs = await getJson<unknown>("/runs", { runs: [MOCK_RUN] });
-  const drafts = await getJson<unknown>("/jobs?status=draft", { jobs: MOCK_DRAFTS });
-  const shortlist = await getJson<unknown>("/jobs?status=shortlist", { jobs: MOCK_SHORTLIST });
+export async function fetchTonight(): Promise<MockPolicyLoad<TonightSnapshot>> {
+  const [health, settings, runs, drafts, shortlist] = await Promise.all([
+    tryApiGet<Health>("/health", "Loading Tonight"),
+    tryApiGet<{ vault_path?: string }>("/settings", "Loading Tonight"),
+    tryApiGet<unknown>("/runs", "Loading Tonight"),
+    tryApiGet<unknown>("/jobs?status=draft", "Loading Tonight"),
+    tryApiGet<unknown>("/jobs?status=shortlist", "Loading Tonight"),
+  ]);
 
-  const runList = asRunList(runs.data);
-  const source: DataSource =
-    health.source === "api" && runs.source === "api" ? "api" : "mock";
-
-  return {
-    source,
-    data: {
-      health: asHealth(health.data),
-      // G3: the newest real run, else the newest day note.
-      lastRun: runList.find((row) => row.kind === "run") ?? runList[0] ?? null,
-      drafts: asJobList(drafts.data),
-      shortlist: asJobList(shortlist.data),
-      vaultPath: settings.data.vault_path ?? "",
-    },
+  const mock: TonightSnapshot = {
+    health: MOCK_TONIGHT.health,
+    lastRun: MOCK_RUN,
+    drafts: MOCK_DRAFTS,
+    shortlist: MOCK_SHORTLIST,
+    vaultPath: MOCK_TONIGHT.vaultPath,
   };
+
+  return resolveMockPolicy(
+    [health, settings, runs, drafts, shortlist],
+    () => {
+      const runList = asRunList(runs.ok ? runs.data : { runs: [] });
+      return {
+        health: asHealth(health.ok ? health.data : { ok: false }),
+        lastRun: runList.find((row) => row.kind === "run") ?? runList[0] ?? null,
+        drafts: asJobList(drafts.ok ? drafts.data : { jobs: [] }),
+        shortlist: asJobList(shortlist.ok ? shortlist.data : { jobs: [] }),
+        vaultPath: settings.ok ? (settings.data.vault_path ?? "") : "",
+      };
+    },
+    mock,
+  );
 }

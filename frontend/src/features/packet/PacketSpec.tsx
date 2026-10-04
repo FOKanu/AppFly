@@ -1,10 +1,11 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Meter } from "../../shared/ui/Meter";
 import { Score } from "../../shared/ui/Score";
 import { Tag } from "../../shared/ui/Tag";
 import { ROUTES } from "../../routes";
 import { SourceBadge } from "../queue/SourceBadge";
 import { StatusChip } from "../queue/StatusChip";
+import { useShortcuts } from "../../shared/useShortcuts";
 import type { JobRecord } from "../queue/types";
 
 interface PacketSpecProps {
@@ -13,11 +14,13 @@ interface PacketSpecProps {
 
 /**
  * Purpose: Left pane of the packet — what the posting says, where it came from,
- *          how it scored, and what the vault stores for it.
+ *          and how it scored (one overall score; the API has no per-axis breakdown).
  * Does not: fetch the listing URL from the browser; the local scout does that,
  *           and only for allowed sources.
  */
 export function PacketSpec({ job }: PacketSpecProps) {
+  const navigate = useNavigate();
+  useShortcuts({ escape: () => navigate(`${ROUTES.queue}/${encodeURIComponent(job.source_id)}`) });
   const score = toTen(job.score);
 
   return (
@@ -74,19 +77,14 @@ export function PacketSpec({ job }: PacketSpecProps) {
         <SpecRow label="Salary" value={job.salary} />
         <SpecRow label="Language" value={job.lang ? job.lang.toUpperCase() : undefined} />
         <SpecRow label="Posted" value={job.posted} />
-        <SpecRow label="Vault" value={`Jobs/${job.source_id}.md`} mono />
       </dl>
 
-      <p className="packet-spec__label">
-        Match breakdown · {score === null ? "—" : score.toFixed(1)}
-      </p>
-      {["Skills", "Domain", "Seniority", "Language", "Location"].map((axis) => (
-        <div className="match-row" key={axis}>
-          <span className="match-row__label">{axis}</span>
-          <Meter value={(score ?? 0) / 10} label={axis} />
-          <span className="match-row__value">{score === null ? "—" : score.toFixed(1)}</span>
-        </div>
-      ))}
+      <p className="packet-spec__label">Match score</p>
+      <div className="match-row">
+        <span className="match-row__label">Overall</span>
+        <Meter value={score === null ? null : score / 10} label="Overall match" />
+        {score === null ? <span className="match-row__value" aria-hidden="true">—</span> : null}
+      </div>
 
       <p className="packet-spec__label">Company note</p>
       <p className="packet-spec__copy">

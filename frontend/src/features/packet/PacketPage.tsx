@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { apiBaseUrl, apiPost, apiPut } from "../../shared/api/client";
-import { describeApiError } from "../../shared/api/errors";
+import { apiGet, apiPost, apiPut } from "../../shared/api/client";
+import { describeApiError, type ApiFailure } from "../../shared/api/errors";
+import { Banner } from "../../shared/ui/Banner";
+import { SampleDataBanner } from "../../shared/ui/SampleDataBanner";
+import { writerLabel } from "../../shared/writerLabel";
 import { getJob, patchJobStatus } from "../queue/jobsApi";
 import type { JobRecord, JobStatus } from "../queue/types";
 import { ApproveStrip } from "./ApproveStrip";
@@ -9,6 +12,13 @@ import { CvTweaks } from "./CvTweaks";
 import { LetterWorkbench } from "./LetterWorkbench";
 import { PacketSpec } from "./PacketSpec";
 import "./packet.css";
+
+function asFailure(err: unknown): ApiFailure | null {
+  if (err && typeof err === "object" && "kind" in err && "message" in err) {
+    return err as ApiFailure;
+  }
+  return null;
+}
 
 /** 404 sentence for save and regenerate (UI spec, W1 follow-up). */
 const JOB_GONE = "This job is no longer in the store. Go back to Queue and refresh.";
@@ -22,15 +32,19 @@ export function PacketPage() {
   const decodedId = decodeURIComponent(sourceId);
   const [job, setJob] = useState<JobRecord | null>(null);
   const [letterBody, setLetterBody] = useState("");
+  const [letterModel, setLetterModel] = useState<string | null>(null);
   const [usingMock, setUsingMock] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setJob(null);
+    setLetterModel(null);
     setError(null);
+    setActionError(null);
     setFeedback(null);
     if (!decodedId) {
       setError("Missing job id");
@@ -47,20 +61,21 @@ export function PacketPage() {
         setLetterBody(extended.letter_body || result.job.letter_excerpt || "");
         if (!result.usingMock) {
           try {
-            const res = await fetch(
-              new URL(`/jobs/${encodeURIComponent(decodedId)}/letter`, apiBaseUrl()),
+            const data = await apiGet<{ body?: string; model?: string }>(
+              `/jobs/${encodeURIComponent(decodedId)}/letter`,
             );
-            if (res.ok) {
-              const data = (await res.json()) as { body?: string };
-              if (!cancelled && data.body) setLetterBody(data.body);
-            }
+            if (!cancelled && data.body) setLetterBody(data.body);
+            if (!cancelled) setLetterModel(data.model ?? null);
           } catch {
-            /* keep excerpt */
+            /* keep excerpt — letter endpoint may 404 */
           }
         }
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load packet");
+        if (!cancelled) {
+          const failure = asFailure(err);
+          setError(failure?.message ?? (err instanceof Error ? err.message : "Failed to load packet"));
+        }
       });
     return () => {
       cancelled = true;
@@ -72,7 +87,7 @@ export function PacketPage() {
       if (!job) return;
       setBusy(true);
       setFeedback(null);
-      setError(null);
+      setActionError(null);
       try {
         const updated = await patchJobStatus(job.source_id, status);
         setJob({
@@ -85,7 +100,8 @@ export function PacketPage() {
           status === "approved" ? "Marked approved. Submit it yourself." : "Marked skipped.",
         );
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "PATCH failed");
+        const failure = asFailure(err) ?? describeApiError(err, "Updating the job");
+        if (!failure.aborted) setActionError(failure.message);
       } finally {
         setBusy(false);
       }
@@ -100,7 +116,7 @@ export function PacketPage() {
         return;
       }
       setBusy(true);
-      setError(null);
+      setActionError(null);
       setFeedback(null);
       try {
         await apiPut<unknown>(`/jobs/${encodeURIComponent(job.source_id)}/letter`, { body: text });
@@ -108,7 +124,7 @@ export function PacketPage() {
         setFeedback("Letter saved to the local store.");
       } catch (err: unknown) {
         const failure = describeApiError(err, "Saving the letter", JOB_GONE);
-        if (!failure.aborted) setError(failure.message);
+        if (!failure.aborted) setActionError(failure.message);
       } finally {
         setBusy(false);
       }
@@ -122,17 +138,18 @@ export function PacketPage() {
       return;
     }
     setBusy(true);
-    setError(null);
+    setActionError(null);
     setFeedback(null);
     try {
-      const data = await apiPost<{ body?: string }>(
+      const data = await apiPost<{ body?: string; model?: string }>(
         `/jobs/${encodeURIComponent(job.source_id)}/letter/regenerate`,
       );
       if (data?.body) setLetterBody(data.body);
+      if (data?.model) setLetterModel(data.model);
       setFeedback("Letter regenerated.");
     } catch (err: unknown) {
       const failure = describeApiError(err, "Regenerating the letter", JOB_GONE);
-      if (!failure.aborted) setError(failure.message);
+      if (!failure.aborted) setActionError(failure.message);
     } finally {
       setBusy(false);
     }
@@ -140,15 +157,20 @@ export function PacketPage() {
 
   return (
     <section className="packet-page page-flush" data-testid="packet-page">
-      {usingMock ? (
-        <p className="packet-page__banner" data-testid="mock-banner">
-          Sample packet — GET /jobs/{"{id}"} is unavailable.
-        </p>
-      ) : null}
+      {usingMock ? <SampleDataBanner noun="jobs" /> : null}
       {error ? (
-        <p className="packet-page__banner" data-testid="packet-error">
-          {error}
-        </p>
+        <div data-testid="packet-error">
+          <Banner tone="danger" title="Couldn't load Packet" role="alert">
+            {error}
+          </Banner>
+        </div>
+      ) : null}
+      {actionError ? (
+        <div data-testid="packet-action-error">
+          <Banner tone="danger" title="Couldn't save changes" role="alert">
+            {actionError}
+          </Banner>
+        </div>
       ) : null}
 
       {job ? (
@@ -158,9 +180,10 @@ export function PacketPage() {
           <div className="packet-page__work">
             <LetterWorkbench
               aiDraft={letterBody || job.letter_excerpt}
-              writer={job.source === "agentur" ? "gemini-3.8-flash" : undefined}
+              writer={letterBody || job.letter_excerpt ? writerLabel(letterModel) : undefined}
               onSave={(text) => void onSave(text)}
               onRegenerate={() => void onRegenerate()}
+              busy={busy}
             />
             <CvTweaks tweaks={[]} />
             <ApproveStrip
