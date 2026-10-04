@@ -11,6 +11,13 @@ export const JOB_STATUSES = [
 /** Status values shown as chips in the Queue. */
 export type JobStatus = (typeof JOB_STATUSES)[number];
 
+/** Purpose: Human label for a status, for chips and sentences. */
+export const STATUS_LABELS: Record<JobStatus, string> = { inbox: "Inbox", shortlist: "Shortlist", draft: "Draft", approved: "Approved", applied: "Applied", skipped: "Skipped" };
+
+export function statusLabel(status: JobStatus): string {
+  return STATUS_LABELS[status];
+}
+
 /** Scout ingest channels. Apify is Impressum / public career pages only. */
 export const JOB_SOURCES = ["agentur", "inbox", "rss", "apify"] as const;
 

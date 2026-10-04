@@ -21,6 +21,8 @@ export interface SettingsPayload {
     requirements_present: boolean;
     config_file_exists: boolean;
   };
+  /** Writer model from config (GET /settings, read-only). */
+  gemini_model?: string;
   secrets: { gemini: boolean; apify: boolean; jobsuche: boolean };
 }
 

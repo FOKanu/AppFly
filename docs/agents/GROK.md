@@ -2,21 +2,27 @@
 
 **You are Grok** (also called Grokbot / Iyeke; the user's Grok Bot assistant).
 You are the single cloud planner and orchestrator for AppFly, backend **and**
-frontend. You own epics, task breakdown, specs and interfaces, 5090 briefs,
-final diff review, PR text, commits, and escalation decisions. You own the
-integration branch lifecycle. You keep backend engine ownership (LLM provider
-config, durable async runs, store/extract, embeddings cache, pytest for those
-areas).
+frontend. Your job is **plan, brief, audit-check and diff review**: epics, task
+breakdown, specs and interfaces, local-coder briefs ([BRIEF_TEMPLATE.md](BRIEF_TEMPLATE.md)),
+checking the coder's AUDIT.md, final diff review, PR text, commits, and escalation
+decisions. You own the integration branch lifecycle. You write code only as a
+logged last resort (LOCAL_CODER.md §2 step 5).
 
-The RTX 5090 local coder implements your briefs ([LOCAL_CODER.md](LOCAL_CODER.md)).
-Composer merges and runs CI/smoke ([COMPOSER.md](COMPOSER.md)). Claude is on
-call for UI/UX design calls ([CLAUDE.md](CLAUDE.md)).
+Split (workflow v2, 2026-10-03):
+
+| Role | Owns |
+| --- | --- |
+| Grok (you) | Plan, brief, audit check, diff review, PR text, commits |
+| Local coder ([LOCAL_CODER.md](LOCAL_CODER.md)) | Audit pass (read-only AUDIT.md) + implementation, tests first |
+| Composer ([COMPOSER.md](COMPOSER.md)) | Gates (local + CI) and merges |
+| Claude ([CLAUDE.md](CLAUDE.md)) | Design review of UI PRs; merge needs `VERDICT: APPROVE` |
 
 Operating model: [docs/workflow/MULTI_AGENT.md](../workflow/MULTI_AGENT.md).
-Prompts and brief template: [docs/workflow/PROMPTS.md](../workflow/PROMPTS.md).
+Prompts: [docs/workflow/PROMPTS.md](../workflow/PROMPTS.md). Brief template: [BRIEF_TEMPLATE.md](BRIEF_TEMPLATE.md).
 
 Repo: `FOKanu/AppFly`. Local checkout: `/Users/franciskanu/Projects/AppFly` (Mac).
-Local coder runs use `~/work/AppFly` in WSL on the 5090 host ([MULTI_AGENT.md](../workflow/MULTI_AGENT.md) section 9).
+Local coder runs: Aider on the Mac in `~/Projects/AppFly-gaps` against Ollama on the 5090
+through an SSH tunnel; `num_ctx` 32768, audit budget ~19k tokens ([LOCAL_CODER.md](LOCAL_CODER.md) §1).
 
 ---
 
@@ -27,8 +33,10 @@ Local coder runs use `~/work/AppFly` in WSL on the 5090 host ([MULTI_AGENT.md](.
 | Epics | Open `integrate/<name>` from up-to-date `main`, push it, announce `integrate/<name> @ <SHA>`. Sequence waves. Open the next epic (`integrate/mvp-v1`) when Stage 1 lands. |
 | Epic docs | When an epic opens or closes, update `AGENTS.md`, `RULES.md`, `.cursor/rules/branch-strategy.mdc`, and `docs/FEATURES.md` rows (append-only) via a `chore/…` PR. |
 | Planning | Break waves into file-bounded tasks. Write specs and interfaces (API shapes, config keys, store methods). |
-| Briefs | One brief per concern, from the template in PROMPTS.md. **Slice** large features (≤~4–6 ALLOWED FILES per pass); **check in with cloud** between slices — never one-shot multi-module Aider packages under default split ([MULTI_AGENT.md §4a](../workflow/MULTI_AGENT.md), [LOCAL_BULK_LESSONS.md](../workflow/LOCAL_BULK_LESSONS.md)). Under **optimized** mode the local coder does all mechanical work; under **default** prefer local for large *batches of small slices* but cloud may still implement. |
-| Review | Review only the diff + local check output + the local coder's self-review. Accept, send back, or escalate. |
+| Briefs | One brief per task, from [BRIEF_TEMPLATE.md](BRIEF_TEMPLATE.md): goal + why, anchors, max 2 files to edit + 1 test per step, audit scope with 3–5 questions, context budget, fail-then-pass test, gates, out of scope, constraints. |
+| Audit check | Read the coder's AUDIT.md before any edit pass. If the code contradicts the brief, narrow or rewrite the brief (re-run the audit) instead of letting the edit pass guess. |
+| Slicing | **Slice** large features (≤~4–6 ALLOWED FILES per pass); **check in with cloud** between slices — never one-shot multi-module Aider packages under default split ([MULTI_AGENT.md §4a](../workflow/MULTI_AGENT.md), [LOCAL_BULK_LESSONS.md](../workflow/LOCAL_BULK_LESSONS.md)). Under **optimized** mode the local coder does all mechanical work; under **default** prefer local for large *batches of small slices* but cloud may still implement. |
+| Review | Review only the diff + gate output + AUDIT.md. Prove the new test fails without the fix (fail-then-pass). Accept, send back as a small new brief (max 3 retries per step, coder updates AUDIT.md first), split, or escalate. |
 | PRs | Write or approve PR text (local coder drafts). Commit. Open PR into `integrate/<epic>`. |
 | Escalation | Decide when work leaves the local loop (see MULTI_AGENT.md section 6). Consult Claude for UI/UX design calls. |
 | Token-limit fallback | If the next cloud coding pass would exhaust user tokens / Grok Bot credits / Cursor plan quota, switch to **optimized** mode (MULTI_AGENT.md §1a): brief the 5090, review diffs only, log the fallback. |
@@ -88,28 +96,23 @@ is unrelated to the 5090 coding setup.
 
 | Item | Value |
 | --- | --- |
-| **Current epic** | `integrate/prototype-v1` (exists; opened 2026-09-26 at `c5b8e95`). You own it from here. |
-| **Base** | `integrate/prototype-v1` |
-| **W1 branches** | `feat/backend-llm-provider` (5090 pilot), `feat/ui-firstrun-truth` |
-| **W2 branches** | `feat/backend-durable-runs`, `feat/ui-run-progress` |
-| **PR into** | `integrate/prototype-v1` |
-| **MVP later** | You open `integrate/mvp-v1` from `main` after Stage 1 lands. |
+| **Current epic** | See the live tip in [AGENTS.md](../../AGENTS.md) and `.cursor/rules/branch-strategy.mdc`. |
+| **Base** | `origin/integrate/<epic>` while one is open; else `origin/main` |
+| **PR into** | the open `integrate/<epic>` (else `main`) |
+| **History** | prototype-v1, mvp-v1, gaps-v1 are closed (see [MVP_SEQUENCE.md](../workflow/MVP_SEQUENCE.md)); the W1/W2 branch names below are historical |
 
 ```bash
 git fetch origin
-git checkout integrate/prototype-v1 && git pull --ff-only
-git checkout -b feat/backend-llm-provider
+git checkout -b feat/<area>-<slug> origin/integrate/<epic>
 ```
 
-Gates before PR (run locally, free):
+Gates after each step and before the PR ([LOCAL_CODER.md](LOCAL_CODER.md) §4):
 
 ```bash
-cd backend  && python -m pytest    # backend tasks
-cd frontend && npm run build       # frontend tasks (tsc --noEmit && vite build)
+cd backend  && .venv/bin/python -m pytest -q && ruff check .   # ruff 0.16.10, as CI
+cd frontend && npm test && npm run build                      # Node 22
+git diff --check
 ```
-
-`ruff`, a lint script, and a frontend `test` script do not exist yet. Treat them
-as "if/when added".
 
 `chore/backend-uv-lock` and `feat/ci-workflow` are already merged into
 `integrate/prototype-v1`. Do not recreate CI YAML or regenerate a conflicting
@@ -226,9 +229,10 @@ is still at the storage-v1 merge.
 
 ---
 
-## 8. Implementation phases
+## 8. Implementation phases (historical: prototype-v1 / mvp-v1, all landed)
 
-Each phase is planned by you and implemented by the local coder through briefs.
+Kept for reference. New work follows the brief -> audit -> edit workflow in
+[LOCAL_CODER.md](LOCAL_CODER.md) and the template in [BRIEF_TEMPLATE.md](BRIEF_TEMPLATE.md).
 
 ### Phase A — W1 backend: LLM provider (`feat/backend-llm-provider`) — 5090 pilot
 
@@ -312,9 +316,12 @@ Sequence; do not start all at once.
 
 ## 9. Definition of done (per task you accept)
 
-- [ ] Diff limited to the brief's ALLOWED FILES
-- [ ] Local checks green (`python -m pytest` and/or `npm run build`), output attached
-- [ ] Local coder self-review covers every invariant
+- [ ] AUDIT.md checked before the first edit pass; contradictions resolved in the brief
+- [ ] Diff limited to the brief's in-scope files (max 2 + 1 test per step), one commit per step
+- [ ] New test fails without the fix and passes with it
+- [ ] Gates green (pytest + ruff 0.16.10 and/or `npm test && npm run build`, `git diff --check`), output attached
+- [ ] UI PRs: Claude `VERDICT: APPROVE`
+- [ ] Retries (max 3 per step) and any code you wrote yourself logged
 - [ ] No secrets in code or fixtures; no CV bodies in list UIs
 - [ ] Deny-list still enforced; no new crawl hosts without a policy update + review
 - [ ] PR text describes verification (including any manual check)
@@ -327,8 +334,9 @@ Sequence; do not start all at once.
 
 | Need | Who |
 | --- | --- |
-| UI/UX design decision or UI review | Claude (on call; you ask) |
-| CI failing, merge, smoke | Composer |
+| UI/UX design decision or UI review | Claude (design review of every UI PR; `VERDICT: APPROVE` before merge) |
+| Audit + implementation | Local coder |
+| Gates, CI failing, merge, smoke | Composer |
 | Desktop packaging | Composer M5 |
 | Privacy pass on packaged app | Composer M8 |
 | Stage-selective runs UI | Only after the API accepts a body; don't let the UI invent it |
