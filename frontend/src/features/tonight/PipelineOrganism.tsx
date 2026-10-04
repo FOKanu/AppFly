@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Chip } from "../../shared/ui/Chip";
 import { Segmented } from "../../shared/ui/Segmented";
+import { writerLabel } from "../../shared/writerLabel";
 import { refusalsOf } from "./api";
 import type { Run, StageStatus } from "./types";
 
@@ -76,7 +77,7 @@ export function PipelineOrganism({ run, vaultNotes, vaultPath, writerModel }: Pi
           status={run?.stages.write}
           rows={[
             { label: "letters", value: writeRatio(run) },
-            { label: "writer", value: writerModel ?? "—" },
+            { label: "writer", value: writerLabel(writerModel) },
           ]}
           note={run?.write_skipped ? `${run.write_skipped} skipped` : undefined}
           noteTone="warning"

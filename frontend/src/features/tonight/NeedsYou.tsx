@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../../shared/ui/Button";
 import { Chip } from "../../shared/ui/Chip";
 import { Score } from "../../shared/ui/Score";
@@ -7,6 +7,7 @@ import { Tag } from "../../shared/ui/Tag";
 import { ROUTES } from "../../routes";
 import { toTenPointScale } from "./score";
 import type { Job } from "./types";
+import { useShortcuts } from "../../shared/useShortcuts";
 
 interface NeedsYouProps {
   drafts: Job[];
@@ -91,6 +92,17 @@ function TopDraft({
   onApprove: (job: Job) => void;
   onDeny: (job: Job) => void;
 }) {
+  const navigate = useNavigate();
+  useShortcuts({
+    a: () => {
+      if (!busy) onApprove(draft);
+    },
+    d: () => {
+      if (!busy) onDeny(draft);
+    },
+    e: () => navigate(`${ROUTES.packet}/${draft.source_id}`),
+  });
+
   return (
     <article className="top-draft">
       <header className="top-draft__head">

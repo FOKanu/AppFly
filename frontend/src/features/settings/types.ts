@@ -58,7 +58,6 @@ export type SettingsView = {
   connectivity: ConnectivityView;
   health: {
     geminiFlash: StatusView;
-    ollama: StatusView;
     arbeitsagentur: StatusView;
     apify: StatusView;
     minilm: StatusView;

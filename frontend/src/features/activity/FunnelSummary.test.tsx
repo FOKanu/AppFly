@@ -24,4 +24,38 @@ describe("FunnelSummary", () => {
     expect(pcts).toEqual(["100.0%", "0.0%", "0.0%", "—", "—"]);
     expect(screen.getAllByText(/all time/)).toHaveLength(2);
   });
+
+  it("gives the empty dash an accessible name", () => {
+    render(<FunnelSummary funnel={zero} loaded />);
+    expect(screen.getAllByRole("img", { name: "no data" })).toHaveLength(5);
+  });
+
+  it("draws no meter for all-time stages", () => {
+    render(<FunnelSummary funnel={{ ...zero, scouted: 5, jobs: { ...jobs, applied: 12 } }} />);
+    expect(screen.getAllByRole("meter")).toHaveLength(3);
+  });
+
+  it("says when the API has no runs in the window", () => {
+    const { rerender } = render(<FunnelSummary funnel={zero} loaded />);
+    expect(screen.getByText("No runs in the last 30 days.")).toBeInTheDocument();
+    rerender(<FunnelSummary funnel={zero} />);
+    expect(screen.queryByText(/No runs in the last/)).not.toBeInTheDocument();
+    rerender(<FunnelSummary funnel={{ ...zero, scouted: 4 }} loaded />);
+    expect(screen.queryByText(/No runs in the last/)).not.toBeInTheDocument();
+  });
+
+  it("says loading before the data arrives", () => {
+    render(<FunnelSummary funnel={zero} />);
+    expect(screen.getAllByRole("img", { name: "loading" })).toHaveLength(5);
+  });
+
+  it("names the rate dashes", () => {
+    render(<FunnelSummary funnel={zero} loaded />);
+    expect(screen.getAllByRole("img", { name: "no rate" })).toHaveLength(5);
+  });
+
+  it("draws no meters while the funnel is empty", () => {
+    render(<FunnelSummary funnel={zero} loaded />);
+    expect(screen.queryAllByRole("meter")).toHaveLength(0);
+  });
 });

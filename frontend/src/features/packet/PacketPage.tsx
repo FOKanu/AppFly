@@ -4,6 +4,7 @@ import { apiGet, apiPost, apiPut } from "../../shared/api/client";
 import { describeApiError, type ApiFailure } from "../../shared/api/errors";
 import { Banner } from "../../shared/ui/Banner";
 import { SampleDataBanner } from "../../shared/ui/SampleDataBanner";
+import { writerLabel } from "../../shared/writerLabel";
 import { getJob, patchJobStatus } from "../queue/jobsApi";
 import type { JobRecord, JobStatus } from "../queue/types";
 import { ApproveStrip } from "./ApproveStrip";
@@ -31,6 +32,7 @@ export function PacketPage() {
   const decodedId = decodeURIComponent(sourceId);
   const [job, setJob] = useState<JobRecord | null>(null);
   const [letterBody, setLetterBody] = useState("");
+  const [letterModel, setLetterModel] = useState<string | null>(null);
   const [usingMock, setUsingMock] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -40,6 +42,7 @@ export function PacketPage() {
   useEffect(() => {
     let cancelled = false;
     setJob(null);
+    setLetterModel(null);
     setError(null);
     setActionError(null);
     setFeedback(null);
@@ -58,10 +61,11 @@ export function PacketPage() {
         setLetterBody(extended.letter_body || result.job.letter_excerpt || "");
         if (!result.usingMock) {
           try {
-            const data = await apiGet<{ body?: string }>(
+            const data = await apiGet<{ body?: string; model?: string }>(
               `/jobs/${encodeURIComponent(decodedId)}/letter`,
             );
             if (!cancelled && data.body) setLetterBody(data.body);
+            if (!cancelled) setLetterModel(data.model ?? null);
           } catch {
             /* keep excerpt — letter endpoint may 404 */
           }
@@ -137,10 +141,11 @@ export function PacketPage() {
     setActionError(null);
     setFeedback(null);
     try {
-      const data = await apiPost<{ body?: string }>(
+      const data = await apiPost<{ body?: string; model?: string }>(
         `/jobs/${encodeURIComponent(job.source_id)}/letter/regenerate`,
       );
       if (data?.body) setLetterBody(data.body);
+      if (data?.model) setLetterModel(data.model);
       setFeedback("Letter regenerated.");
     } catch (err: unknown) {
       const failure = describeApiError(err, "Regenerating the letter", JOB_GONE);
@@ -175,7 +180,7 @@ export function PacketPage() {
           <div className="packet-page__work">
             <LetterWorkbench
               aiDraft={letterBody || job.letter_excerpt}
-              writer={job.source === "agentur" ? "gemini-3.8-flash" : undefined}
+              writer={letterBody || job.letter_excerpt ? writerLabel(letterModel) : undefined}
               onSave={(text) => void onSave(text)}
               onRegenerate={() => void onRegenerate()}
               busy={busy}

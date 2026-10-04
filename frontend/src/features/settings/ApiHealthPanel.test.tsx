@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ApiHealthPanel } from "./ApiHealthPanel";
 
@@ -9,14 +9,14 @@ describe("ApiHealthPanel", () => {
       <ApiHealthPanel
         health={{
           geminiFlash: unknown,
-          ollama: unknown,
           arbeitsagentur: unknown,
           apify: unknown,
           minilm: unknown,
         }}
       />
     );
-    expect(document.body.textContent).toMatch(/Gemini Flash/);
+    expect(screen.getByText("Gemini")).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/Gemini Flash/);
     expect(document.body.textContent).not.toMatch(/8B|llama|Ollama/i);
   });
 });
