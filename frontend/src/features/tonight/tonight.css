@@ -437,30 +437,6 @@
   text-align: right;
 }
 
-.writer-split {
-  display: flex;
-  height: 8px;
-  margin-top: 12px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-3);
-  overflow: hidden;
-}
-
-.writer-split__cloud {
-  background: var(--accent);
-}
-
-.writer-split__local {
-  flex: 1 1 auto;
-  background: var(--warning);
-}
-
-/* With no token data at all, the bar stays the empty track. */
-.writer-split[data-empty="true"] .writer-split__cloud,
-.writer-split[data-empty="true"] .writer-split__local {
-  background: transparent;
-}
-
 .run-summary__legend {
   display: flex;
   justify-content: space-between;

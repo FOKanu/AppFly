@@ -7,7 +7,7 @@ Frontend ownership for this screen. One React component per file. Purpose JSDoc 
 | `SettingsPage.tsx` | Page: vault, connectivity, health, keys |
 | `VaultPanel.tsx` | Obsidian path, Browse, stats placeholders |
 | `ConnectivityPanel.tsx` | Local IPC status; Remote Bridge stub |
-| `ApiHealthPanel.tsx` | Gemini Flash, Ollama, Arbeitsagentur, Apify, MiniLM |
+| `ApiHealthPanel.tsx` | Gemini, Arbeitsagentur, Apify, MiniLM |
 | `ConnectorKeyField.tsx` | Write-only password field. **Never renders stored secrets.** |
 | `ApiKeysPanel.tsx` | `GEMINI_API_KEY` and `APIFY_TOKEN` |
 

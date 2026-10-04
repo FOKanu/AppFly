@@ -526,10 +526,6 @@
   background: var(--accent);
 }
 
-.backend-row__dot[data-tone="local"] {
-  background: var(--warning);
-}
-
 /* Flex spacer, not a divider. */
 .backend-row__rule {
   flex: 1 1 auto;

@@ -14,4 +14,21 @@ describe("LetterWorkbench", () => {
     expect(screen.getByRole("button", { name: "Regenerate letter" })).toBeEnabled();
     expect(screen.getByRole("button", { name: /Save letter/ })).toBeEnabled();
   });
+
+  it("Save shows no shortcut it does not have", () => {
+    render(<LetterWorkbench aiDraft="Hi" onSave={vi.fn()} onRegenerate={vi.fn()} />);
+    expect(screen.getByRole("button", { name: /Save letter/ }).querySelector(".button__kbd")).toBeNull();
+  });
+
+  it("Regenerate tooltip names no model", () => {
+    render(<LetterWorkbench aiDraft="Hi" onSave={vi.fn()} onRegenerate={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Regenerate letter" })).toHaveAttribute("title", "Regenerate letter");
+  });
+
+  it("marks the letter panel busy while a request is pending", () => {
+    const { rerender } = render(<LetterWorkbench aiDraft="Hi" busy onSave={vi.fn()} onRegenerate={vi.fn()} />);
+    expect(screen.getByTestId("letter-panel")).toHaveAttribute("aria-busy", "true");
+    rerender(<LetterWorkbench aiDraft="Hi" busy={false} onSave={vi.fn()} onRegenerate={vi.fn()} />);
+    expect(screen.getByTestId("letter-panel")).not.toHaveAttribute("aria-busy");
+  });
 });

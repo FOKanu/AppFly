@@ -20,7 +20,7 @@ const LANGUAGES = [
 interface LetterWorkbenchProps {
   /** Letter the writer produced. */
   aiDraft: string;
-  /** Model that produced it, e.g. "gemini-3.8-flash". */
+  /** Model that produced it (from the letter record). */
   writer?: string;
   /** Your edited version, when one has been saved. */
   yourEdit?: string;
@@ -60,7 +60,7 @@ export function LetterWorkbench({
   const removed = aiLines.filter((line) => !yourLines.includes(line)).length;
 
   return (
-    <section className="letter" data-testid="letter-panel">
+    <section className="letter" data-testid="letter-panel" aria-busy={busy || undefined}>
       <header className="letter__toolbar">
         <h2 className="letter__title">Application letter</h2>
         <Segmented options={MODES} value={mode} onChange={setMode} ariaLabel="Letter view" />
@@ -77,7 +77,7 @@ export function LetterWorkbench({
           type="button"
           className="letter__icon-button"
           aria-label="Regenerate letter"
-          title="Regenerate with Gemini"
+          title="Regenerate letter"
           onClick={onRegenerate}
           disabled={busy}
         >
@@ -87,7 +87,7 @@ export function LetterWorkbench({
           <span className="letter__added">+{added}</span>{" "}
           <span className="letter__removed">−{removed}</span>
         </span>
-        <Button variant="primary" shortcut="⌘S" title={SAVE_HINT} disabled={busy} onClick={() => onSave(text)}>
+        <Button variant="primary" title={SAVE_HINT} disabled={busy} onClick={() => onSave(text)}>
           Save letter
         </Button>
       </header>

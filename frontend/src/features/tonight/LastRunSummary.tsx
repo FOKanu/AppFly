@@ -1,5 +1,7 @@
 import { Meter } from "../../shared/ui/Meter";
 import { Tag } from "../../shared/ui/Tag";
+import { writerLabel } from "../../shared/writerLabel";
+import { BANNED_BRANDS } from "../../shared/policy";
 import type { Run } from "./types";
 
 /** Cumulative funnel counts the Activity screen also reports. */
@@ -25,22 +27,12 @@ interface LastRunSummaryProps {
   refusals: string[] | null;
 }
 
-/** Hosts `backend/src/jobhunt/policy.py` refuses; shown read-only. */
-const BANNED_HOSTS = [
-  "LinkedIn",
-  "Indeed",
-  "Stepstone",
-  "ZipRecruiter",
-  "Xing",
-  "Glassdoor",
-];
-
 /**
  * Purpose: Right rail on Tonight — last run's funnel, writer token split, and the
  *          crawl-policy card.
  * Does not: enforce policy; policy.py refuses before any request is made.
  */
-export function LastRunSummary({ funnel, writer, refusals }: LastRunSummaryProps) {
+export function LastRunSummary({ run, funnel, writer, refusals }: LastRunSummaryProps) {
   const top = funnel.scouted ?? 0;
 
   return (
@@ -69,7 +61,9 @@ export function LastRunSummary({ funnel, writer, refusals }: LastRunSummaryProps
         </div>
         <p className="run-summary__legend">
           <span>
-            {writer.cloudLabel ?? "Gemini"} · {formatTokens(writer.cloudTokens)}
+            {run === null
+              ? "No runs yet"
+              : `${writerLabel(writer.cloudLabel)} · ${formatTokens(writer.cloudTokens)}`}
           </span>
         </p>
       </section>
@@ -86,7 +80,7 @@ export function LastRunSummary({ funnel, writer, refusals }: LastRunSummaryProps
           </span>
         </div>
         <p className="run-summary__policy-copy">
-          0 fetches to {BANNED_HOSTS.join(" \u00b7 ")}.
+          Blocked before any request: {BANNED_BRANDS.join(" \u00b7 ")}.
           {refusals === null
             ? ""
             : refusals.length > 0
@@ -112,7 +106,11 @@ function FunnelRow({
   return (
     <div className="funnel-row">
       <span className="funnel-row__label">{label}</span>
-      <Meter value={of > 0 ? (value ?? 0) / of : 0} tone={tone} label={label} />
+      {value !== undefined && of > 0 ? (
+        <Meter value={value / of} tone={tone} label={label} />
+      ) : (
+        <span className="funnel-row__track" aria-hidden="true" />
+      )}
       <span className="funnel-row__value">
         {value === undefined ? "—" : value.toLocaleString()}
       </span>

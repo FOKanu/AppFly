@@ -463,15 +463,6 @@
   color: var(--text);
 }
 
-.approve-strip__paths {
-  margin-top: 4px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  line-height: 15px;
-  color: var(--text-tertiary);
-  overflow-wrap: anywhere;
-}
-
 .approve-strip__feedback {
   margin-top: 6px;
   font-size: 12px;
