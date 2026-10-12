@@ -24,6 +24,11 @@ describe('statusLabel', () => {
     expect(statusLabel("archived")).toBe("archived");
   });
 
+  it('handles prototype property names without collision', () => {
+    expect(statusLabel("constructor")).toBe("constructor");
+    expect(statusLabel("toString")).toBe("toString");
+  });
+
   it('re-exports the same statusLabel function', () => {
     expect(queueStatusLabel).toBe(statusLabel);
     expect(queueStatusLabel("archived")).toBe("archived");
