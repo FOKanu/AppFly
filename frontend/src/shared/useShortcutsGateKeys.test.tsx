@@ -1,10 +1,8 @@
-import { render } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { fireEvent, render } from '@testing-library/react';
 import { useShortcuts } from './useShortcuts';
 
 // Import vi, describe, it, expect, afterEach, beforeEach from vitest
 import { vi, describe, it, expect, afterEach, beforeEach } from 'vitest';
-import { fireEvent } from '@testing-library/react';
 
 // Mock the localStorage behavior
 const mockLocalStorage = {
