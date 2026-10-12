@@ -51,7 +51,7 @@ def match_jobs(
             continue
         ok, reason = hard_filter(job, requirements)
         if not ok:
-            vault.update_job_meta(job.source_id, status="skipped", skip_reason=reason, score=0)
+            vault.update_job_meta(job.source_id, status="skipped", skip_reason=reason, score=None)
             skipped += 1
             continue
         if status == "shortlist":

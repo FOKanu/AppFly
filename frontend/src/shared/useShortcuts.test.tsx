@@ -138,6 +138,30 @@ describe("useShortcuts", () => {
     expect(mockHandler).toHaveBeenCalledTimes(0);
   });
 
+  it("ignores keys on an expanded popup trigger", async () => {
+    const mockHandler = vi.fn();
+    render(
+      <div>
+        <button type="button" aria-haspopup="menu" aria-expanded="true">trigger</button>
+        <Probe map={{ a: mockHandler }} />
+      </div>
+    );
+    fireEvent.keyDown(screen.getByText("trigger"), { key: "a" });
+    expect(mockHandler).toHaveBeenCalledTimes(0);
+  });
+
+  it("allows keys on a collapsed popup trigger", async () => {
+    const mockHandler = vi.fn();
+    render(
+      <div>
+        <button type="button" aria-haspopup="menu" aria-expanded="false">trigger</button>
+        <Probe map={{ a: mockHandler }} />
+      </div>
+    );
+    fireEvent.keyDown(screen.getByText("trigger"), { key: "a" });
+    expect(mockHandler).toHaveBeenCalledTimes(1);
+  });
+
   it("mod+z fires for Cmd+Z but not Cmd+Shift+Z", async () => {
     const undo = vi.fn();
     render(<Probe map={{ "mod+z": undo }} />);

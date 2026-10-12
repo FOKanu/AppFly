@@ -15,10 +15,12 @@ describe("StatusChip labels", () => {
     expect(screen.getByText("Custom")).toHaveAttribute("data-status", "draft");
   });
 
-  it("the queue chip shows the readable label too", () => {
+  it("the queue module re-exports the shared chip", () => {
     render(<QueueStatusChip status="draft" />);
     const chip = screen.getByTestId("status-chip");
     expect(chip).toHaveTextContent("Draft");
     expect(chip).toHaveAttribute("data-status", "draft");
+    // This should fail on current code because QueueStatusChip !== StatusChip
+    expect(QueueStatusChip).toBe(StatusChip);
   });
 });
