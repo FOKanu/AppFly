@@ -138,7 +138,6 @@ export function QueuePage() {
 
   const onUndo = useCallback(async () => {
     if (!undo) return;
-    setSaveError(null);
     setUndo(null);
     const { status, changes } = undo;
     const previousOf = new Map(changes.map((change) => [change.sourceId, change.previous]));
