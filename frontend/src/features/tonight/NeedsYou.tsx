@@ -36,7 +36,7 @@ export function NeedsYou({ drafts, busyId, onApprove, onDeny }: NeedsYouProps) {
           {drafts.length} draft{drafts.length === 1 ? "" : "s"}
         </Chip>
         <span className="needs-you__rule" />
-        <p className="needs-you__hints">A approve · D deny · E edit</p>
+        <p className="needs-you__hints">A approve · D skip · E edit</p>
       </header>
 
       {top ? (
@@ -149,7 +149,7 @@ function TopDraft({
           {busy ? "Saving…" : "Approve packet"}
         </Button>
         <Button variant="quiet" shortcut="D" disabled={busy} onClick={() => onDeny(draft)}>
-          Deny
+          Skip
         </Button>
         <Link className="button button--quiet" to={`${ROUTES.packet}/${draft.source_id}`}>
           <span className="button__label">Edit letter</span>
