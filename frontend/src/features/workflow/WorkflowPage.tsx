@@ -58,7 +58,7 @@ export function WorkflowPage() {
 
   const [profile, setProfile] = useState<HuntProfile | null>(null);
   const [savingSources, setSavingSources] = useState(false);
-  const [plan] = useState(DEFAULT_PLAN);
+  const [plan, setPlan] = useState(DEFAULT_PLAN);
   const [writerMode] = useState<WriterMode>("cloud");
   const [guardrails] = useState(DEFAULT_GUARDRAILS);
   const [writerModel, setWriterModel] = useState<string | null>(null);
@@ -74,6 +74,11 @@ export function WorkflowPage() {
         if (!cancelled) {
           setProfile(profileFromSettings(settings));
           setWriterModel(settings.gemini_model ?? null);
+          setPlan((p) => ({
+            ...p,
+            lettersPerRun: settings.letter_cap ?? null,
+            shortlistSize: settings.shortlist_size ?? null
+          }));
         }
       })
       .catch(() => undefined);
