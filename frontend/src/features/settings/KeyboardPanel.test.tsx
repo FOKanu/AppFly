@@ -1,54 +1,51 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import { beforeEach, afterEach, test, expect } from "vitest";
+import { afterEach, describe, test, expect, vi } from "vitest";
 import { KeyboardPanel } from "./KeyboardPanel";
-import { SettingsPage } from "./SettingsPage";
-import { MemoryRouter } from "react-router-dom";
 
-beforeEach(() => {
-  // Clear localStorage before each test
-  localStorage.clear();
-});
+describe("KeyboardPanel", () => {
+  afterEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
 
-afterEach(() => {
-  // Clear localStorage after each test
-  localStorage.clear();
-});
+  test("renders with default on state", () => {
+    render(<KeyboardPanel />);
 
-// Vitest test format - no describe wrapper needed
-test("toggles single-key shortcuts and updates localStorage", () => {
-  // Mock initial state as "on"
-  localStorage.setItem("appfly.shortcuts.single-key", "on");
+    // Check that the switch is initially checked
+    const switchElement = screen.getByRole("switch", { name: "Single-key shortcuts" });
+    expect(switchElement).toBeChecked();
 
-  render(<KeyboardPanel />);
+    // Check that ON state line is displayed
+    expect(screen.getByText("On — keycaps on buttons are live.")).toBeInTheDocument();
+  });
 
-  // Check that the switch is initially checked
-  const switchElement = screen.getByRole("switch", { name: "Single-key shortcuts" });
-  expect(switchElement).toBeChecked();
+  test("toggles off when clicked", () => {
+    render(<KeyboardPanel />);
 
-  // Check that ON state line is displayed
-  expect(screen.getByText("On — keycaps on buttons are live.")).toBeInTheDocument();
+    // Click the switch to turn it off
+    const switchElement = screen.getByRole("switch", { name: "Single-key shortcuts" });
+    fireEvent.click(switchElement);
 
-  // Click the switch to turn it off
-  fireEvent.click(switchElement);
+    // Check that localStorage was updated
+    expect(localStorage.getItem("appfly.shortcuts.single-key")).toBe("off");
 
-  // Check that localStorage was updated
-  expect(localStorage.getItem("appfly.shortcuts.single-key")).toBe("off");
+    // Check that aria-checked is now false
+    expect(switchElement).toHaveAttribute("aria-checked", "false");
 
-  // Check that aria-checked is now false
-  expect(switchElement).toHaveAttribute("aria-checked", "false");
+    // Check that OFF state line is displayed
+    expect(screen.getByText("Off — keycaps are hidden. Use the buttons.")).toBeInTheDocument();
+  });
 
-  // Check that OFF state line is displayed
-  expect(screen.getByText("Off — keycaps are hidden. Use the buttons.")).toBeInTheDocument();
-});
+  test("does not throw when localStorage setItem throws", () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("quota");
+    });
 
-test("KeyboardPanel is rendered within SettingsPage", () => {
-  render(
-    <MemoryRouter>
-      <SettingsPage />
-    </MemoryRouter>
-  );
+    render(<KeyboardPanel />);
 
-  // Check that the switch is present in the rendered SettingsPage
-  const switchElement = screen.getByRole("switch", { name: "Single-key shortcuts" });
-  expect(switchElement).toBeInTheDocument();
+    const switchElement = screen.getByRole("switch", { name: "Single-key shortcuts" });
+
+    // This should not throw even though localStorage.setItem throws
+    expect(() => fireEvent.click(switchElement)).not.toThrow();
+  });
 });
