@@ -1,13 +1,7 @@
-import { statusLabel } from "../../features/queue/types";
+import { statusLabel, type JobStatus } from "../../features/queue/types";
 
 /** The six job statuses the vault stores, in pipeline order. */
-export type JobStatusName =
-  | "inbox"
-  | "shortlist"
-  | "draft"
-  | "approved"
-  | "applied"
-  | "skipped";
+export type JobStatusName = JobStatus;
 
 interface StatusChipProps {
   status: JobStatusName;
@@ -23,7 +17,7 @@ interface StatusChipProps {
 export function StatusChip({ status, label, className }: StatusChipProps) {
   const classes = ["status-chip", className].filter(Boolean).join(" ");
   return (
-    <span className={classes} data-status={status}>
+    <span className={classes} data-testid="status-chip" data-status={status}>
       <span className="status-chip__dot" aria-hidden="true" />
       {label ?? statusLabel(status)}
     </span>
