@@ -25,7 +25,6 @@ describe("useShortcutsGate", () => {
   });
 
   it("should handle localStorage errors gracefully", () => {
-    const originalGetItem = localStorage.getItem;
     vi.spyOn(localStorage, "getItem").mockImplementation(() => {
       throw new Error("Storage error");
     });
