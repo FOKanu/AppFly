@@ -19,10 +19,10 @@ export function isTypingTarget(target: EventTarget | null): boolean {
   return false;
 }
 
-/** True inside an open overlay (dialog sheet, menu, listbox), where page keys must not act on the page behind. */
+/** True inside an open overlay (dialog sheet, menu, listbox), or an expanded popup trigger (with aria-haspopup or aria-controls), where page keys must not act on the page behind. */
 export function isInOverlay(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
-  return target.closest('[role="dialog"], [role="menu"], [role="listbox"], [aria-modal="true"]') !== null;
+  return target.closest('[role="dialog"], [role="menu"], [role="listbox"], [aria-modal="true"], [aria-expanded="true"][aria-haspopup], [aria-expanded="true"][aria-controls]') !== null;
 }
 
 export function shortcutKey(event: KeyboardEvent): string | null {
