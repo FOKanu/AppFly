@@ -1,8 +1,9 @@
 /**
  * Purpose: Page-level keyboard shortcuts that back the on-screen keycaps (A, D, E, ⇧A, ⇧D, Esc, "G Q", ⌘Z).
  * Does not: own ⌘K or R (AppShell does), or fire while the person types in a text field or works inside an open dialog or menu.
+ * Note: Character shortcuts can be turned off in Settings → Keyboard.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 
 export type ShortcutMap = Partial<Record<string, () => void>>;
 
@@ -35,6 +36,45 @@ export function shortcutKey(event: KeyboardEvent): string | null {
   return event.shiftKey ? `shift+${base}` : base;
 }
 
+export const SINGLE_KEY_STORAGE_KEY = "appfly.shortcuts.single-key";
+
+export function singleKeyShortcutsOn(): boolean {
+  try {
+    return localStorage.getItem(SINGLE_KEY_STORAGE_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+export function setSingleKeyShortcuts(on: boolean): void {
+  try {
+    localStorage.setItem(SINGLE_KEY_STORAGE_KEY, on ? "on" : "off");
+  } catch {}
+  window.dispatchEvent(new Event("appfly:shortcuts"));
+}
+
+export function useSingleKeyShortcuts(): boolean {
+  return useSyncExternalStore(
+    (onStoreChange) => {
+      const handleStorage = () => onStoreChange();
+      const handleAppflyShortcuts = () => onStoreChange();
+      window.addEventListener("storage", handleStorage);
+      window.addEventListener("appfly:shortcuts", handleAppflyShortcuts);
+      return () => {
+        window.removeEventListener("storage", handleStorage);
+        window.removeEventListener("appfly:shortcuts", handleAppflyShortcuts);
+      };
+    },
+    singleKeyShortcutsOn,
+    singleKeyShortcutsOn,
+  );
+}
+
+export function isCharacterShortcut(key: string): boolean {
+  const firstPart = key.split(" ")[0];
+  return firstPart !== "escape" && !firstPart.startsWith("mod+");
+}
+
 export function useShortcuts(map: ShortcutMap, enabled = true): void {
   const mapRef = useRef(map);
   useEffect(() => {
@@ -49,6 +89,13 @@ export function useShortcuts(map: ShortcutMap, enabled = true): void {
       if (isTypingTarget(event.target) || isInOverlay(event.target)) return;
       const key = shortcutKey(event);
       if (!key) return;
+
+      // Gate character shortcuts
+      if (isCharacterShortcut(key) && !singleKeyShortcutsOn()) {
+        pending = null;
+        return;
+      }
+
       const handlers = mapRef.current;
       const now = Date.now();
       if (pending && now - pending.at <= SEQUENCE_MS) {

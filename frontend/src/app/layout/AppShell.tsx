@@ -12,7 +12,7 @@ import { describeApiError, isUnreachable } from "../../shared/api/errors";
 import { OfflineBanner } from "../../shared/ui/OfflineBanner";
 import { Toast, useToast } from "../../shared/ui/Toast";
 import { useBreakpoint } from "../../shared/useBreakpoint";
-import { isInOverlay, isTypingTarget } from "../../shared/useShortcuts";
+import { isInOverlay, isTypingTarget, singleKeyShortcutsOn } from "../../shared/useShortcuts";
 import { profileFromSettings } from "../../features/profiles/api";
 import type { HuntProfile, SettingsPayload } from "../../features/profiles/types";
 import { recordProfileSnapshot } from "../../features/memory/versionLedger";
@@ -170,7 +170,7 @@ export function AppShell() {
       if (isTypingTarget(event.target) || isInOverlay(event.target)) return;
       if (event.key === "r" || event.key === "R") {
         event.preventDefault();
-        if (!run.runDisabled) run.start();
+        if (!run.runDisabled && singleKeyShortcutsOn()) run.start();
       }
     }
     window.addEventListener("keydown", onKey);
