@@ -64,4 +64,10 @@ describe("Tonight keyboard shortcuts", () => {
     fireEvent.keyDown(window, { key: "q" });
     expect(onReviewDrafts).toHaveBeenCalledTimes(1);
   });
+
+  it("renders Skip button and skip hint", () => {
+    renderNeedsYou();
+    expect(screen.getByRole("button", { name: /^Skip/ })).toBeInTheDocument();
+    expect(screen.getByText("A approve · D skip · E edit")).toBeInTheDocument();
+  });
 });

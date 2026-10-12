@@ -92,7 +92,7 @@ export function TonightPage() {
         toast.show(
           status === "approved"
             ? `${job.title} approved — submit it yourself in the browser.`
-            : `${job.title} denied.`,
+            : `${job.title} skipped.`,
         );
       } catch {
         toast.show(`Could not save ${job.title}. The local API rejected the change.`);
