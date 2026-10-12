@@ -28,15 +28,13 @@ import { writerLabel } from "../../shared/writerLabel";
 
 /** Schedule and caps live in config.yaml but PUT /settings cannot reach them. */
 const SCHEDULE_NOTE =
-  "Schedule and caps live in config.yaml, which PUT /settings does not expose. Edit the file directly for now.";
+  "The schedule comes from the launchd job (launchd/com.jobhunt.nightly.plist). Caps come from config.yaml. Neither can be changed here yet.";
 
 const DEFAULT_PLAN: NightlyPlan = {
   start: "21:00",
-  timezone: "Europe/Berlin",
   days: [true, true, true, true, true, false, false],
-  lettersPerNight: 5,
-  maxListings: 150,
-  shortlistThreshold: 7,
+  lettersPerRun: null,
+  shortlistSize: null,
 };
 
 const DEFAULT_GUARDRAILS: Guardrails = {
