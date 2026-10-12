@@ -142,6 +142,7 @@ def _summary_from_note(note: JobNote) -> JobSummary:
         score=_as_score(meta.get("score")),
         has_letter=bool(letter and letter not in {"None", "null"}),
         crawl_allowed=_as_bool(meta.get("crawl"), default=True),
+        skip_reason=meta.get("skip_reason"),
     )
 
 
@@ -167,6 +168,7 @@ def _packet_from_note(store: Any, note: JobNote, *, excerpt_chars: int) -> JobPa
         letter_excerpt=excerpt,
         letter_body=body,
         has_letter=bool(body) or summary.has_letter,
+        skip_reason=summary.skip_reason,
     )
 
 
