@@ -25,8 +25,8 @@ export function PacketSpec({ job }: PacketSpecProps) {
 
   return (
     <div className="packet-spec">
-      <Link className="packet-spec__back" to={`${ROUTES.queue}/${encodeURIComponent(job.source_id)}`}>
-        ← Back to queue <kbd className="kbd">Esc</kbd>
+      <Link className="packet-spec__back" to={`${ROUTES.queue}/${encodeURIComponent(job.source_id)}`} aria-keyshortcuts="Escape">
+        ← Back to queue <kbd className="kbd" aria-hidden="true">Esc</kbd>
       </Link>
 
       <div className="packet-spec__chips">

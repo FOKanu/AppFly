@@ -46,8 +46,8 @@ export function UndoToast({ entry, onUndo, onDismiss }: UndoToastProps) {
         {entry.changes.length === 1 ? entry.changes[0].title : `${entry.changes.length} jobs`} → {statusLabel(entry.status)}
       </span>
       <span className="undo-toast__timer">{Math.max(0, left)}s</span>
-      <button type="button" className="undo-toast__action" onClick={onUndo}>
-        Undo <kbd className="kbd">⌘Z</kbd>
+      <button type="button" className="undo-toast__action" onClick={onUndo} aria-keyshortcuts="Meta+Z Control+Z">
+        Undo <kbd className="kbd" aria-hidden="true">⌘Z</kbd>
       </button>
       <span
         className="undo-toast__progress"
