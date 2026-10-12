@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { ApiHealthPanel } from "./ApiHealthPanel";
 import { ApiKeysPanel } from "./ApiKeysPanel";
 import { ConnectivityPanel } from "./ConnectivityPanel";
+import { KeyboardPanel } from "./KeyboardPanel";
 import {
   fetchSettings,
   parseSettings,
@@ -78,6 +79,7 @@ export function SettingsPage() {
         <div className="settings__col">
           <WorkspacePanel onToast={toast.show} />
           <ConnectivityPanel connectivity={settings.connectivity} />
+          <KeyboardPanel />
           <ImportObsidianPanel
             vaultPath={settings.vault.path}
             onToast={toast.show}
