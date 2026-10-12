@@ -5,7 +5,7 @@ import { Meter } from "../../shared/ui/Meter";
 import { Score } from "../../shared/ui/Score";
 import { Tag } from "../../shared/ui/Tag";
 import { ROUTES } from "../../routes";
-import { useShortcuts } from "../../shared/useShortcuts";
+import { useShortcuts, useSingleKeyShortcuts } from "../../shared/useShortcuts";
 import { SourceBadge } from "./SourceBadge";
 import { StatusChip } from "./StatusChip";
 import type { JobRecord } from "./types";
@@ -39,6 +39,7 @@ export function QueueDetail({
 }: QueueDetailProps) {
   const [tab, setTab] = useState<DetailTab>("Overview");
   const navigate = useNavigate();
+  const isSingleKey = useSingleKeyShortcuts();
   useShortcuts(
     {
       a: () => {
@@ -115,9 +116,10 @@ export function QueueDetail({
         <Link
           className="button button--quiet"
           to={`${ROUTES.packet}/${encodeURIComponent(job.source_id)}`}
+          aria-keyshortcuts={isSingleKey ? "E" : undefined}
         >
           <span className="button__label">Edit letter</span>
-          <kbd className="button__kbd">E</kbd>
+          {isSingleKey && <kbd className="button__kbd" aria-hidden="true">E</kbd>}
         </Link>
         <Link
           className="link-action"
