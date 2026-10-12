@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as jobsApi from "./jobsApi";
-import { getJob, listJobs, patchJobStatus, resetMockJobs } from "./jobsApi";
+import { getJob, listJobs, patchJobStatus, resetMockJobs, normalizeJob } from "./jobsApi";
 
 describe("jobsApi", () => {
   beforeEach(() => {
@@ -82,5 +82,63 @@ describe("jobsApi", () => {
     const urls = fetchMock.mock.calls.map((call) => String(call[0]));
     expect(urls.some((url) => /\/jobs\/[^/]+\/fetch/.test(url))).toBe(false);
     expect(urls.join(" ")).not.toMatch(/linkedin|indeed|stepstone|ziprecruiter/i);
+  });
+
+  it("normalizeJob handles skip_reason and legacy skipped zero score", () => {
+    // Test skip_reason mapping
+    const jobWithSkipReason = normalizeJob({
+      source_id: "test-1",
+      title: "Test Job",
+      status: "skipped",
+      score: 0.42,
+      skip_reason: "salary below threshold"
+    });
+    expect(jobWithSkipReason.skip_reason).toBe("salary below threshold");
+
+    // Test missing skip_reason defaults to null
+    const jobWithoutSkipReason = normalizeJob({
+      source_id: "test-2",
+      title: "Test Job",
+      status: "skipped",
+      score: 0.42
+    });
+    expect(jobWithoutSkipReason.skip_reason).toBeNull();
+
+    // Test non-string skip_reason defaults to null
+    const jobWithNonStringSkipReason = normalizeJob({
+      source_id: "test-3",
+      title: "Test Job",
+      status: "skipped",
+      score: 0.42,
+      skip_reason: 123
+    });
+    expect(jobWithNonStringSkipReason.skip_reason).toBeNull();
+
+    // Test legacy rule: skipped + score 0 -> null
+    const jobSkippedZero = normalizeJob({
+      source_id: "test-4",
+      title: "Test Job",
+      status: "skipped",
+      score: 0
+    });
+    expect(jobSkippedZero.score).toBeNull();
+
+    // Test skipped + non-zero score stays unchanged
+    const jobSkippedNonZero = normalizeJob({
+      source_id: "test-5",
+      title: "Test Job",
+      status: "skipped",
+      score: 0.42
+    });
+    expect(jobSkippedNonZero.score).toBe(0.42);
+
+    // Test inbox + score 0 stays unchanged
+    const jobInboxZero = normalizeJob({
+      source_id: "test-6",
+      title: "Test Job",
+      status: "inbox",
+      score: 0
+    });
+    expect(jobInboxZero.score).toBe(0);
   });
 });

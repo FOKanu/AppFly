@@ -55,6 +55,12 @@ export function normalizeJob(raw: unknown): JobRecord {
   const row = (raw ?? {}) as Record<string, unknown>;
   const nested = row.job && typeof row.job === "object" ? (row.job as Record<string, unknown>) : row;
   const statusRaw = nested.status;
+  const rawScore = asScore(nested.score ?? nested.match_score ?? nested.matchScore);
+  const rawSkipReason = nested.skip_reason;
+
+  // Apply legacy rule: if status is "skipped" and score is exactly 0, set score to null
+  const score = (statusRaw === "skipped" && rawScore === 0) ? null : rawScore;
+
   return {
     source_id: asString(nested.source_id ?? nested.sourceId ?? nested.id),
     source: asString(nested.source, "unknown"),
@@ -64,12 +70,13 @@ export function normalizeJob(raw: unknown): JobRecord {
     location: asString(nested.location),
     description: asString(nested.description ?? nested.description_excerpt ?? nested.excerpt ?? nested.body),
     status: isStatus(statusRaw) ? statusRaw : "inbox",
-    score: asScore(nested.score ?? nested.match_score ?? nested.matchScore),
+    score,
     letter_excerpt: letterExcerpt(nested),
     crawl_allowed: asCrawlAllowed(nested),
     lang: asString(nested.lang),
     salary: asString(nested.salary),
     posted: asString(nested.posted ?? nested.date),
+    skip_reason: typeof rawSkipReason === "string" ? rawSkipReason : null,
   };
 }
 

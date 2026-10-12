@@ -28,6 +28,7 @@ export type JobRecord = {
   lang: string;
   salary: string;
   posted: string;
+  skip_reason?: string | null;
 };
 
 /** Result of GET /jobs (live API or mock fallback). */
