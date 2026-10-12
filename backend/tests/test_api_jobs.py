@@ -117,3 +117,44 @@ def test_patch_job_rejects_extra_keys(api_client: TestClient, api_vault: Path) -
     )
     assert response.status_code == 422
     assert "AIzaSy-should-reject" not in api_client.get("/jobs/ref-1").text
+
+
+def test_jobs_api_expose_skip_reason(api_client: TestClient, api_vault: Path) -> None:
+    # Seed a job with skip_reason
+    vault = _seed_job(api_vault, "ref-1", status="inbox")
+    vault.update_job_meta("ref-1", skip_reason="Not interested")
+
+    # Test GET /jobs returns skip_reason for filtered job
+    response = api_client.get("/jobs")
+    assert response.status_code == 200
+    rows = response.json()
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["source_id"] == "ref-1"
+    assert row["skip_reason"] == "Not interested"
+
+    # Test GET /jobs/{id} returns skip_reason for filtered job
+    response = api_client.get("/jobs/ref-1")
+    assert response.status_code == 200
+    packet = response.json()
+    assert packet["source_id"] == "ref-1"
+    assert packet["skip_reason"] == "Not interested"
+
+    # Test PATCH preserves skip_reason
+    response = api_client.patch("/jobs/ref-1", json={"status": "approved"})
+    assert response.status_code == 200
+    updated_row = response.json()
+    assert updated_row["skip_reason"] == "Not interested"
+
+    # Test GET /jobs/{id} after PATCH still returns skip_reason
+    response = api_client.get("/jobs/ref-1")
+    assert response.status_code == 200
+    packet = response.json()
+    assert packet["skip_reason"] == "Not interested"
+
+    # Test normal job without skip_reason returns None
+    _seed_job(api_vault, "ref-2", status="inbox")
+    response = api_client.get("/jobs/ref-2")
+    assert response.status_code == 200
+    packet = response.json()
+    assert packet["skip_reason"] is None
