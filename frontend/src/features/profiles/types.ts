@@ -24,6 +24,10 @@ export interface SettingsPayload {
   /** Writer model from config (GET /settings, read-only). */
   gemini_model?: string;
   secrets: { gemini: boolean; apify: boolean; jobsuche: boolean };
+  /** Letter cap from config (GET /settings, read-only). */
+  letter_cap?: number;
+  /** Shortlist size from config (GET /settings, read-only). */
+  shortlist_size?: number;
 }
 
 /**
