@@ -32,6 +32,7 @@ class JobSummary(BaseModel):
     score: float | None = None
     has_letter: bool = False
     crawl_allowed: bool = True
+    skip_reason: str | None = None
 
 
 class JobPacket(BaseModel):
@@ -60,6 +61,7 @@ class JobPacket(BaseModel):
     letter_excerpt: str | None = None
     letter_body: str | None = None
     has_letter: bool = False
+    skip_reason: str | None = None
 
 
 class JobStatusPatch(BaseModel):

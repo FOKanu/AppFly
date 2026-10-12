@@ -1,4 +1,7 @@
-/** Job pipeline statuses used by the vault and local API. */
+/**
+ * Purpose: the six job statuses and their readable labels, shared by every feature.
+ * Does not: talk to the API or change a status.
+ */
 export const JOB_STATUSES = [
   "inbox",
   "shortlist",
@@ -15,5 +18,5 @@ export type JobStatus = (typeof JOB_STATUSES)[number];
 export const STATUS_LABELS: Record<JobStatus, string> = { inbox: "Inbox", shortlist: "Shortlist", draft: "Draft", approved: "Approved", applied: "Applied", skipped: "Skipped" };
 
 export function statusLabel(status: JobStatus | string): string {
-  return STATUS_LABELS[status as JobStatus] ?? status;
+  return Object.hasOwn(STATUS_LABELS, status) ? STATUS_LABELS[status as JobStatus] : status;
 }

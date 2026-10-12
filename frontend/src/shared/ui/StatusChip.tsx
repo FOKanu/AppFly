@@ -1,4 +1,4 @@
-import { statusLabel, type JobStatus } from "../../features/queue/types";
+import { statusLabel, type JobStatus } from "../status";
 
 /** The six job statuses the vault stores, in pipeline order. */
 export type JobStatusName = JobStatus;
