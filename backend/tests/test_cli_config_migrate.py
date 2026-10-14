@@ -7,7 +7,6 @@ import stat
 import sys
 from pathlib import Path
 
-import pytest
 from typer.testing import CliRunner
 
 from jobhunt import cli, config
