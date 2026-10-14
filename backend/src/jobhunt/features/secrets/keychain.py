@@ -2,8 +2,8 @@
 
 Purpose: persist API keys outside git, the Obsidian vault, and HTTP responses.
 On macOS this uses the Keychain via the ``keyring`` library. On CI/Linux,
-or when no OS vault is available, it falls back to a gitignored ``.secrets/``
-directory. Tests inject ``MemoryKeychain`` so they never touch a real Keychain.
+or when no OS vault is available, it falls back to a ``.secrets/`` directory in the config dir
+(``resolve_config_dir()``; a legacy repo ``.secrets/`` is kept if present). Tests inject ``MemoryKeychain`` so they never touch a real Keychain.
 Does not: log passwords, commit files, or expose values over HTTP.
 """
 
@@ -79,7 +79,7 @@ class FileKeychain:
     """Gitignored file fallback when Keychain is unavailable (CI/Linux).
 
     Purpose: keep local Settings usable without an OS vault.
-    Files live under ``.secrets/<account>`` with mode 0600.
+    Files live under ``<root>/<account>`` with mode 0600 (root from ``default_secrets_dir()``).
     Does not: belong in git. ``.secrets/`` is gitignored.
     """
 
@@ -154,14 +154,18 @@ class MemoryKeychain:
 
 
 def default_secrets_dir() -> Path:
-    """Repo-local ``.secrets/`` directory used when Keychain is missing.
+    """``.secrets/`` directory used when Keychain is missing.
 
-    Purpose: Linux/CI fallback. Never commit this folder.
+    Purpose: Linux/CI fallback. A legacy repo ``.secrets/`` in a source checkout wins
+    if it exists; otherwise ``resolve_config_dir()/.secrets``. Never commit this folder.
     """
 
-    from jobhunt.config import REPO_ROOT
+    from jobhunt import config as _config
 
-    return REPO_ROOT / ".secrets"
+    legacy = _config.REPO_ROOT / ".secrets"
+    if _config.is_source_checkout() and legacy.is_dir():
+        return legacy
+    return _config.resolve_config_dir() / ".secrets"
 
 
 def default_keychain() -> Keychain:
