@@ -1,5 +1,4 @@
 import httpx
-import pytest
 import yaml
 from pathlib import Path
 from typer.testing import CliRunner
