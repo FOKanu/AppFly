@@ -10,6 +10,7 @@ import {
   LIST_FIELDS,
   RequirementsDraft,
 } from "./requirementsApi";
+import type { RequirementsDraft } from "./requirementsApi";
 
 vi.mock("../../shared/api/client", () => ({
   apiGet: vi.fn(),
@@ -47,7 +48,8 @@ describe("requirementsApi", () => {
     const mockResponse = { ...DRAFT, storage_backend: "native" };
     vi.mocked(apiPut).mockResolvedValue(mockResponse);
 
-    const result = await saveRequirements(DRAFT);
+    // Test with a payload that has storage_backend to ensure it's stripped
+    const result = await saveRequirements({ ...DRAFT, storage_backend: "native" } as unknown as RequirementsDraft);
 
     expect(apiPut).toHaveBeenCalledWith(
       "/requirements",
@@ -68,6 +70,9 @@ describe("requirementsApi", () => {
     const body = callArgs[1];
     expect("storage_backend" in body).toBe(false);
 
+    // Verify that the body contains exactly the expected keys
+    expect(Object.keys(body).sort()).toEqual(Object.keys(DRAFT).sort());
+
     expect(result).toEqual(mockResponse);
   });
 
@@ -76,16 +81,16 @@ describe("requirementsApi", () => {
     expect(sameDraft(DRAFT, toDraft(DRAFT))).toBe(true);
 
     // Test that changing each field results in different drafts
-    for (const field of LIST_FIELDS) {
-      const changedDraft = { ...DRAFT };
-      if (Array.isArray(changedDraft[field])) {
-        changedDraft[field] = [...changedDraft[field], "x"];
+    for (const field of Object.keys(DRAFT) as (keyof RequirementsDraft)[]) {
+      const changed = { ...DRAFT } as Record<string, unknown>;
+      if (Array.isArray(DRAFT[field])) {
+        changed[field] = [...(DRAFT[field] as string[]), "x"];
       } else if (field === "salary_floor") {
-        changedDraft[field] += 1;
+        changed[field] = DRAFT.salary_floor + 1;
       } else if (field === "tone") {
-        changedDraft[field] += "!";
+        changed[field] = DRAFT.tone + "!";
       }
-      expect(sameDraft(DRAFT, changedDraft)).toBe(false);
+      expect(sameDraft(DRAFT, changed as RequirementsDraft)).toBe(false);
     }
   });
 
