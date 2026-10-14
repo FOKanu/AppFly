@@ -1,6 +1,6 @@
 /**
  * Purpose: Turn any ApiError into a failure kind plus one display sentence (UI spec section 1).
- * Does not: show raw `HTTP {status} for /path` text, or any 5xx response body.
+ * Does not: show raw `HTTP {status} for /path` text, or any 5xx response body (except 502 upstream errors).
  */
 import { ApiError, apiBaseUrl } from "./client";
 
@@ -44,7 +44,7 @@ export function isUnreachable(kind: FailureKind): boolean {
  * Purpose: Classify an error from apiFetch and build its display message.
  * Inputs: `action` is the verb phrase for the templates (e.g. "Import"); `notFound` is the
  *         call site's own 404 sentence (used as-is when given).
- * Does not: include response bodies for 5xx, or unredacted detail text.
+ * Does not: include response bodies for 5xx (except 502 upstream details), or unredacted detail text.
  */
 export function describeApiError(error: unknown, action: string, notFound?: string): ApiFailure {
   const apiError = error instanceof ApiError ? error : null;
@@ -88,6 +88,9 @@ export function describeApiError(error: unknown, action: string, notFound?: stri
   }
   if (status === 404) {
     return make("not-found", notFound ?? `${action} failed: ${detail || `HTTP ${status}`}`);
+  }
+  if (status === 502 && detail) {
+    return make("server", `${action} failed: ${detail}`);
   }
   if (status >= 500) {
     return make(
