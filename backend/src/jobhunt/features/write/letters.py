@@ -27,6 +27,15 @@ MISSING_KEY_MESSAGE = (
     "(Keychain entry 'gemini') or set GEMINI_API_KEY."
 )
 
+EMPTY_LETTER_MESSAGE = "Gemini returned an empty letter. Try again."
+
+class LetterWriteError(RuntimeError):
+    """Error raised when writing a letter fails."""
+
+    def __init__(self, message: str, *, kind: str) -> None:
+        super().__init__(message)
+        self.kind = kind
+
 
 def write_letters(
     config: AppConfig,
@@ -126,7 +135,7 @@ def regenerate_letter_for_job(config: AppConfig, vault: Any, job: Job) -> str:
     """
 
     if not config.gemini_api_key:
-        raise RuntimeError(MISSING_KEY_MESSAGE)
+        raise LetterWriteError(MISSING_KEY_MESSAGE, kind="missing_key")
     requirements = vault.load_requirements()
     cv_text = _cv_slice(vault.read_cv())
     samples = vault.read_voice_samples()
@@ -139,7 +148,15 @@ def regenerate_letter_for_job(config: AppConfig, vault: Any, job: Job) -> str:
         requirements=requirements,
         excerpt_chars=config.jd_excerpt_chars,
     )
-    letter, tokens_in, tokens_out = _call_gemini(config, packet)
+    try:
+        letter, tokens_in, tokens_out = _call_gemini(config, packet)
+    except LetterWriteError:
+        raise
+    except Exception as exc:
+        mapped = _classify_gemini_error(exc)
+        if mapped is None:
+            raise
+        raise mapped from exc
     vault.write_letter(
         job,
         letter,
@@ -203,6 +220,52 @@ def _cv_slice(cv_text: str, limit: int = 3500) -> str:
     return cv_text.strip()[:limit]
 
 
+def _classify_gemini_error(exc: Exception) -> LetterWriteError | None:
+    """Classify a Gemini error into a LetterWriteError with appropriate kind."""
+    from google.genai import errors as genai_errors
+    import httpx
+
+    if isinstance(exc, genai_errors.APIError):
+        code = getattr(exc, "code", None)
+        status = getattr(exc, "status", None)
+        message = getattr(exc, "message", None)
+        details = getattr(exc, "details", None)
+
+        if code in (401, 403):
+            return LetterWriteError(
+                "Gemini rejected the API key. Replace it in Settings → API keys.",
+                kind="key_rejected"
+            )
+        elif code == 400 and status == "INVALID_ARGUMENT":
+            # Check for API_KEY_INVALID in details or message
+            if (
+                (details and "API_KEY_INVALID" in str(details)) or
+                (message and "api key" in message.lower())
+            ):
+                return LetterWriteError(
+                    "Gemini rejected the API key. Replace it in Settings → API keys.",
+                    kind="key_rejected"
+                )
+        elif code == 429:
+            return LetterWriteError(
+                "Gemini rate limit or quota reached. Wait a minute, then try again.",
+                kind="rate_limited"
+            )
+        else:
+            # Other Gemini 4xx/5xx errors
+            if status:
+                detail = f"Gemini request failed (HTTP {code} {status}). Try again later."
+            else:
+                detail = f"Gemini request failed (HTTP {code}). Try again later."
+            return LetterWriteError(detail, kind="upstream")
+    elif isinstance(exc, httpx.HTTPError):
+        return LetterWriteError(
+            "Couldn't reach Gemini. Check your internet connection, then try again.",
+            kind="upstream"
+        )
+    return None
+
+
 def _call_gemini(config: AppConfig, packet: str) -> tuple[str, int, int]:
     from google import genai
     from google.genai import types
@@ -224,5 +287,5 @@ def _call_gemini(config: AppConfig, packet: str) -> tuple[str, int, int]:
     tokens_in = int(getattr(usage, "prompt_token_count", 0) or 0)
     tokens_out = int(getattr(usage, "candidates_token_count", 0) or 0)
     if not text:
-        raise RuntimeError("Gemini returned an empty letter.")
+        raise LetterWriteError(EMPTY_LETTER_MESSAGE, kind="upstream")
     return text, tokens_in, tokens_out
