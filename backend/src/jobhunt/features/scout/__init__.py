@@ -14,11 +14,11 @@ from jobhunt.features.scout.apify import fetch_apify_jobs
 from jobhunt.features.scout.inbox import fetch_inbox_jobs
 from jobhunt.features.scout.rss import fetch_rss_jobs
 from jobhunt.models import Job, Requirements
-from jobhunt.policy import apply_crawl_policy
+from jobhunt.policy import CrawlDeniedError, apply_crawl_policy, hostname
 from jobhunt.vault import Vault
 
 
-def collect_jobs(config: AppConfig, vault: Vault, requirements: Requirements) -> list[Job]:
+def collect_jobs(config: AppConfig, vault: Vault, requirements: Requirements, *, errors: list[str] | None = None) -> list[Job]:
     """Gather new jobs from every enabled source.
 
     Purpose: One entry point for ``jobhunt scout`` / ``jobhunt run``.
@@ -27,17 +27,35 @@ def collect_jobs(config: AppConfig, vault: Vault, requirements: Requirements) ->
     Does not: Write notes, score jobs, or fetch a deny-listed listing URL.
     """
 
+    def _gather(label: str, fetch, errors: list[str] | None) -> list[Job]:
+        """Helper to gather jobs from a source with error isolation."""
+        try:
+            return fetch()
+        except CrawlDeniedError:
+            # CrawlDeniedError is never isolated - always re-raise
+            raise
+        except Exception as exc:
+            if errors is not None:
+                # Record the error and continue
+                msg = str(exc)[:200]  # Truncate long messages
+                errors.append(f"{label}: {type(exc).__name__}: {msg}")
+                return []
+            else:
+                # Re-raise when no error collection is requested
+                raise
+
     seen = vault.existing_source_ids()
     skip = {name.casefold() for name in requirements.skip_companies}
     collected: list[Job] = []
 
     if config.sources.agentur:
-        collected.extend(fetch_agentur_jobs(config))
+        collected.extend(_gather("agentur", lambda: fetch_agentur_jobs(config), errors))
     if config.sources.inbox:
-        collected.extend(fetch_inbox_jobs(vault.inbox_dir))
+        collected.extend(_gather("inbox", lambda: fetch_inbox_jobs(vault.inbox_dir), errors))
     for url in config.sources.rss:
-        collected.extend(fetch_rss_jobs(url))
-    collected.extend(fetch_apify_jobs(config))
+        label = f"rss {hostname(url)}"
+        collected.extend(_gather(label, lambda u=url: fetch_rss_jobs(u), errors))
+    collected.extend(_gather("apify", lambda: fetch_apify_jobs(config), errors))
 
     fresh: list[Job] = []
     used_ids = set(seen)
