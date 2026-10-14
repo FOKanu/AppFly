@@ -31,6 +31,8 @@ def get_config(request: Request) -> AppConfig:
     """Load AppConfig for this request."""
 
     path = getattr(request.app.state, "config_path", None)
+    if isinstance(path, str):
+        path = Path(path)
     return load_config(path)
 
 
@@ -82,6 +84,7 @@ def create_app(
     from jobhunt.api.routes.documents import router as documents_router
     from jobhunt.api.routes.health import router as health_router
     from jobhunt.api.routes.jobs import router as jobs_router
+    from jobhunt.api.routes.requirements import router as requirements_router
     from jobhunt.api.routes.runs import router as runs_router
     from jobhunt.api.routes.secrets import router as secrets_router
     from jobhunt.api.routes.settings import router as settings_router
@@ -110,6 +113,7 @@ def create_app(
     application.include_router(jobs_router)
     application.include_router(runs_router)
     application.include_router(settings_router)
+    application.include_router(requirements_router)
     application.include_router(secrets_router)
     application.include_router(documents_router)
     application.include_router(workspace_router)
