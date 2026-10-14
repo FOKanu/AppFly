@@ -280,6 +280,7 @@ def scout(
     from jobhunt.policy import CrawlDeniedError
 
     cfg = _config(config)
+    scout_errors: list[str] = []
 
     def body(cancel: threading.Event | None, on_progress: Any) -> Any:
         if on_progress is not None:
@@ -287,7 +288,7 @@ def scout(
         store.ensure_dirs()
         requirements = store.load_requirements()
         try:
-            jobs = collect_jobs(cfg, store, requirements)
+            jobs = collect_jobs(cfg, store, requirements, errors=scout_errors)
         except CrawlDeniedError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=1) from exc
@@ -297,10 +298,14 @@ def scout(
         if on_progress is not None:
             on_progress(scouted=len(jobs))
         typer.echo(f"Wrote {len(jobs)} new job notes")
-        return type("R", (), {"scouted": len(jobs), "errors": [], "cancelled": False})()
+        for err in scout_errors:
+            typer.echo(f"error: scout: {err}", err=True)
+        return type("R", (), {"scouted": len(jobs), "errors": [f"scout: {e}" for e in scout_errors], "cancelled": False})()
 
     with _open_store(cfg) as store:
         _run_with_lock(cfg, store, trigger="cli", stage="scout", body=body)
+    if scout_errors:
+        raise typer.Exit(code=1)
 
 
 @app.command()
