@@ -248,8 +248,10 @@ def _classify_gemini_error(exc: Exception) -> LetterWriteError | None:
                     KEY_REJECTED_MESSAGE,
                     kind="key_rejected"
                 )
-            # For non-key 400 INVALID_ARGUMENT, fall through to generic upstream error
-            # by not returning here
+            return LetterWriteError(
+                f"Gemini request failed (HTTP {code} {status}). Try again later.",
+                kind="upstream"
+            )
         elif code == 429:
             return LetterWriteError(
                 "Gemini rate limit or quota reached. Wait a minute, then try again.",
