@@ -85,7 +85,9 @@ def _run_pipeline(
         else:
             _emit(stage="scout")
             requirements = store.load_requirements()
-            jobs = collect_jobs(config, store, requirements)
+            scout_errors: list[str] = []
+            jobs = collect_jobs(config, store, requirements, errors=scout_errors)
+            errors.extend(f"scout: {e}" for e in scout_errors)
             for job in jobs:
                 store.upsert_job(job)
             scouted = len(jobs)

@@ -207,7 +207,8 @@ class Vault:
         job_path = self.find_job_path(job.source_id)
         if job_path:
             post = frontmatter.loads(job_path.read_text(encoding="utf-8"))
-            post.metadata["status"] = "draft"
+            if str(post.metadata.get("status") or "inbox") in ("inbox", "shortlist"):
+                post.metadata["status"] = "draft"
             post.metadata["letter"] = f"[[Letters/{link_name}]]"
             post.metadata["gemini"] = True
             post.metadata["gemini_model"] = model

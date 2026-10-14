@@ -21,6 +21,7 @@ from jobhunt.store.types import JobNote
 
 router = APIRouter(tags=["jobs"])
 
+_REGEN_STATUS = {"missing_key": 400, "key_rejected": 400, "rate_limited": 429, "upstream": 502}
 _LETTER_EXCERPT_CHARS = 600
 
 
@@ -95,7 +96,7 @@ def put_letter(source_id: str, body: LetterPut, request: Request) -> dict[str, A
 def regenerate_letter(source_id: str, request: Request) -> dict[str, Any]:
     """Force-write a letter for one job (ignores existing letter skip)."""
 
-    from jobhunt.features.write.letters import regenerate_letter_for_job
+    from jobhunt.features.write.letters import regenerate_letter_for_job, LetterWriteError
 
     store = get_app_store(request)
     config = get_config(request)
@@ -105,8 +106,8 @@ def regenerate_letter(source_id: str, request: Request) -> dict[str, Any]:
     job = store.job_from_note(note)
     try:
         letter = regenerate_letter_for_job(config, store, job)
-    except RuntimeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except LetterWriteError as exc:
+        raise HTTPException(status_code=_REGEN_STATUS[exc.kind], detail=str(exc)) from exc
     return {
         "source_id": source_id,
         "body": letter,

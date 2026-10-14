@@ -12,6 +12,7 @@ from jobhunt.config import AppConfig, load_config
 from jobhunt.features.secrets.names import SecretName
 from jobhunt.features.write import build_packet
 from jobhunt.features.write.letters import (
+    LetterWriteError,
     MISSING_KEY_MESSAGE,
     _call_gemini,
     regenerate_letter_for_job,
@@ -184,13 +185,14 @@ def test_api_key_lookup_order(secret_store, monkeypatch) -> None:
 
 
 def test_missing_key_raises_clear_error(secret_store, fake_genai) -> None:
-    with pytest.raises(RuntimeError) as exc_info:
+    with pytest.raises(LetterWriteError) as exc_info:
         regenerate_letter_for_job(AppConfig(), object(), _job())
 
     assert MISSING_KEY_MESSAGE in exc_info.value.args[0]
     assert "Keychain" in exc_info.value.args[0]
     assert "GEMINI_API_KEY" in exc_info.value.args[0]
     assert fake_genai == []
+    assert exc_info.value.kind == "missing_key"
 
 
 def test_write_letters_continues_after_one_failure(secret_store, monkeypatch) -> None:
