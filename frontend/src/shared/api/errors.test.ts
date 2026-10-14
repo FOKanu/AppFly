@@ -1,14 +1,16 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { describeApiError } from "./errors";
-import { ApiError } from "./client";
+import { apiPost } from "./client";
 
 describe("describeApiError", () => {
-  it("classifies 502 upstream errors with backend detail", async () => {
-    // Create a proper ApiError instance
-    const error = new ApiError("HTTP 502 for /jobs/x/letter/regenerate", 502, {
-      detail: "Gemini request failed (HTTP 503 UNAVAILABLE). Try again later.",
-    });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
 
+  it("classifies 502 upstream errors with backend detail", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({detail: "Gemini request failed (HTTP 503 UNAVAILABLE). Try again later."}), {status: 502, headers:{"Content-Type":"application/json"}})));
+
+    const error = await apiPost("/jobs/x/letter/regenerate").catch((e) => e);
     const result = describeApiError(error, "Regenerating the letter");
 
     expect(result.kind).toBe("server");
@@ -17,17 +19,26 @@ describe("describeApiError", () => {
     );
   });
 
-  it("handles 502 details without requiring secret redaction for this test", async () => {
-    // Create a proper ApiError instance
-    const error = new ApiError("HTTP 502 for /jobs/x/letter/regenerate", 502, {
-      detail: "AIzaSy...1234567890abcdefg is invalid",
-    });
+  it("redacts API keys in 502 details", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({detail: "Gemini rejected key AIzaSy" + "A".repeat(30) + " is invalid"}), {status: 502, headers:{"Content-Type":"application/json"}})));
 
+    const error = await apiPost("/jobs/x/letter/regenerate").catch((e) => e);
     const result = describeApiError(error, "Regenerating the letter");
 
     expect(result.kind).toBe("server");
-    // Just verify it's using the 502 detail, not that redaction happens in this test
-    expect(result.message).toContain("failed: ");
-    expect(result.message).toContain("AIzaSy...1234567890abcdefg is invalid");
+    expect(result.message).toContain("Regenerating the letter failed: Gemini rejected key");
+    expect(result.message).not.toContain("AIza");
+  });
+
+  it("classifies 500 errors with generic message", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({detail: "boom"}), {status: 500, headers:{"Content-Type":"application/json"}})));
+
+    const error = await apiPost("/jobs/x/letter/regenerate").catch((e) => e);
+    const result = describeApiError(error, "Regenerating the letter");
+
+    expect(result.kind).toBe("server");
+    expect(result.message).toBe(
+      "Regenerating the letter failed: the API hit an internal error (HTTP 500). Check the terminal running the API, then try again."
+    );
   });
 });
