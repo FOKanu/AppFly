@@ -29,7 +29,7 @@ const JOB_GONE = "This job is no longer in the store. Go back to Queue and refre
  */
 export function PacketPage() {
   const { sourceId = "" } = useParams();
-  const decodedId = decodeURIComponent(sourceId);
+  const decodedId = sourceId;
   const [job, setJob] = useState<JobRecord | null>(null);
   const [letterBody, setLetterBody] = useState("");
   const [letterModel, setLetterModel] = useState<string | null>(null);
