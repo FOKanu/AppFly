@@ -11,7 +11,6 @@ from types import SimpleNamespace
 
 from jobhunt.api import runner
 from jobhunt.api.app import create_app
-from jobhunt.features.secrets.store import SecretStore
 import frontmatter
 
 

@@ -11,8 +11,6 @@ Does not: Modify the underlying storage directly - uses store methods.
 from __future__ import annotations
 
 from dataclasses import asdict
-from pathlib import Path
-from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
