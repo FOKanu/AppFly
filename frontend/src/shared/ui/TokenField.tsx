@@ -8,6 +8,12 @@ interface TokenFieldProps {
   /** Rendered instead of the input when the list is not editable. */
   readOnlyNote?: string;
   className?: string;
+  /** Set aria-describedby on the input element */
+  describedBy?: string;
+  /** Maximum number of characters allowed in each token */
+  maxLength?: number;
+  /** Maximum number of tokens allowed; when reached, the input is replaced with a note */
+  maxItems?: number;
 }
 
 /**
@@ -22,6 +28,9 @@ export function TokenField({
   ariaLabel,
   readOnlyNote,
   className,
+  describedBy,
+  maxItems,
+  maxLength,
 }: TokenFieldProps) {
   const [draft, setDraft] = useState("");
   // A read-only field shows its note instead of an input, and its chips lose
@@ -32,6 +41,7 @@ export function TokenField({
     .join(" ");
 
   function commit() {
+    if (maxItems && values.length >= maxItems) return;
     const next = draft.trim();
     if (!next || values.includes(next)) {
       setDraft("");
@@ -71,12 +81,16 @@ export function TokenField({
       ))}
       {readOnly ? (
         <span className="token-field__note">{readOnlyNote}</span>
+      ) : maxItems && values.length >= maxItems ? (
+        <span className="token-field__note">Limit reached ({maxItems}).</span>
       ) : (
         <input
           className="token-field__input"
           value={draft}
           placeholder={placeholder}
           aria-label={`Add to ${ariaLabel}`}
+          aria-describedby={describedBy}
+          maxLength={maxLength}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={onKeyDown}
           onBlur={commit}
