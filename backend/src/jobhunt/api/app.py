@@ -31,8 +31,6 @@ def get_config(request: Request) -> AppConfig:
     """Load AppConfig for this request."""
 
     path = getattr(request.app.state, "config_path", None)
-    if isinstance(path, str):
-        path = Path(path)
     return load_config(path)
 
 

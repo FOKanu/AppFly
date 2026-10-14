@@ -3,6 +3,7 @@ Requirements GET/PUT API (mr1).
 """
 from __future__ import annotations
 
+import frontmatter
 from pathlib import Path
 import yaml
 import pytest
@@ -11,7 +12,9 @@ from types import SimpleNamespace
 
 from jobhunt.api import runner
 from jobhunt.api.app import create_app
-import frontmatter
+from jobhunt.config import load_config
+from jobhunt.models import Job
+from jobhunt.store import get_store
 
 
 @pytest.fixture
@@ -21,8 +24,8 @@ def native_config(api_config, tmp_path):
     raw = yaml.safe_load(config_path.read_text())
     raw["storage_backend"] = "native"
     raw["native_data_dir"] = str(tmp_path / "data")
-    config_path.write_text(yaml.dump(raw))
-    return str(config_path)
+    config_path.write_text(yaml.safe_dump(raw, sort_keys=False))
+    return config_path
 
 
 GOOD = {
@@ -110,12 +113,16 @@ def test_put_rejects_bad_bodies(native_config, secret_store):
 
     # Test various bad inputs that should cause 422
     bad_inputs = [
+        {"unknown": 1},
         {"salary_floor": -1},
+        {"salary_floor": 1_000_001},
         {"languages": []},
         {"languages": ["  "]},
         {"tone": "a\n## Hack"},
-        {"unknown": 1},
-        {"locations": ["x" * 201]},
+        {"tone": "x" * 201},
+        {"locations": ["x" * 81]},
+        {"must_have": [f"s{i}" for i in range(11)]},
+        {**GOOD, "tone": None},  # missing key
     ]
 
     for bad_input in bad_inputs:
@@ -153,7 +160,10 @@ def test_put_409_while_run_active(native_config, secret_store, monkeypatch):
 
 
 def test_put_requires_csrf_header(native_config, secret_store):
-    """PUT without X-AppFly header should return 403."""
+    """PUT without X-AppFly header should return 403.
+
+    passes on base too: CSRFMiddleware rejects before routing (accepted exception)
+    """
     # Create a client without the CSRF header
     client = TestClient(
         create_app(config_path=native_config, store=secret_store),
@@ -162,6 +172,40 @@ def test_put_requires_csrf_header(native_config, secret_store):
 
     response = client.put("/requirements", json=GOOD)
     assert response.status_code == 403
+
+
+def test_put_reaches_matcher(native_config, secret_store):
+    """PUT banned_terms with Zeitarbeit should be detected by matcher."""
+    client = TestClient(
+        create_app(config_path=native_config, store=secret_store),
+        base_url="http://127.0.0.1",
+        headers={"X-AppFly": "1"},
+    )
+
+    # PUT requirements with banned term
+    response = client.put("/requirements", json={**GOOD, "banned_terms": ["Zeitarbeit"]})
+    assert response.status_code == 200
+
+    # Load the store and requirements to test matcher
+    config = load_config(native_config)
+    store = get_store(config)
+    reqs = store.load_requirements()
+
+    # Create a job with banned term in description
+    job = Job(
+        title="Developer",
+        company="Other",
+        location="Berlin",
+        description="Zeitarbeit is not allowed here",
+        url="http://example.com",
+        source_id="test_source_id",
+        source="test_source"
+    )
+
+    # Test that the banned term is detected by hard_filter
+    from jobhunt.features.match.matcher import hard_filter
+    result = hard_filter(job, reqs)
+    assert result == (False, "banned:Zeitarbeit")
 
 
 def test_markdown_put_keeps_body_and_custom_keys(api_client, api_vault):
