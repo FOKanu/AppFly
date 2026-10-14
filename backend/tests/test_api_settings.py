@@ -29,7 +29,7 @@ def test_get_settings_never_contains_gemini_key(
     assert "x9Q2" not in body
     data = response.json()
     assert "GEMINI_API_KEY" not in body
-    assert data["secrets"]["gemini"] is False
+    assert data["secrets"]["gemini"] is True  # bm3: an env key counts as configured (presence only)
     assert data["secrets"]["apify"] is False
     assert data["secrets"]["jobsuche"] is False
     assert data["keywords"] == ["Python"]
