@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { ROUTES } from "../../routes";
 import { Banner } from "../../shared/ui/Banner";
 import { SampleDataBanner } from "../../shared/ui/SampleDataBanner";
@@ -8,13 +8,12 @@ import {
   fetchSettings,
   profileFromSettings,
   saveSources,
-  NOT_PERSISTED_NOTE,
 } from "../profiles/api";
 import type { HuntProfile } from "../profiles/types";
 import { recordProfileSnapshot } from "../memory/versionLedger";
 import { GeminiRateLimitBanner } from "./GeminiRateLimitBanner";
 import { HeartbeatPanel, type HeartbeatStateName } from "./HeartbeatPanel";
-import { RequirementsPanel, type Guardrails } from "./RequirementsPanel";
+import { RequirementsPanel } from "./RequirementsPanel";
 import { SchedulePanel, WriterPanel, type NightlyPlan, type WriterMode } from "./SchedulePanel";
 import { CrawlPolicyCard, SourcesPanel, type ScoutSource } from "./SourcesPanel";
 import { useWorkflow } from "./useWorkflow";
@@ -22,6 +21,9 @@ import { useRun, type RunController } from "../../shared/run/RunContext";
 import { ACTIVE_UI, id5 } from "../../shared/run/format";
 import type { Run } from "./types";
 import "./workflow.css";
+
+import { ApiError } from "../../shared/api/client";
+import { fetchRequirements, saveRequirements, sameDraft, toDraft, type RequirementsDraft } from "./requirementsApi";
 
 import { BANNED_HOSTS } from "../../shared/policy";
 import { writerLabel } from "../../shared/writerLabel";
@@ -37,31 +39,40 @@ const DEFAULT_PLAN: NightlyPlan = {
   shortlistSize: null,
 };
 
-const DEFAULT_GUARDRAILS: Guardrails = {
+const EMPTY_DRAFT: RequirementsDraft = {
   locations: [],
+  salary_floor: 0,
   languages: [],
-  requiredSkills: [],
-  bannedTerms: [],
-  skipCompanies: [],
-  tone: "direct",
+  banned_terms: [],
+  skip_companies: [],
+  must_have: [],
+  nice_to_have: [],
+  tone: "",
 };
 
 /**
  * Purpose: Workflow control plane — heartbeat and run controls, scout sources,
- *          nightly schedule and caps, writer model, and matcher guardrails.
+ *          nightly schedule and caps, writer model.
  * Does not: pretend to persist what PUT /settings cannot accept. Source toggles
- *           save for real; schedule, caps, writer and guardrails are read-only.
+ *           save for real; schedule, caps, writer are read-only.
  */
 export function WorkflowPage() {
   const { snapshot, source, failure, reload } = useWorkflow();
   const toast = useToast();
+  const { hash } = useLocation();
 
   const [profile, setProfile] = useState<HuntProfile | null>(null);
   const [savingSources, setSavingSources] = useState(false);
   const [plan, setPlan] = useState(DEFAULT_PLAN);
   const [writerMode] = useState<WriterMode>("cloud");
-  const [guardrails] = useState(DEFAULT_GUARDRAILS);
   const [writerModel, setWriterModel] = useState<string | null>(null);
+
+  const [reqState, setReqState] = useState<"loading"|"ready"|"error">("loading");
+  const [storageBackend, setStorageBackend] = useState<string|null>(null);
+  const [savedReq, setSavedReq] = useState<RequirementsDraft>(EMPTY_DRAFT);
+  const [draftReq, setDraftReq] = useState<RequirementsDraft>(EMPTY_DRAFT);
+  const [savingReq, setSavingReq] = useState(false);
+  const [reqError, setReqError] = useState<string|null>(null);
 
   useEffect(() => {
     document.title = "AppFly · Workflow";
@@ -82,6 +93,27 @@ export function WorkflowPage() {
         }
       })
       .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchRequirements()
+      .then((p) => {
+        if (!cancelled) {
+          setStorageBackend(p.storage_backend);
+          setSavedReq(toDraft(p));
+          setDraftReq(toDraft(p));
+          setReqState("ready");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setReqState("error");
+        }
+      });
     return () => {
       cancelled = true;
     };
@@ -148,6 +180,36 @@ export function WorkflowPage() {
     [toast],
   );
 
+  const reqDirty = !sameDraft(savedReq, draftReq);
+
+  const onSaveRequirements = useCallback(async () => {
+    setSavingReq(true);
+    setReqError(null);
+    try {
+      const p = await saveRequirements(draftReq);
+      setStorageBackend(p.storage_backend);
+      setSavedReq(toDraft(p));
+      setDraftReq(toDraft(p));
+      toast.show("Requirements saved. They apply from the next run.");
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        setReqError("A run is in progress. Your edits are kept. Save again when it finishes.");
+      } else if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+        setReqError(`Not saved: ${error.detail}`);
+      } else {
+        setReqError("Not saved. The local API did not answer. Your edits are kept.");
+      }
+    } finally {
+      setSavingReq(false);
+    }
+  }, [draftReq, toast]);
+
+  useEffect(() => {
+    if (!hash || reqState === "loading") return;
+    const target = document.getElementById(hash.slice(1));
+    target?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  }, [hash, reqState]);
+
   return (
     <div className="workflow">
       {source === "mock" ? <SampleDataBanner noun="runs" /> : null}
@@ -205,8 +267,21 @@ export function WorkflowPage() {
 
         <div className="workflow__col">
           <RequirementsPanel
-            value={guardrails}
-            readOnlyReason={NOT_PERSISTED_NOTE}
+            state={reqState}
+            storageBackend={storageBackend}
+            value={draftReq}
+            onChange={(next) => {
+              setDraftReq(next);
+              setReqError(null);
+            }}
+            dirty={reqDirty}
+            saving={savingReq}
+            error={reqError}
+            onSave={onSaveRequirements}
+            onRevert={() => {
+              setDraftReq(savedReq);
+              setReqError(null);
+            }}
           />
           <p className="workflow__crosslink">
             Role titles and location are editable in{" "}
