@@ -183,7 +183,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
       signal: controller.signal,
     });
     if (!response.ok) {
-      const detail = response.status >= 500 ? "" : await readDetail(response);
+      const detail = response.status >= 500 && response.status !== 502 ? "" : await readDetail(response);
       throw new ApiError(`HTTP ${response.status} for ${path}`, response.status, { detail, timeoutMs });
     }
     if (response.status === 204) {
@@ -215,7 +215,7 @@ function cleanDetail(text: string): string {
 
 /**
  * Purpose: Pull a display-safe `detail` out of a 4xx response body.
- * Does not: read 5xx bodies (the caller never calls it for status >= 500).
+ * Does not: read 5xx bodies (the caller never calls it for status >= 500), except 502s which may contain backend-written upstream sentences.
  */
 async function readDetail(response: Response): Promise<string> {
   let text = "";
