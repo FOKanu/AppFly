@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Mapping
 
 import yaml
 from dotenv import load_dotenv
@@ -22,8 +22,42 @@ from pydantic import BaseModel, Field
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = BACKEND_ROOT.parent
 TEMPLATE_DIR = REPO_ROOT / "vault-templates"
-DEFAULT_CONFIG_PATH = REPO_ROOT / "config.yaml"
+DEFAULT_CONFIG_PATH = REPO_ROOT / "config.yaml"  # Legacy alias for cli.py only; use default_config_path().
 EXAMPLE_CONFIG_PATH = REPO_ROOT / "config.example.yaml"
+
+
+def is_source_checkout() -> bool:
+    """True when running from a git checkout (backend/pyproject.toml beside the package)."""
+    # Check if we're in a source checkout by looking for pyproject.toml in backend directory
+    backend_pyproject = REPO_ROOT / "backend" / "pyproject.toml"
+    return backend_pyproject.is_file()
+
+
+def resolve_config_dir(env: Mapping[str, str] | None = None) -> Path:
+    """Directory holding config.yaml, .env and .secrets/.
+
+    Order: APPFLY_CONFIG_DIR, then a source checkout with config.yaml (legacy dev), then the data dir.
+    """
+    env = os.environ if env is None else env
+    override = (env.get("APPFLY_CONFIG_DIR") or "").strip()
+    if override:
+        return Path(override).expanduser().resolve()
+    # Check if this is a source checkout AND has config.yaml file
+    if is_source_checkout() and (REPO_ROOT / "config.yaml").is_file():
+        return REPO_ROOT
+    from jobhunt.store.paths import default_data_root
+
+    return default_data_root()
+
+
+def default_config_path() -> Path:
+    return resolve_config_dir() / "config.yaml"
+
+
+def default_env_path() -> Path:
+    return resolve_config_dir() / ".env"
+
+
 
 
 class ApifyConfig(BaseModel):
@@ -75,7 +109,7 @@ class AppConfig(BaseModel):
     gemini_api_base: str | None = None
     jd_excerpt_chars: int = 1200
     sources: SourcesConfig = Field(default_factory=SourcesConfig)
-    config_path: Path = DEFAULT_CONFIG_PATH
+    config_path: Path = Field(default_factory=default_config_path)
 
     @property
     def vault(self) -> Path:
@@ -181,7 +215,9 @@ def load_env() -> None:
     Does not: Print or return secret values.
     """
 
-    load_dotenv(REPO_ROOT / ".env")
+    env_path = default_env_path()
+    if env_path.exists():
+        load_dotenv(env_path)
 
 
 def load_config(path: Path | None = None) -> AppConfig:
@@ -193,10 +229,12 @@ def load_config(path: Path | None = None) -> AppConfig:
     Does not: Create the vault or fetch jobs.
     """
     load_env()
-    config_path = path or DEFAULT_CONFIG_PATH
+    config_path = path or default_config_path()
     if not config_path.exists():
         if EXAMPLE_CONFIG_PATH.exists() and path is None:
             raw = _read_yaml(EXAMPLE_CONFIG_PATH)
+        elif path is None:
+            raw = {}
         else:
             raise FileNotFoundError(
                 f"Missing {config_path}. Run `jobhunt init` or copy config.example.yaml."
