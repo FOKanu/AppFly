@@ -27,6 +27,8 @@ MISSING_KEY_MESSAGE = (
     "(Keychain entry 'gemini') or set GEMINI_API_KEY."
 )
 
+KEY_REJECTED_MESSAGE = "Gemini rejected the API key. Replace it in Settings → API keys."
+
 EMPTY_LETTER_MESSAGE = "Gemini returned an empty letter. Try again."
 
 class LetterWriteError(RuntimeError):
@@ -233,7 +235,7 @@ def _classify_gemini_error(exc: Exception) -> LetterWriteError | None:
 
         if code in (401, 403):
             return LetterWriteError(
-                "Gemini rejected the API key. Replace it in Settings → API keys.",
+                KEY_REJECTED_MESSAGE,
                 kind="key_rejected"
             )
         elif code == 400 and status == "INVALID_ARGUMENT":
@@ -243,9 +245,11 @@ def _classify_gemini_error(exc: Exception) -> LetterWriteError | None:
                 (message and "api key" in message.lower())
             ):
                 return LetterWriteError(
-                    "Gemini rejected the API key. Replace it in Settings → API keys.",
+                    KEY_REJECTED_MESSAGE,
                     kind="key_rejected"
                 )
+            # For non-key 400 INVALID_ARGUMENT, fall through to generic upstream error
+            # by not returning here
         elif code == 429:
             return LetterWriteError(
                 "Gemini rate limit or quota reached. Wait a minute, then try again.",
