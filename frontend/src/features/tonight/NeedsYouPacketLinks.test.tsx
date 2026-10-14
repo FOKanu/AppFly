@@ -5,6 +5,8 @@ import { MemoryRouter, Route, Routes, useParams } from "react-router-dom";
 import { NeedsYou } from "./NeedsYou";
 import { PacketPage } from "../packet/PacketPage";
 import { setSingleKeyShortcuts } from "../../shared/useShortcuts";
+import { MOCK_JOBS } from "../queue/mockJobs";
+import { resetMockJobs } from "../queue/jobsApi";
 
 // Mock the PacketPage to include a probe for testing
 const MockPacketPage = () => {
@@ -59,9 +61,37 @@ const renderNeedsYouWithRouter = (drafts: typeof mockDrafts) => {
   );
 };
 
+// Helper function to render PacketPage with proper encoding
+function renderPacket(sourceId: string) {
+  return render(
+    <MemoryRouter initialEntries={[`/packet/${encodeURIComponent(sourceId)}`]}>
+      <Routes>
+        <Route path="/packet/:sourceId" element={<PacketPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+// Helper to stub a job for testing
+function stubJob(id: string) {
+  resetMockJobs();
+  const job = { ...MOCK_JOBS[0], source_id: id };
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith(`/jobs/${encodeURIComponent(id)}`))
+      return Promise.resolve(new Response(JSON.stringify(job), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }));
+    return Promise.reject(new Error("offline"));
+  }));
+  return job;
+}
+
 describe("NeedsYouPacketLinks", () => {
   afterEach(() => {
     setSingleKeyShortcuts(false);
+    vi.unstubAllGlobals();
   });
 
   it("navigates to encoded packet route on Edit letter click", async () => {
@@ -98,17 +128,15 @@ describe("NeedsYouPacketLinks", () => {
     expect(probe).toHaveTextContent("https://ex.com/jobs/42");
   });
 
-  it("PacketPage renders without URIError when sourceId contains percent sign", async () => {
-    // This test will verify that the PacketPage can handle IDs with percent signs
-    // without throwing URIError. The actual implementation of this test would
-    // require mocking the API calls and checking for URIError.
-    expect(true).toBe(true);
+  it("PacketPage opens an id containing %", async () => {
+    const job = stubJob("inbox-50%-remote");
+    renderPacket("inbox-50%-remote");
+    expect(await screen.findByRole("heading", { name: job.title })).toBeInTheDocument();
   });
 
-  it("PacketPage fetches correctly when sourceId contains URL-encoded query", async () => {
-    // This test verifies that PacketPage correctly handles URL-encoded IDs
-    // without double-decoding them. The actual implementation would require
-    // mocking the API calls and checking that the correct encoded ID is used.
-    expect(true).toBe(true);
+  it("PacketPage does not decode the id twice", async () => {
+    const job = stubJob("https://ex.com/a?q=a%20b");
+    renderPacket("https://ex.com/a?q=a%20b");
+    expect(await screen.findByRole("heading", { name: job.title })).toBeInTheDocument();
   });
 });
