@@ -40,13 +40,18 @@ GOOD = {
 }
 
 
-def test_get_native_defaults(native_config, secret_store):
-    """GET /requirements returns default values for native storage."""
-    client = TestClient(
+def _client(native_config, secret_store):
+    """Helper to create a TestClient with the standard configuration."""
+    return TestClient(
         create_app(config_path=native_config, store=secret_store),
         base_url="http://127.0.0.1",
         headers={"X-AppFly": "1"},
     )
+
+
+def test_get_native_defaults(native_config, secret_store):
+    """GET /requirements returns default values for native storage."""
+    client = _client(native_config, secret_store)
     response = client.get("/requirements")
     assert response.status_code == 200
     data = response.json()
@@ -57,11 +62,7 @@ def test_get_native_defaults(native_config, secret_store):
 
 def test_put_native_persists_across_restart(native_config, secret_store):
     """PUT requirements and verify they persist across app restarts."""
-    client = TestClient(
-        create_app(config_path=native_config, store=secret_store),
-        base_url="http://127.0.0.1",
-        headers={"X-AppFly": "1"},
-    )
+    client = _client(native_config, secret_store)
 
     # PUT the good data
     response = client.put("/requirements", json=GOOD)
@@ -71,11 +72,7 @@ def test_put_native_persists_across_restart(native_config, secret_store):
     assert body == GOOD
 
     # Create a new client with the same config and check it loads the same data
-    new_client = TestClient(
-        create_app(config_path=native_config, store=secret_store),
-        base_url="http://127.0.0.1",
-        headers={"X-AppFly": "1"},
-    )
+    new_client = _client(native_config, secret_store)
     response = new_client.get("/requirements")
     assert response.status_code == 200
     body = response.json()
@@ -85,11 +82,7 @@ def test_put_native_persists_across_restart(native_config, secret_store):
 
 def test_put_normalises_lists(native_config, secret_store):
     """PUT requirements with unnormalised lists and verify they get normalised."""
-    client = TestClient(
-        create_app(config_path=native_config, store=secret_store),
-        base_url="http://127.0.0.1",
-        headers={"X-AppFly": "1"},
-    )
+    client = _client(native_config, secret_store)
 
     # PUT data with unnormalised lists
     unnormalised = GOOD.copy()
@@ -103,16 +96,9 @@ def test_put_normalises_lists(native_config, secret_store):
     assert data["locations"] == ["Berlin", "Remote"]
 
 
-def test_put_rejects_bad_bodies(native_config, secret_store):
-    """PUT bad bodies should return 422."""
-    client = TestClient(
-        create_app(config_path=native_config, store=secret_store),
-        base_url="http://127.0.0.1",
-        headers={"X-AppFly": "1"},
-    )
-
-    # Test various bad inputs that should cause 422
-    bad_inputs = [
+@pytest.mark.parametrize(
+    "patch",
+    [
         {"unknown": 1},
         {"salary_floor": -1},
         {"salary_floor": 1_000_001},
@@ -122,21 +108,25 @@ def test_put_rejects_bad_bodies(native_config, secret_store):
         {"tone": "x" * 201},
         {"locations": ["x" * 81]},
         {"must_have": [f"s{i}" for i in range(11)]},
-        {**GOOD, "tone": None},  # missing key
-    ]
+    ],
+)
+def test_put_rejects_bad_bodies(native_config, secret_store, patch):
+    """Each full body with one bad field is a 422."""
+    response = _client(native_config, secret_store).put("/requirements", json={**GOOD, **patch})
+    assert response.status_code == 422
 
-    for bad_input in bad_inputs:
-        response = client.put("/requirements", json=bad_input)
-        assert response.status_code == 422
+
+def test_put_rejects_missing_key(native_config, secret_store):
+    """All fields are required: a body without tone is a 422 and nothing is saved."""
+    body = {k: v for k, v in GOOD.items() if k != "tone"}
+    client = _client(native_config, secret_store)
+    assert client.put("/requirements", json=body).status_code == 422
+    assert client.get("/requirements").json()["salary_floor"] == 0
 
 
 def test_put_409_while_run_active(native_config, secret_store, monkeypatch):
     """PUT while a run is active should return 409."""
-    client = TestClient(
-        create_app(config_path=native_config, store=secret_store),
-        base_url="http://127.0.0.1",
-        headers={"X-AppFly": "1"},
-    )
+    client = _client(native_config, secret_store)
 
     # Mock list_async_runs to return an active run
     def mock_list_async_runs():
@@ -176,11 +166,7 @@ def test_put_requires_csrf_header(native_config, secret_store):
 
 def test_put_reaches_matcher(native_config, secret_store):
     """PUT banned_terms with Zeitarbeit should be detected by matcher."""
-    client = TestClient(
-        create_app(config_path=native_config, store=secret_store),
-        base_url="http://127.0.0.1",
-        headers={"X-AppFly": "1"},
-    )
+    client = _client(native_config, secret_store)
 
     # PUT requirements with banned term
     response = client.put("/requirements", json={**GOOD, "banned_terms": ["Zeitarbeit"]})
