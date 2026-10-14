@@ -438,7 +438,7 @@ class SqliteStore:
         tokens_in: int,
         tokens_out: int,
     ) -> Path:
-        """Write letter file, letters row, and link job to draft.
+        """Write letter file, letters row, and promote inbox/shortlist to draft; keep later statuses.
 
         Purpose: Pipeline letter generation.
         Inputs: ``Job``, markdown body, model token counts.
@@ -470,7 +470,7 @@ class SqliteStore:
         self._conn.execute(
             """
             UPDATE jobs SET
-                status = 'draft',
+                status = CASE WHEN status IS NULL OR status IN ('', 'inbox', 'shortlist') THEN 'draft' ELSE status END,
                 letter_path = ?,
                 gemini = 1,
                 updated_at = ?

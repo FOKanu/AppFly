@@ -60,7 +60,7 @@ export function NeedsYou({ drafts, busyId, onApprove, onDeny }: NeedsYouProps) {
       <ul className="other-drafts">
         {rest.map((job) => (
           <li key={job.source_id}>
-            <Link className="other-drafts__row" to={`${ROUTES.packet}/${job.source_id}`}>
+            <Link className="other-drafts__row" to={`${ROUTES.packet}/${encodeURIComponent(job.source_id)}`}>
               <StatusChip status="draft" />
               <span className="other-drafts__col">
                 <span className="other-drafts__title">{job.title}</span>
@@ -102,7 +102,7 @@ function TopDraft({
     d: () => {
       if (!busy) onDeny(draft);
     },
-    e: () => navigate(`${ROUTES.packet}/${draft.source_id}`),
+    e: () => navigate(`${ROUTES.packet}/${encodeURIComponent(draft.source_id)}`),
   });
 
   return (
@@ -155,7 +155,7 @@ function TopDraft({
         </Button>
         <Link
           className="button button--quiet"
-          to={`${ROUTES.packet}/${draft.source_id}`}
+          to={`${ROUTES.packet}/${encodeURIComponent(draft.source_id)}`}
           aria-keyshortcuts={isSingleKey ? "E" : undefined}
         >
           <span className="button__label">Edit letter</span>
