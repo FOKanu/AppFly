@@ -2,7 +2,6 @@
 
 import httpx
 import pytest
-from pathlib import Path
 
 from jobhunt.config import AppConfig
 from jobhunt.features.scout import collect_jobs
