@@ -19,6 +19,8 @@ const API_POLL_MS = 250;
 
 /** Resolvers waiting for a spawned process to exit, keyed by spawn id. */
 const exitWaiters = new Map();
+/** Exit events that arrived before anyone waited (fast-failing commands). */
+const earlyExits = new Set();
 
 /**
  * @param {{ detail?: { id?: number, action?: string } }} e
@@ -32,14 +34,20 @@ function onSpawnedProcess(e) {
   if (resolve) {
     exitWaiters.delete(d.id);
     resolve("exited");
+  } else {
+    earlyExits.add(d.id);
   }
 }
 
 /**
  * @param {number} id
- * @returns {Promise<"exited">}
+ * @returns {Promise<"exited">} resolves at once if the exit already arrived.
  */
 function exitOf(id) {
+  if (earlyExits.has(id)) {
+    earlyExits.delete(id);
+    return Promise.resolve("exited");
+  }
   return new Promise((resolve) => exitWaiters.set(id, resolve));
 }
 
@@ -82,7 +90,6 @@ async function waitForApi(timeoutMs) {
   }
   return apiHealthy();
 }
-
 
 /**
  * Try each launch candidate in order; stop at the first healthy API.
