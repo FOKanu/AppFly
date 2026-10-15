@@ -1,6 +1,6 @@
 import { Switch } from "../../shared/ui/Switch";
-import { TokenField } from "../../shared/ui/TokenField";
-import { CAPABILITIES, NOT_PERSISTED_NOTE } from "./api";
+import { Link } from "react-router-dom";
+import { ROUTES } from "../../routes";
 import type { HuntProfile } from "./types";
 
 import { BANNED_HOSTS } from "../../shared/policy";
@@ -68,25 +68,11 @@ export function ProfileRequirements({
         />
       </div>
 
-      <p className="profile-label">
-        Skip companies <span className="profile-label__unsupported">not stored yet</span>
+      <p className="profile-label">Match filters</p>
+      <p className="profile-card__note">
+        Skip companies, banned terms, must-have terms and the salary floor are set in{" "}
+        <Link to={`${ROUTES.workflow}#requirements`}>Workflow → Requirements</Link>.
       </p>
-      <TokenField
-        values={[]}
-        onChange={() => undefined}
-        ariaLabel="Skip companies"
-        readOnlyNote={NOT_PERSISTED_NOTE}
-      />
-
-      <p className="profile-label">
-        Banned terms <span className="profile-label__unsupported">not stored yet</span>
-      </p>
-      <TokenField
-        values={[]}
-        onChange={() => undefined}
-        ariaLabel="Banned terms"
-        readOnlyNote={NOT_PERSISTED_NOTE}
-      />
 
       <p className="profile-label">Crawl deny-list · enforced in code</p>
       <div className="banned-hosts">
@@ -98,7 +84,7 @@ export function ProfileRequirements({
       </div>
       <p className="profile-card__note">
         Any start URL or inbox clip pointing at these hosts is refused before a request is made.
-        This list is not editable from the UI{CAPABILITIES.skipCompanies ? "" : ", by design"}.
+        This list is not editable from the UI, by design.
       </p>
     </section>
   );

@@ -35,6 +35,11 @@ export function SetupPage() {
   const [uploadDoc, setUploadDoc] = useState<VaultDocument | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
+  /** An upload whose text could not be read is stored but is not a usable CV. */
+  const cvUnusable =
+    uploadDoc !== null && uploadDoc.extract_status !== undefined && uploadDoc.extract_status !== "ok";
+  const cvUsable = Boolean(workspace?.has_cv) && !cvUnusable;
+
   const refresh = useCallback(async () => {
     const status = await getWorkspace();
     setWorkspace(status);
@@ -316,13 +321,15 @@ export function SetupPage() {
                   title={
                     uploadDoc.extract_status === "empty"
                       ? `Stored ${uploadDoc.label}, but no text could be read.`
-                      : `Stored ${uploadDoc.label}, but this format can't be read yet.`
+                      : uploadDoc.extract_status === "error"
+                      ? `Stored ${uploadDoc.label}, but text extraction failed.`
+                      : `Stored ${uploadDoc.label}, but the file type is not supported.`
                   }
                 >
                   <p className="setup__copy">
                     {uploadDoc.extract_status === "empty"
-                      ? "Scanned PDF? Try a text PDF or DOCX."
-                      : "Try PDF, DOCX or TXT."}
+                      ? "Scanned PDF? Try a text PDF or DOCX. Upload a different file below."
+                      : "Upload a different file below: PDF, DOCX or TXT."}
                   </p>
                 </Banner>
               ) : null}
@@ -340,7 +347,7 @@ export function SetupPage() {
                 lockKind="cv"
               />
               <div className="setup__actions">
-                <Button variant="primary" onClick={() => setStep("done")}>
+                <Button variant="primary" onClick={() => setStep("done")} disabled={cvUnusable}>
                   Finish
                 </Button>
                 <button type="button" className="link-quiet" onClick={() => setStep("done")}>
@@ -359,12 +366,12 @@ export function SetupPage() {
                 time.
               </p>
               <ul className="setup__checklist">
-                <li className="setup__check" data-done={Boolean(workspace?.has_cv)}>
+                <li className="setup__check" data-done={cvUsable}>
                   <span className="setup__check-mark" aria-hidden="true">
-                    {workspace?.has_cv ? "✓" : "·"}
+                    {cvUsable ? "✓" : "·"}
                   </span>
                   <span>A CV stored</span>
-                  {!workspace?.has_cv ? (
+                  {!cvUsable ? (
                     <Link to={ROUTES.vault}>Add a CV</Link>
                   ) : null}
                 </li>
