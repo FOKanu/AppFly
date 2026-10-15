@@ -283,6 +283,10 @@ def config_migrate() -> None:
     (resolve_config_dir rule 2) until you delete them.
     """
 
+    if not is_source_checkout():
+        typer.echo("No source checkout found, so there is nothing to migrate.")
+        return
+
     from jobhunt.store.paths import default_data_root
 
     override = os.environ.get("APPFLY_CONFIG_DIR", "").strip()
