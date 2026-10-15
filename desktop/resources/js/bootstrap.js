@@ -83,34 +83,6 @@ async function waitForApi(timeoutMs) {
   return apiHealthy();
 }
 
-/**
- * @returns {{ command: string, envs: Record<string, string>, cwd: string }}
- */
-function apiSpawnOptions() {
-  const root = repoRoot();
-  const origins = [
-    `http://localhost:${NL_PORT}`,
-    `http://127.0.0.1:${NL_PORT}`,
-  ].join(",");
-  const envs = { APPFLY_ALLOWED_ORIGINS: origins };
-
-  if (NL_OS === "Windows") {
-    // Windows: prefer venv python directly (start-api.sh is Unix).
-    const venvPy = `${root}/backend/.venv/Scripts/python.exe`;
-    return {
-      command: `"${venvPy}" -m jobhunt.api`,
-      envs,
-      cwd: root,
-    };
-  }
-
-  const script = `${root}/desktop/scripts/start-api.sh`;
-  return {
-    command: `/bin/bash "${script}"`,
-    envs,
-    cwd: root,
-  };
-}
 
 /**
  * Try each launch candidate in order; stop at the first healthy API.
