@@ -117,28 +117,6 @@ export function ProfileSettings({
             disabledReason={NOT_PERSISTED_NOTE}
           />
 
-          <p className="profile-label">
-            Salary floor <UnsupportedTag />
-          </p>
-          <div className="salary-field" data-disabled="true">
-            <span aria-hidden="true">€</span>
-            <input
-              type="number"
-              min={0}
-              step={1000}
-              value={value.salaryFloor ?? ""}
-              placeholder="not stored"
-              aria-label="Salary floor in euros"
-              disabled={!CAPABILITIES.salaryFloor}
-              title={NOT_PERSISTED_NOTE}
-              onChange={(event) =>
-                onChange({
-                  ...value,
-                  salaryFloor: event.target.value === "" ? null : Number(event.target.value),
-                })
-              }
-            />
-          </div>
         </div>
       </div>
 
