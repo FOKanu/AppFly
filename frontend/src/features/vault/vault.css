@@ -413,3 +413,10 @@
     row-gap: 6px;
   }
 }
+
+/* Extraction note inside a table row: inline, no block spacing (vx1). */
+.doc-table__name .upload__note {
+  margin: 0;
+  font-size: inherit;
+  white-space: nowrap;
+}
