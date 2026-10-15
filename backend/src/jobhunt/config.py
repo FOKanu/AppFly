@@ -22,7 +22,6 @@ from pydantic import BaseModel, Field
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = BACKEND_ROOT.parent
 TEMPLATE_DIR = REPO_ROOT / "vault-templates"
-DEFAULT_CONFIG_PATH = REPO_ROOT / "config.yaml"  # Legacy alias for cli.py only; use default_config_path().
 EXAMPLE_CONFIG_PATH = REPO_ROOT / "config.example.yaml"
 
 
@@ -249,13 +248,50 @@ def write_example_config(dest: Path) -> None:
     """Copy ``config.example.yaml`` to ``dest`` if missing.
 
     Purpose: Used by ``jobhunt init``.
-    Inputs: Destination path (usually repo-root ``config.yaml``).
+    Inputs: Destination path (usually ``default_config_path()``). Falls back to a dump of the AppConfig defaults when config.example.yaml is not shipped (installed package).
     Returns: None; no-op when ``dest`` already exists.
     Does not: Overwrite an existing config.
     """
     if dest.exists():
         return
-    dest.write_text(EXAMPLE_CONFIG_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if EXAMPLE_CONFIG_PATH.is_file():
+        dest.write_text(EXAMPLE_CONFIG_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+    else:
+        import yaml
+        from jobhunt.config import AppConfig
+        dest.write_text(
+            yaml.safe_dump(AppConfig().model_dump(mode="json", exclude={"config_path"}), sort_keys=False),
+            encoding="utf-8"
+        )
+
+
+def migrate_repo_config(dest_dir: Path) -> list[str]:
+    """Copy repo-root config.yaml, .env and .secrets/* into ``dest_dir``.
+
+    Purpose: ``jobhunt config-migrate`` for users moving from a source checkout to the app.
+    Returns: relative names of the files copied ("config.yaml", ".env", ".secrets/<name>").
+    Does not: move, delete or overwrite anything. The repo copies keep winning
+    (resolve_config_dir rule 2) until the user deletes them.
+    """
+    if not is_source_checkout():
+        return []
+    dest_dir = Path(dest_dir)
+    copied: list[str] = []
+    pairs: list[tuple[Path, str]] = [(REPO_ROOT / "config.yaml", "config.yaml"), (REPO_ROOT / ".env", ".env")]
+    secrets = REPO_ROOT / ".secrets"
+    if secrets.is_dir():
+        pairs += [(p, f".secrets/{p.name}") for p in sorted(secrets.iterdir()) if p.is_file()]
+    for src, rel in pairs:
+        target = dest_dir / rel
+        if not src.is_file() or target.exists():
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(src.read_bytes())
+        if rel != "config.yaml" and os.name == "posix":
+            os.chmod(target, 0o600)
+        copied.append(rel)
+    return copied
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:
