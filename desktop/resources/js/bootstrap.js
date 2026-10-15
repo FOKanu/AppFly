@@ -1,13 +1,13 @@
 /**
  * Purpose: Start Neutralino, spawn the loopback FastAPI if needed, exit cleanly.
- * Inputs: NL_* globals from Neutralino; optional APPFLY_PYTHON in the process env
- *   is not readable here — the shell resolves python next to the repo checkout.
+ * Inputs: NL_* globals from Neutralino; the launch plan (which python to try,
+ *   in order) comes from AppFlyLaunchPlan (resources/js/launch-plan.js).
  * Returns: None (side effects only).
  * Does not: Put API keys in the renderer, fetch job-board URLs, or bind the API
  *   off loopback.
  */
 
-/* global Neutralino, NL_PATH, NL_PORT, NL_OS */
+/* global Neutralino, NL_PATH, NL_PORT, NL_OS, NL_PID, AppFlyLaunchPlan */
 
 /** @type {number | null} */
 let apiSpawnId = null;
@@ -15,21 +15,45 @@ let apiSpawnId = null;
 let apiOwnedByShell = false;
 
 const API_HEALTH = "http://127.0.0.1:8787/health";
-const API_WAIT_MS = 20000;
 const API_POLL_MS = 250;
 
+/** Resolvers waiting for a spawned process to exit, keyed by spawn id. */
+const exitWaiters = new Map();
+
 /**
- * @returns {string} Absolute path to the git repo root (parent of desktop/).
+ * @param {{ detail?: { id?: number, action?: string } }} e
  */
-function repoRoot() {
-  const base = String(NL_PATH || "").replace(/[/\\]+$/, "");
-  if (!base) {
-    return "..";
+function onSpawnedProcess(e) {
+  const d = e && e.detail;
+  if (!d || d.action !== "exit") {
+    return;
   }
-  if (base.endsWith("/desktop") || base.endsWith("\\desktop")) {
-    return base.slice(0, -"/desktop".length);
+  const resolve = exitWaiters.get(d.id);
+  if (resolve) {
+    exitWaiters.delete(d.id);
+    resolve("exited");
   }
-  return `${base}/..`;
+}
+
+/**
+ * @param {number} id
+ * @returns {Promise<"exited">}
+ */
+function exitOf(id) {
+  return new Promise((resolve) => exitWaiters.set(id, resolve));
+}
+
+/**
+ * @param {string} path
+ * @returns {Promise<boolean>} false when getStats throws (missing path).
+ */
+async function exists(path) {
+  try {
+    await Neutralino.filesystem.getStats(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -89,6 +113,8 @@ function apiSpawnOptions() {
 }
 
 /**
+ * Try each launch candidate in order; stop at the first healthy API.
+ * A timeout stops the search (right python present but broken/slow).
  * @returns {Promise<void>}
  */
 async function ensureApi() {
@@ -97,24 +123,69 @@ async function ensureApi() {
     return;
   }
 
-  const { command, envs, cwd } = apiSpawnOptions();
-  console.log("[appfly-desktop] spawning API…");
-  const spawned = await Neutralino.os.spawnProcess(command, {
-    cwd,
-    envs,
+  const plan = AppFlyLaunchPlan;
+  const roots = plan.resolveRoots({ nlPath: NL_PATH });
+  const cands = plan.buildCandidates({
+    nlPath: NL_PATH,
+    os: NL_OS,
+    nlPort: NL_PORT,
+    parentPid: typeof NL_PID === "number" ? NL_PID : undefined,
   });
-  apiSpawnId = spawned.id;
-  apiOwnedByShell = true;
+  /** @type {{ id: string, label: string, waitMs: number, outcome: string }[]} */
+  const attempts = [];
 
-  const ok = await waitForApi(API_WAIT_MS);
-  if (!ok) {
-    console.error(
-      "[appfly-desktop] API did not become healthy within",
-      API_WAIT_MS,
-      "ms",
-    );
-  } else {
-    console.log("[appfly-desktop] API ready");
+  for (const c of cands) {
+    const rec = (outcome) =>
+      attempts.push({ id: c.id, label: c.label, waitMs: c.waitMs, outcome });
+    if (c.requires && !(await exists(c.requires))) {
+      rec("missing");
+      continue;
+    }
+    let spawned;
+    try {
+      console.log("[appfly-desktop] spawning API via", c.label);
+      spawned = await Neutralino.os.spawnProcess(c.command, {
+        cwd: c.cwd,
+        envs: c.envs,
+      });
+    } catch (err) {
+      console.warn("[appfly-desktop] spawn failed", c.id, err);
+      rec("spawn-error");
+      continue;
+    }
+    const result = await Promise.race([
+      waitForApi(c.waitMs).then((ok) => (ok ? "healthy" : "timeout")),
+      exitOf(spawned.id),
+    ]);
+    exitWaiters.delete(spawned.id);
+    if (result === "healthy") {
+      apiSpawnId = spawned.id;
+      apiOwnedByShell = true;
+      console.log("[appfly-desktop] API ready via", c.label);
+      return;
+    }
+    if (result === "exited") {
+      rec("exited");
+      continue;
+    }
+    try {
+      await Neutralino.os.updateSpawnedProcess(spawned.id, "exit");
+    } catch (err) {
+      console.warn("[appfly-desktop] failed to stop slow API process", err);
+    }
+    rec("timeout");
+    break;
+  }
+
+  const m = plan.failureMessage(attempts, {
+    packaged: roots.repoRoot === null,
+    os: NL_OS,
+  });
+  console.error("[appfly-desktop]", m.title, "-", m.content, attempts);
+  try {
+    await Neutralino.os.showMessageBox(m.title, m.content, "OK", "ERROR");
+  } catch (err) {
+    console.warn("[appfly-desktop] failed to show error dialog", err);
   }
 }
 
@@ -145,6 +216,7 @@ async function onWindowClose() {
 async function main() {
   await Neutralino.init();
   Neutralino.events.on("windowClose", onWindowClose);
+  Neutralino.events.on("spawnedProcess", onSpawnedProcess);
   try {
     await ensureApi();
   } catch (err) {
