@@ -72,13 +72,15 @@ for (const name of readdirSync(uiDist)) {
 }
 
 let html = readFileSync(join(uiDist, "index.html"), "utf8");
-const inject = `    <script src="/js/neutralino.js"></script>\n    <script src="/js/bootstrap.js"></script>\n`;
-if (!html.includes("/js/neutralino.js")) {
-  if (!html.includes("</body>")) {
-    console.error("built index.html has no </body>");
-    process.exit(1);
+const inject = `    <script src="/js/neutralino.js"></script>\n    <script src="/js/launch-plan.js"></script>\n    <script src="/js/bootstrap.js"></script>\n`;
+if (!html.includes("/js/launch-plan.js")) {
+  if (!html.includes("/js/neutralino.js")) {
+    if (!html.includes("</body>")) {
+      console.error("built index.html has no </body>");
+      process.exit(1);
+    }
+    html = html.replace("</body>", `${inject}</body>`);
   }
-  html = html.replace("</body>", `${inject}</body>`);
 }
 writeFileSync(join(resources, "index.html"), html);
 
