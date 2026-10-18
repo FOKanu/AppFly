@@ -273,6 +273,7 @@ def migrate_repo_config(dest_dir: Path) -> list[str]:
     Returns: relative names of the files copied ("config.yaml", ".env", ".secrets/<name>").
     Does not: move, delete or overwrite anything. The repo copies keep winning
     (resolve_config_dir rule 2) until the user deletes them.
+    Secrets (.env, .secrets/*) are created 0600 and .secrets/ 0700 on POSIX, never world-readable in between.
     """
     if not is_source_checkout():
         return []
@@ -286,10 +287,22 @@ def migrate_repo_config(dest_dir: Path) -> list[str]:
         target = dest_dir / rel
         if not src.is_file() or target.exists():
             continue
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(src.read_bytes())
-        if rel != "config.yaml" and os.name == "posix":
+        secret = rel != "config.yaml"
+        if rel.startswith(".secrets/"):
+            sdir = dest_dir / ".secrets"
+            sdir.mkdir(parents=True, exist_ok=True, mode=0o700)
+            if os.name == "posix":
+                os.chmod(sdir, 0o700)
+        else:
+            target.parent.mkdir(parents=True, exist_ok=True)
+        data = src.read_bytes()
+        if secret and os.name == "posix":
+            fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, "wb") as fh:
+                fh.write(data)
             os.chmod(target, 0o600)
+        else:
+            target.write_bytes(data)
         copied.append(rel)
     return copied
 
