@@ -271,7 +271,8 @@ def migrate_repo_config(dest_dir: Path) -> list[str]:
 
     Purpose: ``jobhunt config-migrate`` for users moving from a source checkout to the app.
     Returns: relative names of the files copied ("config.yaml", ".env", ".secrets/<name>").
-    Does not: move, delete or overwrite anything. The repo copies keep winning
+    Does not: move, delete or overwrite anything (a target that already exists, even one
+    created concurrently or a dangling symlink, is skipped). The repo copies keep winning
     (resolve_config_dir rule 2) until the user deletes them.
     Secrets (.env, .secrets/*) are created 0600 and .secrets/ 0700 on POSIX, never world-readable in between.
     """
@@ -297,10 +298,14 @@ def migrate_repo_config(dest_dir: Path) -> list[str]:
             target.parent.mkdir(parents=True, exist_ok=True)
         data = src.read_bytes()
         if secret and os.name == "posix":
-            fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-            with os.fdopen(fd, "wb") as fh:
-                fh.write(data)
-            os.chmod(target, 0o600)
+            try:
+                fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                with os.fdopen(fd, "wb") as fh:
+                    fh.write(data)
+                os.chmod(target, 0o600)
+            except FileExistsError:
+                # Skip this target; it already exists (possibly created concurrently)
+                continue
         else:
             target.write_bytes(data)
         copied.append(rel)
