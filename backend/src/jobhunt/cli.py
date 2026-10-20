@@ -22,9 +22,12 @@ import typer
 import yaml
 
 from jobhunt.config import (
-    DEFAULT_CONFIG_PATH,
+    REPO_ROOT,
     AppConfig,
+    default_config_path,
+    is_source_checkout,
     load_config,
+    migrate_repo_config,
     write_example_config,
 )
 from jobhunt.store import get_store
@@ -38,7 +41,7 @@ Trigger = Literal["cli", "nightly"]
 
 
 def _config(config_path: Optional[Path]) -> AppConfig:
-    """Load YAML config (and .env) from the given path or the repo default."""
+    """Load YAML config (and .env) from the given path or the default config dir."""
 
     return load_config(config_path)
 
@@ -228,17 +231,23 @@ def init(
 
     from jobhunt.store import init_native_workspace
 
-    dest = config or DEFAULT_CONFIG_PATH
+    dest = config or default_config_path()
+    dest.parent.mkdir(parents=True, exist_ok=True)
     if not dest.exists():
         write_example_config(dest)
         typer.echo(f"Wrote {dest}")
     else:
         typer.echo(f"Keeping existing {dest}")
 
-    env_example = dest.parent / ".env.example"
     env_path = dest.parent / ".env"
-    if env_example.exists() and not env_path.exists():
-        env_path.write_text(env_example.read_text(encoding="utf-8"), encoding="utf-8")
+    if not env_path.exists():
+        env_example = REPO_ROOT / ".env.example"
+        if is_source_checkout() and env_example.is_file():
+            env_path.write_text(env_example.read_text(encoding="utf-8"), encoding="utf-8")
+        else:
+            env_path.write_text("GEMINI_API_KEY=\n", encoding="utf-8")
+        if os.name == "posix":
+            os.chmod(env_path, 0o600)
         typer.echo(f"Wrote {env_path} (add GEMINI_API_KEY)")
 
     raw = yaml.safe_load(dest.read_text(encoding="utf-8")) or {}
@@ -264,6 +273,31 @@ def init(
         typer.echo("Open that folder in Obsidian, then fill CV/Master.md and Requirements.md.")
 
 
+@app.command("config-migrate")
+def config_migrate() -> None:
+    """Copy repo-root config.yaml, .env and .secrets/ into the app config dir.
+
+    Purpose: move from a source checkout to the installed app.
+    Target: APPFLY_CONFIG_DIR if set, else the AppFly data dir.
+    Does not: move, delete or overwrite. The repo copies keep winning
+    (resolve_config_dir rule 2) until you delete them.
+    """
+
+    if not is_source_checkout():
+        typer.echo("No source checkout found, so there is nothing to migrate.")
+        return
+
+    from jobhunt.store.paths import default_data_root
+
+    override = os.environ.get("APPFLY_CONFIG_DIR", "").strip()
+    dest_dir = Path(override).expanduser().resolve() if override else default_data_root()
+    copied = migrate_repo_config(dest_dir)
+    typer.echo(
+        f"Copied {len(copied)} files to {dest_dir}. The repo copies are untouched. "
+        "Delete them once AppFly works, otherwise the repo config keeps winning."
+    )
+
+
 @app.command()
 def scout(
     config: Optional[Path] = typer.Option(None, "--config", "-c"),
@@ -280,6 +314,7 @@ def scout(
     from jobhunt.policy import CrawlDeniedError
 
     cfg = _config(config)
+    scout_errors: list[str] = []
 
     def body(cancel: threading.Event | None, on_progress: Any) -> Any:
         if on_progress is not None:
@@ -287,7 +322,7 @@ def scout(
         store.ensure_dirs()
         requirements = store.load_requirements()
         try:
-            jobs = collect_jobs(cfg, store, requirements)
+            jobs = collect_jobs(cfg, store, requirements, errors=scout_errors)
         except CrawlDeniedError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=1) from exc
@@ -297,10 +332,14 @@ def scout(
         if on_progress is not None:
             on_progress(scouted=len(jobs))
         typer.echo(f"Wrote {len(jobs)} new job notes")
-        return type("R", (), {"scouted": len(jobs), "errors": [], "cancelled": False})()
+        for err in scout_errors:
+            typer.echo(f"error: scout: {err}", err=True)
+        return type("R", (), {"scouted": len(jobs), "errors": [f"scout: {e}" for e in scout_errors], "cancelled": False})()
 
     with _open_store(cfg) as store:
         _run_with_lock(cfg, store, trigger="cli", stage="scout", body=body)
+    if scout_errors:
+        raise typer.Exit(code=1)
 
 
 @app.command()

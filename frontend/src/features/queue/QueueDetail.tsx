@@ -5,7 +5,7 @@ import { Meter } from "../../shared/ui/Meter";
 import { Score } from "../../shared/ui/Score";
 import { Tag } from "../../shared/ui/Tag";
 import { ROUTES } from "../../routes";
-import { useShortcuts } from "../../shared/useShortcuts";
+import { useShortcuts, useSingleKeyShortcuts } from "../../shared/useShortcuts";
 import { SourceBadge } from "./SourceBadge";
 import { StatusChip } from "./StatusChip";
 import type { JobRecord } from "./types";
@@ -21,7 +21,7 @@ type QueueDetailProps = {
 };
 
 /** Tabs across the top of the detail pane. */
-const TABS = ["Overview", "Letter", "Match", "Company", "Vault note"] as const;
+const TABS = ["Overview", "Letter", "Match", "Company", "Record"] as const;
 type DetailTab = (typeof TABS)[number];
 
 /**
@@ -39,6 +39,7 @@ export function QueueDetail({
 }: QueueDetailProps) {
   const [tab, setTab] = useState<DetailTab>("Overview");
   const navigate = useNavigate();
+  const isSingleKey = useSingleKeyShortcuts();
   useShortcuts(
     {
       a: () => {
@@ -110,14 +111,15 @@ export function QueueDetail({
           Approve packet
         </Button>
         <Button variant="quiet" shortcut="D" onClick={() => onDeny(job)}>
-          Deny
+          Skip
         </Button>
         <Link
           className="button button--quiet"
           to={`${ROUTES.packet}/${encodeURIComponent(job.source_id)}`}
+          aria-keyshortcuts={isSingleKey ? "E" : undefined}
         >
           <span className="button__label">Edit letter</span>
-          <kbd className="button__kbd">E</kbd>
+          {isSingleKey && <kbd className="button__kbd" aria-hidden="true">E</kbd>}
         </Link>
         <Link
           className="link-action"
@@ -151,7 +153,7 @@ export function QueueDetail({
         {tab === "Overview" || tab === "Match" ? (
           <MatchPanel job={job} />
         ) : null}
-        {tab === "Overview" || tab === "Letter" || tab === "Company" || tab === "Vault note" ? (
+        {tab === "Overview" || tab === "Letter" || tab === "Company" || tab === "Record" ? (
           <div className="queue-detail__col">
             {tab === "Overview" || tab === "Letter" ? (
               <section className="detail-card">
@@ -179,18 +181,17 @@ export function QueueDetail({
                   {job.location ? ` · ${job.location}` : ""}. Public company page only — no
                   job-board session is ever used.
                 </p>
-                <p className="mono-path">Companies/{job.company}.md</p>
               </section>
             ) : null}
 
-            {tab === "Vault note" ? (
+            {tab === "Record" ? (
               <section className="detail-card">
                 <header className="detail-card__head">
-                  <h3 className="detail-card__title">Vault note</h3>
+                  <h3 className="detail-card__title">Where this job lives</h3>
                 </header>
-                <p className="mono-path">Jobs/{job.source_id}.md</p>
+                <p className="mono-path">ref {job.source_id}</p>
                 <p className="detail-card__body">
-                  The note on disk is the source of truth. Approving writes status there.
+                  This job lives in your local AppFly store. Approving or skipping changes its status there. Obsidian is only a one-time import; nothing is written back to a vault.
                 </p>
               </section>
             ) : null}

@@ -11,7 +11,7 @@ interface ApproveStripProps {
 
 /**
  * Purpose: The approval footer — states exactly what approving writes, then
- *          offers Deny / Approve packet.
+ *          offers Skip / Approve packet.
  * Does not: submit the application. The person applies in their own browser.
  */
 export function ApproveStrip({ job, busy, feedback, onStatus }: ApproveStripProps) {
@@ -41,7 +41,7 @@ export function ApproveStrip({ job, busy, feedback, onStatus }: ApproveStripProp
         disabled={busy || job.status === "applied"}
         onClick={() => onStatus("skipped")}
       >
-        Deny
+        Skip
       </Button>
       <Button
         variant="approve"

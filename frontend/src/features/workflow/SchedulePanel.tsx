@@ -4,12 +4,10 @@ import { Segmented } from "../../shared/ui/Segmented";
 export interface NightlyPlan {
   /** 24h local start time, e.g. "21:00". */
   start: string;
-  timezone: string;
   /** Index 0 = Monday. */
   days: boolean[];
-  lettersPerNight: number;
-  maxListings: number;
-  shortlistThreshold: number;
+  lettersPerRun: number | null;
+  shortlistSize: number | null;
 }
 
 interface SchedulePanelProps {
@@ -45,7 +43,7 @@ export function SchedulePanel({ plan, readOnlyReason }: SchedulePanelProps) {
           disabled
           title={readOnlyReason}
         />
-        <span className="field-row__suffix">{plan.timezone}</span>
+        <span className="field-row__suffix">{Intl.DateTimeFormat().resolvedOptions().timeZone}</span>
       </div>
 
       <div className="field-row">
@@ -64,13 +62,8 @@ export function SchedulePanel({ plan, readOnlyReason }: SchedulePanelProps) {
         </div>
       </div>
 
-      <Readout label="Letters / night" value={plan.lettersPerNight.toFixed(0)} suffix="hard cap" />
-      <Readout label="Max listings scouted" value={plan.maxListings.toFixed(0)} suffix="per run" />
-      <Readout
-        label="Shortlist threshold"
-        value={plan.shortlistThreshold.toFixed(1)}
-        suffix="score ≥"
-      />
+      <Readout label="Letters per run" value={plan.lettersPerRun?.toFixed(0) ?? "—"} suffix="cap" />
+      <Readout label="Shortlist size" value={plan.shortlistSize?.toFixed(0) ?? "—"} suffix="top matches per run" />
 
       <p className="control-card__note">{readOnlyReason}</p>
     </section>

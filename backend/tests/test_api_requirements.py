@@ -1,0 +1,213 @@
+"""
+Requirements GET/PUT API (mr1).
+"""
+from __future__ import annotations
+
+import frontmatter
+from pathlib import Path
+import yaml
+import pytest
+from fastapi.testclient import TestClient
+from types import SimpleNamespace
+
+from jobhunt.api import runner
+from jobhunt.api.app import create_app
+from jobhunt.config import load_config
+from jobhunt.models import Job
+from jobhunt.store import get_store
+
+
+@pytest.fixture
+def native_config(api_config, tmp_path):
+    """Load api_config, set storage_backend to native and native_data_dir to tmp_path."""
+    config_path = Path(api_config)
+    raw = yaml.safe_load(config_path.read_text())
+    raw["storage_backend"] = "native"
+    raw["native_data_dir"] = str(tmp_path / "data")
+    config_path.write_text(yaml.safe_dump(raw, sort_keys=False))
+    return config_path
+
+
+GOOD = {
+    "locations": ["Berlin", "Remote"],
+    "salary_floor": 60000,
+    "languages": ["de", "en"],
+    "banned_terms": ["rockstar"],
+    "skip_companies": ["Acme"],
+    "must_have": ["Python"],
+    "nice_to_have": ["Rust"],
+    "tone": "warm, specific"
+}
+
+
+def _client(native_config, secret_store):
+    """Helper to create a TestClient with the standard configuration."""
+    return TestClient(
+        create_app(config_path=native_config, store=secret_store),
+        base_url="http://127.0.0.1",
+        headers={"X-AppFly": "1"},
+    )
+
+
+def test_get_native_defaults(native_config, secret_store):
+    """GET /requirements returns default values for native storage."""
+    client = _client(native_config, secret_store)
+    response = client.get("/requirements")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["storage_backend"] == "native"
+    assert data["languages"] == ["de", "en"]
+    assert data["salary_floor"] == 0
+
+
+def test_put_native_persists_across_restart(native_config, secret_store):
+    """PUT requirements and verify they persist across app restarts."""
+    client = _client(native_config, secret_store)
+
+    # PUT the good data
+    response = client.put("/requirements", json=GOOD)
+    assert response.status_code == 200
+    body = response.json()
+    assert body.pop("storage_backend") == "native"
+    assert body == GOOD
+
+    # Create a new client with the same config and check it loads the same data
+    new_client = _client(native_config, secret_store)
+    response = new_client.get("/requirements")
+    assert response.status_code == 200
+    body = response.json()
+    assert body.pop("storage_backend") == "native"
+    assert body == GOOD
+
+
+def test_put_normalises_lists(native_config, secret_store):
+    """PUT requirements with unnormalised lists and verify they get normalised."""
+    client = _client(native_config, secret_store)
+
+    # PUT data with unnormalised lists
+    unnormalised = GOOD.copy()
+    unnormalised["locations"] = [" Berlin ", "berlin", "", "Remote"]
+
+    response = client.put("/requirements", json=unnormalised)
+    assert response.status_code == 200
+
+    # Check that locations are normalised (strip, drop empty, case-insensitive dedupe)
+    data = response.json()
+    assert data["locations"] == ["Berlin", "Remote"]
+
+
+@pytest.mark.parametrize(
+    "patch",
+    [
+        {"unknown": 1},
+        {"salary_floor": -1},
+        {"salary_floor": 1_000_001},
+        {"languages": []},
+        {"languages": ["  "]},
+        {"tone": "a\n## Hack"},
+        {"tone": "x" * 201},
+        {"locations": ["x" * 81]},
+        {"must_have": [f"s{i}" for i in range(11)]},
+    ],
+)
+def test_put_rejects_bad_bodies(native_config, secret_store, patch):
+    """Each full body with one bad field is a 422."""
+    response = _client(native_config, secret_store).put("/requirements", json={**GOOD, **patch})
+    assert response.status_code == 422
+
+
+def test_put_rejects_missing_key(native_config, secret_store):
+    """All fields are required: a body without tone is a 422 and nothing is saved."""
+    body = {k: v for k, v in GOOD.items() if k != "tone"}
+    client = _client(native_config, secret_store)
+    assert client.put("/requirements", json=body).status_code == 422
+    assert client.get("/requirements").json()["salary_floor"] == 0
+
+
+def test_put_409_while_run_active(native_config, secret_store, monkeypatch):
+    """PUT while a run is active should return 409."""
+    client = _client(native_config, secret_store)
+
+    # Mock list_async_runs to return an active run
+    def mock_list_async_runs():
+        return [SimpleNamespace(id="abc", status="running")]
+
+    monkeypatch.setattr(runner, "list_async_runs", mock_list_async_runs)
+
+    # PUT should fail with 409
+    response = client.put("/requirements", json=GOOD)
+    assert response.status_code == 409
+    assert "run is in progress" in response.json()["detail"]
+
+    # Undo the patch
+    monkeypatch.undo()
+
+    # Verify that the requirements were not changed (salary_floor should still be 0)
+    response = client.get("/requirements")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["salary_floor"] == 0
+
+
+def test_put_requires_csrf_header(native_config, secret_store):
+    """PUT without X-AppFly header should return 403.
+
+    passes on base too: CSRFMiddleware rejects before routing (accepted exception)
+    """
+    # Create a client without the CSRF header
+    client = TestClient(
+        create_app(config_path=native_config, store=secret_store),
+        base_url="http://127.0.0.1"
+    )
+
+    response = client.put("/requirements", json=GOOD)
+    assert response.status_code == 403
+
+
+def test_put_reaches_matcher(native_config, secret_store):
+    """PUT banned_terms with Zeitarbeit should be detected by matcher."""
+    client = _client(native_config, secret_store)
+
+    # PUT requirements with banned term
+    response = client.put("/requirements", json={**GOOD, "banned_terms": ["Zeitarbeit"]})
+    assert response.status_code == 200
+
+    # Load the store and requirements to test matcher
+    config = load_config(native_config)
+    store = get_store(config)
+    reqs = store.load_requirements()
+
+    # Create a job with banned term in description
+    job = Job(
+        title="Developer",
+        company="Other",
+        location="Berlin",
+        description="Zeitarbeit is not allowed here",
+        url="http://example.com",
+        source_id="test_source_id",
+        source="test_source"
+    )
+
+    # Test that the banned term is detected by hard_filter
+    from jobhunt.features.match.matcher import hard_filter
+    result = hard_filter(job, reqs)
+    assert result == (False, "banned:Zeitarbeit")
+
+
+def test_markdown_put_keeps_body_and_custom_keys(api_client, api_vault):
+    """PUT to markdown backend should preserve note body and custom frontmatter keys."""
+    # Create a Requirements.md file with some content
+    req_file = api_vault / "Requirements.md"
+    content = frontmatter.Post("# My notes\nkeep me\n", custom="yes", salary_floor=1)
+    req_file.write_text(frontmatter.dumps(content))
+
+    # PUT new requirements via the markdown client
+    response = api_client.put("/requirements", json=GOOD)
+    assert response.status_code == 200
+    assert response.json()["storage_backend"] == "markdown"
+
+    # Reload and verify content is preserved
+    loaded = frontmatter.loads(req_file.read_text())
+    assert "keep me" in loaded.content
+    assert loaded.metadata["custom"] == "yes"
+    assert loaded.metadata["salary_floor"] == 60000

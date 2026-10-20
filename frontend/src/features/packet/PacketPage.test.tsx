@@ -83,7 +83,8 @@ describe("PacketPage", () => {
     expect(await screen.findByText(/Marked approved/)).toBeInTheDocument();
     expect(screen.getByTestId("status-chip")).toHaveAttribute("data-status", "approved");
 
-    await user.click(screen.getByRole("button", { name: /^Deny/ }));
+    expect(screen.queryByRole("button", { name: /^Deny/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^Skip/ }));
     expect(await screen.findByText(/Marked skipped/)).toBeInTheDocument();
     expect(screen.getByTestId("status-chip")).toHaveAttribute("data-status", "skipped");
   });

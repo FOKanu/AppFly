@@ -4,6 +4,14 @@ import { Tag } from "../../shared/ui/Tag";
 import { downloadUrl, formatBytes, formatUpdated } from "./api";
 import { DOCUMENT_KINDS, activeFlagFor, isActive, type VaultDocument } from "./types";
 
+/** Same wording as CvPicker: why the writer cannot read this file. Null when readable. */
+function extractNote(document: VaultDocument): string | null {
+  if (document.extract_status === "empty") return "no readable text";
+  if (document.extract_status === "unsupported") return "file type not supported";
+  if (document.extract_status === "error") return "text extraction failed";
+  return null;
+}
+
 interface DocumentTableProps {
   documents: VaultDocument[];
   /** False while the store is unreachable, so actions say why. */
@@ -81,6 +89,9 @@ export function DocumentTable({
                     {document.label}
                   </span>
                   {isActive(document) ? <Chip tone="accent">active</Chip> : null}
+                  {extractNote(document) ? (
+                    <span className="upload__note upload__note--blocked">{extractNote(document)}</span>
+                  ) : null}
                 </>
               )}
             </span>

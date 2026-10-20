@@ -7,7 +7,7 @@ import { Tag } from "../../shared/ui/Tag";
 import { ROUTES } from "../../routes";
 import { toTenPointScale } from "./score";
 import type { Job } from "./types";
-import { useShortcuts } from "../../shared/useShortcuts";
+import { useShortcuts, useSingleKeyShortcuts } from "../../shared/useShortcuts";
 
 interface NeedsYouProps {
   drafts: Job[];
@@ -25,6 +25,7 @@ interface NeedsYouProps {
  */
 export function NeedsYou({ drafts, busyId, onApprove, onDeny }: NeedsYouProps) {
   const [top, ...rest] = drafts;
+  const isSingleKey = useSingleKeyShortcuts();
 
   return (
     <section className="needs-you" aria-labelledby="needs-you-title">
@@ -36,7 +37,7 @@ export function NeedsYou({ drafts, busyId, onApprove, onDeny }: NeedsYouProps) {
           {drafts.length} draft{drafts.length === 1 ? "" : "s"}
         </Chip>
         <span className="needs-you__rule" />
-        <p className="needs-you__hints">A approve · D deny · E edit</p>
+        {isSingleKey && <p className="needs-you__hints">A approve · D skip · E edit</p>}
       </header>
 
       {top ? (
@@ -59,7 +60,7 @@ export function NeedsYou({ drafts, busyId, onApprove, onDeny }: NeedsYouProps) {
       <ul className="other-drafts">
         {rest.map((job) => (
           <li key={job.source_id}>
-            <Link className="other-drafts__row" to={`${ROUTES.packet}/${job.source_id}`}>
+            <Link className="other-drafts__row" to={`${ROUTES.packet}/${encodeURIComponent(job.source_id)}`}>
               <StatusChip status="draft" />
               <span className="other-drafts__col">
                 <span className="other-drafts__title">{job.title}</span>
@@ -93,6 +94,7 @@ function TopDraft({
   onDeny: (job: Job) => void;
 }) {
   const navigate = useNavigate();
+  const isSingleKey = useSingleKeyShortcuts();
   useShortcuts({
     a: () => {
       if (!busy) onApprove(draft);
@@ -100,7 +102,7 @@ function TopDraft({
     d: () => {
       if (!busy) onDeny(draft);
     },
-    e: () => navigate(`${ROUTES.packet}/${draft.source_id}`),
+    e: () => navigate(`${ROUTES.packet}/${encodeURIComponent(draft.source_id)}`),
   });
 
   return (
@@ -149,11 +151,15 @@ function TopDraft({
           {busy ? "Saving…" : "Approve packet"}
         </Button>
         <Button variant="quiet" shortcut="D" disabled={busy} onClick={() => onDeny(draft)}>
-          Deny
+          Skip
         </Button>
-        <Link className="button button--quiet" to={`${ROUTES.packet}/${draft.source_id}`}>
+        <Link
+          className="button button--quiet"
+          to={`${ROUTES.packet}/${encodeURIComponent(draft.source_id)}`}
+          aria-keyshortcuts={isSingleKey ? "E" : undefined}
+        >
           <span className="button__label">Edit letter</span>
-          <kbd className="button__kbd">E</kbd>
+          {isSingleKey && <kbd className="button__kbd" aria-hidden="true">E</kbd>}
         </Link>
         <span className="top-draft__rule" />
         {draft.url ? (

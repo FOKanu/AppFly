@@ -24,7 +24,7 @@ from jobhunt.api.schemas.settings import (
     SettingsUpdate,
     SourcesPublic,
 )
-from jobhunt.config import AppConfig, DEFAULT_CONFIG_PATH
+from jobhunt.config import AppConfig, default_config_path
 from jobhunt.features.secrets.names import SecretName
 from jobhunt.policy import CrawlDeniedError, assert_crawl_allowed
 from jobhunt.vault import Vault
@@ -203,7 +203,7 @@ def _config_file_path(request: Request) -> Path:
     """
 
     path = getattr(request.app.state, "config_path", None)
-    return Path(path) if path else DEFAULT_CONFIG_PATH
+    return Path(path) if path else default_config_path()
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:
