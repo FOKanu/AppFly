@@ -302,7 +302,11 @@ def migrate_repo_config(dest_dir: Path) -> list[str]:
                 fh.write(data)
             os.chmod(target, 0o600)
         else:
-            target.write_bytes(data)
+            try:
+                with open(target, "xb") as fh:
+                    fh.write(data)
+            except FileExistsError:
+                continue
         copied.append(rel)
     return copied
 
