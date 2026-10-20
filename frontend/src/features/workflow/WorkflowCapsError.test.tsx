@@ -2,8 +2,18 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { WorkflowPage } from "./WorkflowPage";
 import * as profileApi from "../profiles/api";
+import { fetchRequirements } from "./requirementsApi";
 
 vi.mock("../profiles/api");
+// WorkflowPage fetches requirements on mount; keep that off the network here.
+vi.mock("./requirementsApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./requirementsApi")>();
+  return {
+    ...actual,
+    fetchRequirements: vi.fn().mockRejectedValue(new Error("not under test")),
+    saveRequirements: vi.fn(),
+  };
+});
 
 // Import vitest globals explicitly
 import { expect, vi, test } from 'vitest';
@@ -34,4 +44,5 @@ test("renders dashes when fetchSettings rejects", async () => {
     expect(screen.queryByText("5")).not.toBeInTheDocument();
     expect(screen.queryByText("12")).not.toBeInTheDocument();
   });
+  expect(vi.mocked(fetchRequirements)).toHaveBeenCalledTimes(1);
 });
