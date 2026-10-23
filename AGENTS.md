@@ -15,7 +15,7 @@ Cursor rule: `.cursor/rules/branch-strategy.mdc` (always apply).
 | Branch | Purpose |
 |---|---|
 | `main` | Shippable. No direct commits. Hotfixes that cannot wait for an epic. |
-| `integrate/<epic>` | Inbox for that epic (all stacks). **Open: `ui-honesty-v1`.** Closed: `gaps-v1`, `mvp-v1`, `prototype-v1`, `ui-v1`, `storage-v1` (all on `main`). |
+| `integrate/<epic>` | Inbox for that epic (all stacks). **Open: `polish-followups-v1`.** Closed: `mvp-blockers-v1` (#152), `polish-v2`, `ui-honesty-v1`, `gaps-v1`, `mvp-v1`, `prototype-v1`, `ui-v1`, `storage-v1` (all on `main`). |
 | `feat/<area>-<slug>` | One concern, one PR. Examples: `feat/backend-doc-extract`, `feat/ui-cv-picker`. |
 | `fix/<slug>` | Bug fix against shipped `main`. |
 | `chore/<slug>` | Tooling, docs, layout. |
@@ -32,9 +32,9 @@ Names: lowercase, hyphens, no author names. Retarget `cursor/…` Cloud Agent de
 
 ### Live tip (avoid double work)
 
-- **Epic open: `integrate/ui-honesty-v1`** (opened 2026-10-03 from `main` @ `460c14c`, which has gaps-v1 via #70). Cut branches from `origin/integrate/ui-honesty-v1` and PR into it; `git fetch origin` first.
+- **Epic open: `integrate/polish-followups-v1`** (opened 2026-10-23 from `main` @ `23768d2`, which has mvp-blockers-v1 via #152). Cut branches from `origin/integrate/polish-followups-v1` and PR into it; `git fetch origin` first.
 - **Do not** reopen closed `cursor/*` or continue closed integrate feature PRs.
-- **Next:** finish ui-honesty-v1 (UI honesty pass: banned hosts, no fake 8B writer, funnel, Queue/Packet errors, polish), then the open list in [FOLLOW_UPS](docs/design/FOLLOW_UPS.md) (user decisions, F1). Sequence archive: [docs/workflow/MVP_SEQUENCE.md](docs/workflow/MVP_SEQUENCE.md).
+- **Next:** small follow-ups on polish-followups-v1 (docs, test portability), then the remaining polish-v2 UI items, then the open list in [FOLLOW_UPS](docs/design/FOLLOW_UPS.md) (user decisions, F1). Sequence archive: [docs/workflow/MVP_SEQUENCE.md](docs/workflow/MVP_SEQUENCE.md).
 - **5090 briefs:** slice large features; mandatory cloud check-in between slices. Rule: [`.cursor/rules/local-coder-bulk.mdc`](.cursor/rules/local-coder-bulk.mdc).
 - **Claude:** Mac install only (not Cursor Claude agent); richer context OK; check-in before coding. Rule: [`.cursor/rules/claude-handoff.mdc`](.cursor/rules/claude-handoff.mdc).
 
