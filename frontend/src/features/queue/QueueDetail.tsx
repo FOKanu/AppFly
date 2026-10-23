@@ -8,6 +8,7 @@ import { ROUTES } from "../../routes";
 import { useShortcuts, useSingleKeyShortcuts } from "../../shared/useShortcuts";
 import { SourceBadge } from "./SourceBadge";
 import { StatusChip } from "./StatusChip";
+import { isFiltered, skipReasonText } from "./skipReason";
 import type { JobRecord } from "./types";
 
 type QueueDetailProps = {
@@ -101,8 +102,14 @@ export function QueueDetail({
           </p>
         </div>
         <div className="queue-detail__score">
-          <Score value={toTen(job.score)} />
-          <span className="queue-detail__score-label">Match / 10</span>
+          {isFiltered(job) ? (
+            <span className="queue-detail__score-label">Filtered out</span>
+          ) : (
+            <>
+              <Score value={toTen(job.score)} />
+              <span className="queue-detail__score-label">Match / 10</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -215,6 +222,7 @@ export function QueueDetail({
 
 function MatchPanel({ job }: { job: JobRecord }) {
   const overall = toTen(job.score);
+  const filtered = isFiltered(job);
 
   return (
     <section className="detail-card">
@@ -223,14 +231,27 @@ function MatchPanel({ job }: { job: JobRecord }) {
       </header>
 
       <div className="match-row">
-        <span className="match-row__label">Overall</span>
-        <Meter value={overall === null ? null : overall / 10} label="Overall match" />
-        {overall === null ? <span className="match-row__value" aria-hidden="true">—</span> : null}
+        {filtered ? (
+          <>
+            <span className="match-row__label">Overall</span>
+            <p className="match-row__filtered">Filtered out: {skipReasonText(job.skip_reason ?? "")}</p>
+          </>
+        ) : (
+          <>
+            <span className="match-row__label">Overall</span>
+            <Meter value={overall === null ? null : overall / 10} label="Overall match" />
+            {overall === null ? <span className="match-row__value" aria-hidden="true">—</span> : null}
+          </>
+        )}
       </div>
 
       <p className="detail-card__label">Hard filters</p>
       <p className="detail-card__body">
-        Hard filters (skip-list, banned terms, must-have terms, location, salary floor) run during matching. Per-listing results are not shown yet.
+        {filtered
+          ? "Stopped at the hard filters, so it was never scored."
+          : job.score != null
+          ? "Passed the hard filters at match time."
+          : "Not matched yet."}
       </p>
 
       <p className="detail-card__label">Gaps</p>
