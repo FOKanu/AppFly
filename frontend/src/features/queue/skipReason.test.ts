@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { skipReasonText, isFiltered } from "./skipReason";
 
 describe("skipReasonText", () => {
@@ -42,5 +42,14 @@ describe("isFiltered", () => {
 
   it("returns false when job is not skipped", () => {
     expect(isFiltered({status:"draft", skip_reason:"location"})).toBe(false);
+  });
+});
+
+describe("skipReasonText locale", () => {
+  it("formats salary with en-US digits on any machine locale", () => {
+    const spy = vi.spyOn(Number.prototype, "toLocaleString");
+    skipReasonText("salary:42000");
+    expect(spy).toHaveBeenCalledWith("en-US");
+    spy.mockRestore();
   });
 });
