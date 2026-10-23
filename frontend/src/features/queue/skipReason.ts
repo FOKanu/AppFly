@@ -13,7 +13,7 @@ export function skipReasonText(code: string): string {
     case "location":
       return "location is outside your areas";
     case "salary":
-      return `salary ${Number(arg).toLocaleString()} is below your floor`;
+      return `salary ${Number(arg).toLocaleString("en-US")} is below your floor`;
     default:
       return code;
   }
