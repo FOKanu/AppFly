@@ -1,10 +1,14 @@
 """Tests for config migration exclusive create behavior."""
 
 import os
+import sys
 import types
 from pathlib import Path
 
 from jobhunt import config
+import pytest
+
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="symlink creation needs privileges on Windows")
 
 
 def _repo(tmp_path: Path, checkout: bool = True) -> Path:
