@@ -190,8 +190,7 @@ describe("QueuePage", () => {
     expect(within(detail).getByRole("meter", { name: "Overall match" })).toBeInTheDocument();
     expect(detail).not.toHaveTextContent("Seniority");
     expect(detail).not.toHaveTextContent("✓ salary floor");
-    expect(detail).toHaveTextContent("Per-listing results are not shown yet.");
-    expect(detail).toHaveTextContent("must-have terms");
+    expect(detail).toHaveTextContent("Passed the hard filters at match time.");
     expect(within(detail).getByRole("tab", { name: "Match" })).toBeInTheDocument();
     expect(within(detail).queryByRole("tab", { name: "Match breakdown" })).not.toBeInTheDocument();
   });
