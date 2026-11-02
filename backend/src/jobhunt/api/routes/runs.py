@@ -25,6 +25,7 @@ from jobhunt.api.runner import (
     start_async_run,
 )
 from jobhunt.api.schemas.runs import RunLogSummary, RunStartRequest
+from jobhunt.features.write.preflight import data_dir_problem, run_preflight
 from jobhunt.store.types import RunRecord
 
 router = APIRouter(tags=["runs"])
@@ -171,6 +172,12 @@ def _resolve_run_cv_text(store: Any, cv_id: str | None) -> str:
     return store.read_cv()
 
 
+@router.get("/runs/preflight")
+def get_run_preflight(request: Request) -> dict[str, Any]:
+    """Writer availability and data-dir writability, for the UI before Run Now."""
+    return run_preflight(get_config(request))
+
+
 @router.post(
     "/runs",
     response_model=AsyncRunAccepted,
@@ -183,6 +190,9 @@ def start_run(request: Request, body: RunStartRequest | None = None) -> AsyncRun
     """Start a pipeline run in the background; optional ``{cv}``; 409 while one is active."""
 
     config = get_config(request)
+    problem = data_dir_problem()
+    if problem:
+        raise HTTPException(status_code=503, detail=problem)
     store = get_app_store(request)
     cv_text = _resolve_run_cv_text(store, body.cv if body else None)
 
