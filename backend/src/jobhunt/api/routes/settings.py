@@ -2,7 +2,7 @@
 
 Purpose: Let the UI read and update AppConfig fields on disk.
 Inputs: ``config.yaml`` via ``load_config``; PUT body is a closed set of keys.
-Returns: Safe settings snapshot; secrets only as booleans from the store.
+Returns: Safe settings snapshot; secrets only as presence booleans (store or env).
 Does not: Accept or echo API keys, last-4 digits, or a second YAML schema.
 """
 
@@ -159,18 +159,19 @@ def _settings_response(request: Request) -> SettingsResponse:
 
 
 def _secret_flags(request: Request) -> SecretFlags:
-    """Boolean presence flags from the write-only store.
+    """Boolean presence flags: the secret store, or a key in config/.env.
 
-    Purpose: Settings UI status without loading key material for GET.
-    Inputs: Request (uses ``is_configured`` only).
-    Returns: ``SecretFlags``.
-    Does not: Call ``get_for_runtime`` or read env values into JSON.
+    Purpose: Settings UI status that agrees with ``/workspace/status`` ``has_gemini``.
+    Inputs: Request (store ``is_configured`` plus config presence checks).
+    Returns: ``SecretFlags`` (booleans only).
+    Does not: Call ``get_for_runtime`` or put any key value into JSON.
     """
 
     store = get_secret_store(request)
+    config = get_config(request)
     return SecretFlags(
-        gemini=store.is_configured(SecretName.gemini),
-        apify=store.is_configured(SecretName.apify),
+        gemini=store.is_configured(SecretName.gemini) or bool(config.gemini_api_key),
+        apify=store.is_configured(SecretName.apify) or bool(config.apify_token),
         jobsuche=store.is_configured(SecretName.jobsuche),
     )
 
