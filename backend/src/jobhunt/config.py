@@ -106,6 +106,8 @@ class AppConfig(BaseModel):
     shortlist_size: int = 8
     gemini_model: str = "gemini-3.8-flash"
     gemini_api_base: str | None = None
+    ollama_base_url: str | None = None
+    ollama_model: str = "qwen3:8b"
     jd_excerpt_chars: int = 1200
     sources: SourcesConfig = Field(default_factory=SourcesConfig)
     config_path: Path = Field(default_factory=default_config_path)
@@ -203,6 +205,38 @@ class AppConfig(BaseModel):
         if stored:
             return stored
         return os.environ.get("JOBSUCHE_API_KEY", JOBSUCHE_PUBLIC_DEFAULT).strip()
+
+    @property
+    def ollama_url(self) -> str:
+        """Base URL for the Ollama API endpoint.
+
+        Purpose: Point the letter writer at an Ollama instance.
+        Inputs: YAML value `ollama_base_url`, then env var `OLLAMA_BASE_URL`.
+        Returns: First non-blank stripped value of ``ollama_base_url``, then env
+            ``OLLAMA_BASE_URL``; else default "http://127.0.0.1:11434".
+        Does not: Return the key material or any secrets.
+        """
+
+        for candidate in (self.ollama_base_url, os.environ.get("OLLAMA_BASE_URL")):
+            if candidate and candidate.strip():
+                return candidate.strip().rstrip("/")
+        return "http://127.0.0.1:11434"
+
+    @property
+    def ollama_writer_model(self) -> str:
+        """Model to use for Ollama letter writing.
+
+        Purpose: Select the model for Ollama fallback.
+        Inputs: Env var `OLLAMA_MODEL` if non-blank, else config `ollama_model`.
+        Returns: First non-blank stripped value of ``OLLAMA_MODEL``, then config
+            ``ollama_model``; else default "qwen3:8b".
+        Does not: Return the key material or any secrets.
+        """
+
+        for candidate in (os.environ.get("OLLAMA_MODEL"), self.ollama_model):
+            if candidate and candidate.strip():
+                return candidate.strip()
+        return "qwen3:8b"
 
 
 def load_env() -> None:

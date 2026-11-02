@@ -12,6 +12,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+import httpx
+
 from jobhunt.config import AppConfig
 from jobhunt.models import Job, Requirements
 from jobhunt.vault import Vault
@@ -270,6 +272,40 @@ def _classify_gemini_error(exc: Exception) -> LetterWriteError | None:
             kind="upstream"
         )
     return None
+
+
+def _call_ollama(config: AppConfig, packet: str) -> tuple[str, int, int]:
+    """Call Ollama API to generate a letter.
+
+    Purpose: Generate a letter using Ollama as a fallback when Gemini fails.
+    Inputs: AppConfig with ollama configuration and the sealed packet.
+    Returns: Tuple of (letter_text, prompt_eval_count, eval_count).
+    Raises: LetterWriteError if Ollama returns an empty letter.
+    """
+    url = f"{config.ollama_url}/api/chat"
+    body = {
+        "model": config.ollama_writer_model,
+        "stream": False,
+        "think": False,
+        "messages": [
+            {"role": "system", "content": WRITER_SYSTEM},
+            {"role": "user", "content": packet}
+        ]
+    }
+
+    response = httpx.post(url, json=body, timeout=180)
+    response.raise_for_status()
+
+    data = response.json()
+    text = data["message"]["content"].strip()
+
+    if not text:
+        raise LetterWriteError("Ollama returned an empty letter.", kind="upstream")
+
+    prompt_eval_count = int(data.get("prompt_eval_count") or 0)
+    eval_count = int(data.get("eval_count") or 0)
+
+    return text, prompt_eval_count, eval_count
 
 
 def _call_gemini(config: AppConfig, packet: str) -> tuple[str, int, int]:
