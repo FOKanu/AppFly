@@ -175,7 +175,8 @@ def _resolve_run_cv_text(store: Any, cv_id: str | None) -> str:
 @router.get("/runs/preflight")
 def get_run_preflight(request: Request) -> dict[str, Any]:
     """Writer availability and data-dir writability, for the UI before Run Now."""
-    return run_preflight(get_config(request))
+    config = get_config(request)
+    return run_preflight(config, config.native_data_path)
 
 
 @router.post(
@@ -190,7 +191,7 @@ def start_run(request: Request, body: RunStartRequest | None = None) -> AsyncRun
     """Start a pipeline run in the background; optional ``{cv}``; 409 while one is active."""
 
     config = get_config(request)
-    problem = data_dir_problem()
+    problem = data_dir_problem(config.native_data_path)
     if problem:
         raise HTTPException(status_code=503, detail=problem)
     store = get_app_store(request)
