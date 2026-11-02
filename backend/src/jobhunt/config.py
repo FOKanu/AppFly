@@ -108,6 +108,7 @@ class AppConfig(BaseModel):
     gemini_api_base: str | None = None
     ollama_base_url: str | None = None
     ollama_model: str = "qwen3:8b"
+    writer_fallback: bool = True
     jd_excerpt_chars: int = 1200
     sources: SourcesConfig = Field(default_factory=SourcesConfig)
     config_path: Path = Field(default_factory=default_config_path)
