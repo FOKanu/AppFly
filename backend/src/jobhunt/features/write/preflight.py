@@ -1,4 +1,4 @@
-"""Crawl deny-list for job boards that forbid automated access."""
+"""Run preflight: letter writer availability and data-dir writability, checked before Run Now."""
 
 from __future__ import annotations
 
@@ -41,12 +41,12 @@ def _gemini_key(config: AppConfig) -> str:
 
 
 def writer_problem(config: AppConfig) -> str | None:
-    if _gemini_key(config):
-        return None
+    if not _gemini_key(config):
+        return "No letter writer: Gemini key missing (Ollama is only a fallback for failed Gemini calls)"
     if not config.writer_fallback:
-        return "No letter writer: Gemini key missing and Ollama fallback disabled"
+        return None
     p = ollama_problem(config)
-    return None if p is None else f"No letter writer: Gemini key missing; {p}"
+    return None if p is None else f"Ollama fallback writer unavailable; {p}"
 
 
 def run_preflight(config: AppConfig, root: Path | None = None) -> dict:
