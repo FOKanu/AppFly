@@ -41,6 +41,27 @@ class LetterWriteError(RuntimeError):
         self.kind = kind
 
 
+def _write_one(config: AppConfig, packet: str) -> tuple[str, int, int, str, str]:
+    """Write a single letter using Gemini, falling back to Ollama if needed.
+
+    Returns: (letter_text, prompt_eval_count, eval_count, writer_type, model_name)
+    """
+    try:
+        text, tin, tout = _call_gemini(config, packet)
+        return text, tin, tout, "gemini", config.gemini_model
+    except Exception as g:
+        if not config.writer_fallback:
+            raise
+        try:
+            text, tin, tout = _call_ollama(config, packet)
+        except Exception as o:
+            raise LetterWriteError(
+                f"Gemini failed ({g}); Ollama fallback failed ({o})",
+                kind="upstream"
+            ) from o
+        return text, tin, tout, "ollama", config.ollama_writer_model
+
+
 def write_letters(
     config: AppConfig,
     vault: Vault,
@@ -75,6 +96,7 @@ def write_letters(
     failed = 0
     stopped = False
     errors: list[str] = []
+    writers: list[dict[str, str]] = []
 
     candidates: list[Job] = []
     for post in vault.iter_job_notes():
@@ -102,7 +124,7 @@ def write_letters(
             excerpt_chars=config.jd_excerpt_chars,
         )
         try:
-            letter, tokens_in, tokens_out = _call_gemini(config, packet)
+            letter, tokens_in, tokens_out, writer, model = _write_one(config, packet)
         except Exception as exc:  # noqa: BLE001 - one failed letter must not stop the batch
             failed += 1
             errors.append(f"{job.company} - {job.title}: {type(exc).__name__}: {exc}")
@@ -112,13 +134,18 @@ def write_letters(
         vault.write_letter(
             job,
             letter,
-            model=config.gemini_model,
+            model=f"{writer}:{model}",
             tokens_in=tokens_in,
             tokens_out=tokens_out,
         )
         written += 1
         if on_letter is not None:
             on_letter(written, skipped)
+        writers.append({
+            "job": f"{job.company} - {job.title}",
+            "writer": writer,
+            "model": model
+        })
     return {
         "written": written,
         "skipped": skipped,
@@ -126,6 +153,7 @@ def write_letters(
         "failed": failed,
         "stopped": stopped,
         "errors": errors,
+        "writers": writers,
     }
 
 
