@@ -31,7 +31,7 @@ def ollama_problem(config: AppConfig) -> str | None:
         names = [m.get("name") for m in r.json().get("models", [])]
     except Exception as exc:
         return f"Ollama not reachable at {url} (is the tunnel up?): {exc}"
-    if model not in names:
+    if model not in names and f"{model}:latest" not in names:
         return f"Ollama model {model} not found at {url}"
     return None
 

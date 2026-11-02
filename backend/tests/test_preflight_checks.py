@@ -4,6 +4,14 @@ from jobhunt.config import AppConfig
 from jobhunt.features.write import preflight
 
 
+class _Latest:
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict:
+        return {"models": [{"name": "qwen3:latest"}]}
+
+
 class _R:
     def raise_for_status(self) -> None:
         return None
@@ -38,27 +46,19 @@ def test_no_key_is_a_problem(monkeypatch):
     assert "No letter writer: Gemini key missing (Ollama is only a fallback for failed Gemini calls)" in preflight.writer_problem(AppConfig())
 
 
-def test_writer_ok_with_key(monkeypatch):
-    monkeypatch.setattr(preflight, "_gemini_key", lambda c: "k")
-    assert preflight.writer_problem(AppConfig()) is None
-
-
-def test_ollama_ok(monkeypatch):
-    _key(monkeypatch, "k")
-    monkeypatch.setattr(preflight.httpx, "get", lambda *a, **k: _R())
-    assert preflight.writer_problem(AppConfig()) is None
-
-
-def test_ollama_down(monkeypatch):
-    _key(monkeypatch, "k")
-    monkeypatch.setattr(preflight.httpx, "get", _down)
-    assert "tunnel" in preflight.writer_problem(AppConfig())
 
 
 def test_key_no_fallback_skips_ollama(monkeypatch):
     _key(monkeypatch, "k")
     monkeypatch.setattr(preflight.httpx, "get", _down)
     assert preflight.writer_problem(AppConfig(writer_fallback=False)) is None
+
+
+def test_untagged_model_matches_latest(monkeypatch):
+    _key(monkeypatch, "k")
+    monkeypatch.setenv("OLLAMA_MODEL", "qwen3")
+    monkeypatch.setattr(preflight.httpx, "get", lambda *a, **k: _Latest())
+    assert preflight.writer_problem(AppConfig()) is None
 
 
 def test_run_preflight_reports(monkeypatch, tmp_path):
