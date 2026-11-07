@@ -12,6 +12,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+import httpx
+
 from jobhunt.config import AppConfig
 from jobhunt.models import Job, Requirements
 from jobhunt.vault import Vault
@@ -37,6 +39,27 @@ class LetterWriteError(RuntimeError):
     def __init__(self, message: str, *, kind: str) -> None:
         super().__init__(message)
         self.kind = kind
+
+
+def _write_one(config: AppConfig, packet: str) -> tuple[str, int, int, str, str]:
+    """Write a single letter using Gemini, falling back to Ollama if needed.
+
+    Returns: (letter_text, prompt_eval_count, eval_count, writer_type, model_name)
+    """
+    try:
+        text, tin, tout = _call_gemini(config, packet)
+        return text, tin, tout, "gemini", config.gemini_model
+    except Exception as g:
+        if not config.writer_fallback:
+            raise
+        try:
+            text, tin, tout = _call_ollama(config, packet)
+        except Exception as o:
+            raise LetterWriteError(
+                f"Gemini failed ({g}); Ollama fallback failed ({o})",
+                kind="upstream"
+            ) from o
+        return text, tin, tout, "ollama", config.ollama_writer_model
 
 
 def write_letters(
@@ -73,6 +96,7 @@ def write_letters(
     failed = 0
     stopped = False
     errors: list[str] = []
+    writers: list[dict[str, str]] = []
 
     candidates: list[Job] = []
     for post in vault.iter_job_notes():
@@ -100,7 +124,7 @@ def write_letters(
             excerpt_chars=config.jd_excerpt_chars,
         )
         try:
-            letter, tokens_in, tokens_out = _call_gemini(config, packet)
+            letter, tokens_in, tokens_out, writer, model = _write_one(config, packet)
         except Exception as exc:  # noqa: BLE001 - one failed letter must not stop the batch
             failed += 1
             errors.append(f"{job.company} - {job.title}: {type(exc).__name__}: {exc}")
@@ -110,13 +134,18 @@ def write_letters(
         vault.write_letter(
             job,
             letter,
-            model=config.gemini_model,
+            model=f"{writer}:{model}",
             tokens_in=tokens_in,
             tokens_out=tokens_out,
         )
         written += 1
         if on_letter is not None:
             on_letter(written, skipped)
+        writers.append({
+            "job": f"{job.company} - {job.title}",
+            "writer": writer,
+            "model": model
+        })
     return {
         "written": written,
         "skipped": skipped,
@@ -124,6 +153,7 @@ def write_letters(
         "failed": failed,
         "stopped": stopped,
         "errors": errors,
+        "writers": writers,
     }
 
 
@@ -270,6 +300,40 @@ def _classify_gemini_error(exc: Exception) -> LetterWriteError | None:
             kind="upstream"
         )
     return None
+
+
+def _call_ollama(config: AppConfig, packet: str) -> tuple[str, int, int]:
+    """Call Ollama API to generate a letter.
+
+    Purpose: Generate a letter using Ollama as a fallback when Gemini fails.
+    Inputs: AppConfig with ollama configuration and the sealed packet.
+    Returns: Tuple of (letter_text, prompt_eval_count, eval_count).
+    Raises: LetterWriteError if Ollama returns an empty letter.
+    """
+    url = f"{config.ollama_url}/api/chat"
+    body = {
+        "model": config.ollama_writer_model,
+        "stream": False,
+        "think": False,
+        "messages": [
+            {"role": "system", "content": WRITER_SYSTEM},
+            {"role": "user", "content": packet}
+        ]
+    }
+
+    response = httpx.post(url, json=body, timeout=180)
+    response.raise_for_status()
+
+    data = response.json()
+    text = data["message"]["content"].strip()
+
+    if not text:
+        raise LetterWriteError("Ollama returned an empty letter.", kind="upstream")
+
+    prompt_eval_count = int(data.get("prompt_eval_count") or 0)
+    eval_count = int(data.get("eval_count") or 0)
+
+    return text, prompt_eval_count, eval_count
 
 
 def _call_gemini(config: AppConfig, packet: str) -> tuple[str, int, int]:

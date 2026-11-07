@@ -211,7 +211,8 @@ def test_write_letters_continues_after_one_failure(secret_store, monkeypatch) ->
 
     monkeypatch.setattr("jobhunt.features.write.letters._call_gemini", fake_call_gemini)
 
-    stats = write_letters(AppConfig(letter_cap=5), vault)
+    assert AppConfig().writer_fallback is True
+    stats = write_letters(AppConfig(letter_cap=5, writer_fallback=False), vault)
 
     assert stats["written"] == 2
     assert stats["failed"] == 1
