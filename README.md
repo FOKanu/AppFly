@@ -207,4 +207,4 @@ Roadmap: UI screenshots + demo GIF · signed desktop builds · more allowed-sour
 
 ## Licence
 
-No open-source licence has been applied to this repository yet. All rights reserved until a licence is added.
+MIT — see [LICENSE](LICENSE).
