@@ -1,10 +1,46 @@
 # AppFly
 
-Local-first job copilot. Scout and matching stay on your machine. Gemini writes cover letters from a sealed packet. You review and approve in the local UI and submit applications yourself.
+**Local-first job-search copilot.** AppFly scouts and matches job listings on your own machine, drafts cover letters with Gemini from a sealed evidence packet, and puts every draft in front of you for review. You approve, edit, and submit applications yourself — AppFly never applies for you.
 
-This repo does **not** automate LinkedIn, Indeed, Stepstone, ZipRecruiter, Xing, or Glassdoor. It does **not** scrape those sites, including via Apify. The deny-list is enforced in `jobhunt.policy`.
+> **Design stance:** your CV, letters, and API keys stay on your machine. The API listens on loopback only, secrets live in the OS keychain and are never returned by the API, and a hard-coded crawl deny-list (LinkedIn, Indeed, Stepstone, ZipRecruiter, Xing, Glassdoor, Wellfound) is enforced in code — those sites are never scraped or fetched, including via third-party crawlers.
 
-Python lives in `backend/`. The UI lives in `frontend/`.
+## Highlights
+
+- **End-to-end pipeline:** `scout → match → write` as CLI commands or from the UI — ingest (Arbeitsagentur API, RSS, manually clipped listings), hard-filter + local-embedding matching, then Gemini cover letters grounded in your active CV and voice samples
+- **Local-first storage:** native SQLite store (`appfly.sqlite` + `files/`) under the OS app-data directory, with an optional legacy Obsidian/markdown vault backend behind a common `AppStore` interface — no cloud database, no account
+- **Secrets done properly:** write-only OS-keychain storage (`backend/src/jobhunt/features/secrets/`), secret-shaped-token scanning of production UI bundles in CI, and GET endpoints that return presence flags — never values
+- **Responsible automation:** the crawl deny-list is canonical in `backend/src/jobhunt/policy.py` and adapters must call `assert_crawl_allowed` first; human-in-the-loop submission is a product rule, not a limitation
+- **Tested like a product:** 87 test files across backend (pytest) and frontend (Vitest + Testing Library), plus a 3-job CI pipeline (backend / frontend / desktop) with a pinned linter
+
+## Screenshots
+
+UI screenshots and a short walkthrough GIF are on the roadmap (see below). The UI is a dark "instrument panel" built with React + TypeScript; the fastest way to see it today is to run it locally.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    CLI[jobhunt CLI<br/>init · scout · match · write · run] --> S[(AppStore<br/>SQLite native store<br/>or markdown vault)]
+    UI[React + TS UI<br/>frontend/] -->|HTTP 127.0.0.1:8787| API[FastAPI<br/>backend/src/jobhunt/api]
+    DESK[Neutralino desktop shell<br/>desktop/] --> UI
+    API --> S
+    API --> K[OS Keychain<br/>write-only secrets]
+    SCOUT[Scout adapters<br/>Arbeitsagentur · RSS · inbox] -->|assert_crawl_allowed| S
+    MATCH[Match<br/>hard filters + local embeddings] --> S
+    WRITE[Write<br/>sealed packet → Gemini] --> S
+```
+
+Full details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · API contract: [docs/API.md](docs/API.md) · Storage: [docs/STORAGE.md](docs/STORAGE.md) · Feature map: [docs/FEATURES.md](docs/FEATURES.md)
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Backend | Python 3.12, FastAPI, SQLite (WAL), local sentence embeddings |
+| Frontend | React, TypeScript, Vite, Vitest + Testing Library |
+| Desktop | Neutralino shell (serves the built UI, spawns the local API) |
+| AI | Gemini API for cover-letter drafting (your key, from Google AI Studio) |
+| Tooling | GitHub Actions CI (3 jobs), Ruff, bundle secret scanner, launchd nightly template (macOS) |
 
 ## Setup
 
@@ -77,6 +113,8 @@ Morning loop in the UI:
 
 Clip a listing you already opened into the inbox folder: `files/inbox/` under the app data dir (`_inbox/` in markdown mode), with title, company and URL. Scout parses the local file only and will **never HTTP-fetch** a deny-listed listing URL. Do not clip search-result pages.
 
+## Testing & CI
+
 Run backend tests from `backend/`:
 
 ```bash
@@ -84,6 +122,8 @@ cd backend
 python -m pytest
 ruff check .     # classic rules from pyproject.toml; CI pins ruff 0.16.10
 ```
+
+Frontend: `npm test` (Vitest) and `npm run build:secure` (production build + secret scan of the bundle). CI (`.github/workflows/ci.yml`) runs three jobs — backend, frontend, desktop — on every push/PR.
 
 API contract: [docs/API.md](docs/API.md).
 
@@ -107,16 +147,13 @@ Allowed automated ingest: Arbeitsagentur API, RSS on other hosts, public company
 
 - `backend/` — Python package, CLI, tests, local HTTP API
 - `frontend/` — Vite + React + TypeScript instrument-panel UI
-- `docs/` — architecture, API contract, feature ownership, agent playbooks
+- `desktop/` — Neutralino desktop shell
+- `docs/` — architecture, API contract, feature ownership, workflow notes
 - `vault-templates/` — templates copied by `jobhunt init` (markdown mode / import)
 
 ## Branching
 
-GitHub Flow: protect `main`. While an epic is open, **all** related changes (backend, frontend, docs) land on `integrate/<epic>` — from agents or collaborators — and reach `main` only through a Stage PR the user merges. Current epic: **`integrate/mvp-blockers-v1`** (cut from `main` @ `beff061`). Full rules: [AGENTS.md](AGENTS.md) and `.cursor/rules/branch-strategy.mdc`.
-
-Cut feature branches from `integrate/mvp-blockers-v1` and PR into it until it is merged; with no epic open, branch from `main`.
-
-Agent roles: Grok plans and opens epics, an RTX 5090 local coder implements, Composer runs CI/smoke and merges, Claude is on call for UI design. See [docs/agents/](docs/agents/README.md) and [docs/workflow/MULTI_AGENT.md](docs/workflow/MULTI_AGENT.md).
+GitHub Flow with a protected `main`: changes land through pull requests. While a large epic is open, related changes may stage on an `integrate/<epic>` branch and reach `main` through a single stage PR; with no epic open, branch from `main`. Full rules: [AGENTS.md](AGENTS.md).
 
 ## Nightly schedule
 
@@ -149,10 +186,25 @@ Leave the lid open and the Mac plugged in if you can. `jobhunt run` is safe to r
 
 Set `gemini: false` on a job (`PATCH /jobs/{source_id}`) to keep it off the Writer.
 
+## Limitations & roadmap
+
+Honest current state:
+
+- **No screenshots/demo yet** — first item on this list is capturing the UI walkthrough for this README
+- **Bring-your-own Gemini key** — letter quality depends on your CV, voice samples, and the model; drafts always need human review (by design)
+- **Ingest is intentionally narrow** — Arbeitsagentur, RSS, and manual clips today; deny-listed boards will never be automated (see Crawl policy)
+- **Desktop shell is an MVP** (Neutralino); packaging/signing for distribution is not done
+- **macOS-first** — the nightly launchd template is macOS-only; the core CLI/API/UI are cross-platform
+
+Roadmap: UI screenshots + demo GIF · signed desktop builds · more allowed-source adapters · evaluation harness for match quality.
+
 ## Out of scope
 
 - Computer-use or mouse apply on job boards
 - Scraping LinkedIn / Indeed / Stepstone / ZipRecruiter / Xing / Glassdoor (including via Apify)
 - Local 8B/14B orchestrator
-- Hermes / OpenClaw (the CLI is the hook for that later)
 - Gmail drafts (optional follow-up)
+
+## Licence
+
+No open-source licence has been applied to this repository yet. All rights reserved until a licence is added.
